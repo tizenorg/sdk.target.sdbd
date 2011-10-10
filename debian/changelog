@@ -1,3 +1,11 @@
+sdbd (0.0.1-3) unstable; urgency=low
+
+  * Just version up for upload
+  * Git: 165.213.180.234:slp/pkgs/s/sdbd
+  * Tag: sdbd_0.0.1-3
+
+ -- Joogwan Kim <joogwan.kim@samsung.com>  Mon, 10 Oct 2011 16:49:02 +0900
+
 sdbd (0.0.1-2) unstable; urgency=low
 
   * Just version up for upload source package 
