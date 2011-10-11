@@ -1,3 +1,11 @@
+sdbd (0.0.1-5) unstable; urgency=low
+
+  * Modify dev name from android_adb to samsung_sdb
+  * Git: 165.213.180.234:slp/pkgs/s/sdbd
+  * Tag: sdbd_0.0.1-5 
+
+ -- Joogwan Kim <joogwan.kim@samsung.com>  Tue, 11 Oct 2011 22:52:33 +0900
+
 sdbd (0.0.1-4) unstable; urgency=low
 
   * Change name from android_adb to samsung_sdb and removed unused

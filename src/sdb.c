@@ -953,7 +953,7 @@ int sdb_main(int is_daemon, int server_port)
         local_init(port);
     } else
 #endif
-	if (access("/dev/android_sdb", F_OK) == 0) {
+	if (access("/dev/samsung_sdb", F_OK) == 0) {
         // listen on USB
         usb_init();
     } else {
