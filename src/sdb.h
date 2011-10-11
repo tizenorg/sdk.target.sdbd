@@ -375,9 +375,9 @@ typedef enum {
 #define DEFAULT_SDB_PORT 26099
 #define DEFAULT_SDB_LOCAL_TRANSPORT_PORT 26101
 
-#define SDB_CLASS              0xff
-#define SDB_SUBCLASS           0x42
-#define SDB_PROTOCOL           0x1
+#define SDB_CLASS              0xFF
+#define SDB_SUBCLASS           0x20
+#define SDB_PROTOCOL           0x02
 
 
 void local_init(int port);

@@ -57,11 +57,7 @@ static void *usb_open_thread(void *x)
         D("[ usb_thread - opening device ]\n");
         do {
             /* XXX use inotify? */
-            fd = unix_open("/dev/android_sdb", O_RDWR);
-            if (fd < 0) {
-                // to support older kernels
-                fd = unix_open("/dev/android", O_RDWR);
-            }
+            fd = unix_open("/dev/samsung_sdb", O_RDWR);
             if (fd < 0) {
                 sdb_sleep_ms(1000);
             }
@@ -112,24 +108,11 @@ void usb_init()
 {
     usb_handle *h;
     sdb_thread_t tid;
-    int fd;
 
     h = calloc(1, sizeof(usb_handle));
     h->fd = -1;
     sdb_cond_init(&h->notify, 0);
     sdb_mutex_init(&h->lock, 0);
-
-    // Open the file /dev/android_sdb_enable to trigger 
-    // the enabling of the sdb USB function in the kernel.
-    // We never touch this file again - just leave it open
-    // indefinitely so the kernel will know when we are running
-    // and when we are not.
-    fd = unix_open("/dev/android_sdb_enable", O_RDWR);
-    if (fd < 0) {
-       D("failed to open /dev/android_sdb_enable\n");
-    } else {
-        close_on_exec(fd);
-    }
 
     D("[ usb_init - starting thread ]\n");
     if(sdb_thread_create(&tid, usb_open_thread, h)){
