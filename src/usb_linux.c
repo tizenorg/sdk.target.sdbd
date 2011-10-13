@@ -198,7 +198,15 @@ static void find_usb_device(const char *base,
 
                 // should have config descriptor next
             config = (struct usb_config_descriptor *)bufptr;
+                // sdb needs 2nd configuration
+            if (device->bNumConfigurations > 1) {
+                bufptr += config->wTotalLength;
+                config = (struct usb_config_descriptor *)bufptr;
+                bufend = bufptr + config->wTotalLength;
+            }
+
             bufptr += USB_DT_CONFIG_SIZE;
+
             if (config->bLength != USB_DT_CONFIG_SIZE || config->bDescriptorType != USB_DT_CONFIG) {
                 D("usb_config_descriptor not found\n");
                 sdb_close(fd);
@@ -251,7 +259,7 @@ static void find_usb_device(const char *base,
                             continue;
                         }
                             /* aproto 01 needs 0 termination */
-                        if(interface->bInterfaceProtocol == 0x01) {
+                        if(interface->bInterfaceProtocol == 0x02) {
                             zero_mask = ep1->wMaxPacketSize - 1;
                         }
 
@@ -539,6 +547,7 @@ static void register_device(const char *dev_name,
     usb_handle* usb = 0;
     int n = 0;
     char serial[256];
+    int bConfigurationValue = 2; /* sdb needs 2nd configruation */
 
         /* Since Linux will not reassign the device ID (and dev_name)
         ** as long as the device is open, we can add to the list here
@@ -581,6 +590,9 @@ static void register_device(const char *dev_name,
         D("[ usb open read-only %s fd = %d]\n", usb->fname, usb->desc);
     } else {
         D("[ usb open %s fd = %d]\n", usb->fname, usb->desc);
+        n = ioctl(usb->desc, USBDEVFS_RESET);
+        if(n != 0) goto fail;
+        ioctl(usb->desc, USBDEVFS_SETCONFIGURATION, &bConfigurationValue);
         n = ioctl(usb->desc, USBDEVFS_CLAIMINTERFACE, &interface);
         if(n != 0) goto fail;
     }

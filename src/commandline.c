@@ -114,6 +114,7 @@ void help()
         "  sdb get-state                - prints: offline | bootloader | device\n"
         "  sdb get-serialno             - prints: <serial-number>\n"
         "  sdb status-window            - continuously print device status for a specified device\n"
+        "\n"
         );
 }
 
@@ -303,7 +304,7 @@ static void status_window(transport_type ttype, const char* serial)
         }
 
         printf("%c[2J%c[2H", 27, 27);
-        printf("Android Debug Bridge\n");
+        printf("Samsung Development Bridge\n");
         printf("State: %s\n", state ? state : "offline");
         fflush(stdout);
     }
