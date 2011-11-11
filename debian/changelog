@@ -1,3 +1,11 @@
+sdbd (0.0.1-8) unstable; urgency=low
+
+  * Modify script name to get higher priority
+  * Git: 165.213.180.234:slp/pkgs/s/sdbd
+  * Tag: sdbd_0.0.1-8 
+
+ -- Joogwan Kim <joogwan.kim@samsung.com>  Fri, 11 Nov 2011 16:29:46 +0900
+
 sdbd (0.0.1-7) unstable; urgency=low
 
   * Upload missing files from 0.0.1-6

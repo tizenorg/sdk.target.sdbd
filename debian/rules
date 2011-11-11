@@ -29,7 +29,7 @@ binary: build install
 ifeq ($(HOST_ARCH),x86)
 	dh_install --sourcedir=debian/tmp
 else
-	dh_install --sourcedir=debian/tmp -XS40sdbd
+	dh_install --sourcedir=debian/tmp -XS06sdbd
 endif
 	dh_strip
 	dh_gencontrol
