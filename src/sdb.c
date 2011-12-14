@@ -24,6 +24,7 @@
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #include "sysdeps.h"
 #include "sdb.h"
@@ -38,6 +39,14 @@
 
 
 int HOST = 0;
+
+void handle_sig_term(int sig) {
+    if (access("/dev/samsung_sdb", F_OK) == 0) {
+        exit(0);
+    } else {
+    	// do nothing on a emulator
+    }
+}
 
 static const char *sdb_device_banner = "device";
 
@@ -1281,6 +1290,8 @@ int main(int argc, char **argv)
         recovery_mode = 1;
     }
 
+    //sdbd will never die on emulator!
+    signal(SIGTERM, handle_sig_term);
     //start_device_log();	eric
     return sdb_main(0, DEFAULT_SDB_PORT);
 #endif
