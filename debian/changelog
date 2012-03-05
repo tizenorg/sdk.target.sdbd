@@ -1,3 +1,11 @@
+sdbd (0.0.1-12) unstable; urgency=low
+
+  * update changlog file according to package policy  
+  * Git: slp/pkgs/s/sdbd
+  * Tag: sdbd_0.0.1-12
+
+ -- Yoonki Park <yoonki.park@samsung.com>  Mon, 05 Mar 2012 10:48:47 +0900
+
 sdbd (0.0.1-11) unstable; urgency=low
 
   * add loopback interface checking when binding to 26099
