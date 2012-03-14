@@ -659,28 +659,18 @@ void start_logging(void)
 #endif
 }
 
-#if 0// !SDB_HOST eric
 void start_device_log(void)
 {
     int fd;
     char    path[PATH_MAX];
     struct tm now;
     time_t t;
-    char value[PROPERTY_VALUE_MAX];
 
-    // read the trace mask from persistent property persist.sdb.trace_mask
-    // give up if the property is not set or cannot be parsed
-	
-    property_get("persist.sdb.trace_mask", value, "");
-    if (sscanf(value, "%x", &sdb_trace_mask) != 1)
-        return;
-
-    sdb_mkdir("/data/sdb", 0775);
     tzset();
     time(&t);
     localtime_r(&t, &now);
     strftime(path, sizeof(path),
-                "/data/sdb/sdb-%Y-%m-%d-%H-%M-%S.txt",
+                "/tmp/sdb-%Y-%m-%d-%H-%M-%S.txt",
                 &now);
     fd = unix_open(path, O_WRONLY | O_CREAT | O_TRUNC, 0640);
     if (fd < 0)
@@ -694,7 +684,6 @@ void start_device_log(void)
     fd = unix_open("/dev/null", O_RDONLY);
     dup2(fd, 0);
 }
-#endif
 
 #if SDB_HOST
 int launch_server(int server_port)
@@ -1292,7 +1281,7 @@ int main(int argc, char **argv)
 
     //sdbd will never die on emulator!
     signal(SIGTERM, handle_sig_term);
-    //start_device_log();	eric
+    start_device_log();
     return sdb_main(0, DEFAULT_SDB_PORT);
 #endif
 }

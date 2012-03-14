@@ -35,6 +35,8 @@
 //#  include <sys/reboot.h> eric
 #endif
 
+#define PROCESS_WORKING_DIRECTORY "/"
+
 typedef struct stinfo stinfo;
 
 struct stinfo {
@@ -302,6 +304,7 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
         int pts;
 
         setsid();
+        chdir(PROCESS_WORKING_DIRECTORY);
 
         pts = unix_open(devname, O_RDWR);
         if(pts < 0) exit(-1);

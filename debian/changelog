@@ -1,3 +1,11 @@
+sdbd (0.0.1-13) unstable; urgency=low
+
+  * let start_device_log enable, update maintainer information and set process working directory path to '/'
+  * Git: slp/pkgs/s/sdbd
+  * Tag: sdbd_0.0.1-13
+
+ -- Yoonki Park <yoonki.park@samsung.com>  Wed, 14 Mar 2012 17:06:36 +0900
+
 sdbd (0.0.1-12) unstable; urgency=low
 
   * update changlog file according to package policy  

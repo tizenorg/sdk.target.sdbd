@@ -1,7 +1,7 @@
 Source: sdbd
 Section: net
 Priority: extra
-Maintainer: Hoon Kang <h245.kang@samsung.com>, Changyeon Lee <changyeon.lee@samsung.com>, Jinhyung Choi <jinhyng2.choi@samsung.com>, Joogwan Kim <joogwan.kim@samsung.com>
+Maintainer: Kangho Kim <kh5325.kim@samsung.com>, Yoonki Park <yoonki.park@samsung.com>, Ho Namkoong <ho.namkoong@samsung.com> 
 Build-Depends: debhelper (>= 5), libc6-dev
 Standards-Version: 0.0.1
 
