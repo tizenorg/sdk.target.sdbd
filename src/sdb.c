@@ -659,6 +659,7 @@ void start_logging(void)
 #endif
 }
 
+#if !SDB_HOST
 void start_device_log(void)
 {
     int fd;
@@ -684,6 +685,7 @@ void start_device_log(void)
     fd = unix_open("/dev/null", O_RDONLY);
     dup2(fd, 0);
 }
+#endif
 
 #if SDB_HOST
 int launch_server(int server_port)
@@ -1281,7 +1283,9 @@ int main(int argc, char **argv)
 
     //sdbd will never die on emulator!
     signal(SIGTERM, handle_sig_term);
+#if !SDB_HOST
     start_device_log();
+#endif
     return sdb_main(0, DEFAULT_SDB_PORT);
 #endif
 }

@@ -1,3 +1,11 @@
+sdbd (0.0.2) unstable; urgency=low
+
+  * add rpm spec file
+  * Git: slp/pkgs/s/sdbd
+  * Tag: sdbd_0.0.2
+
+ -- Yoonki Park <yoonki.park@samsung.com>  Mon, 19 Mar 2012 17:03:59 +0900
+
 sdbd (0.0.1-13) unstable; urgency=low
 
   * let start_device_log enable, update maintainer information and set process working directory path to '/'

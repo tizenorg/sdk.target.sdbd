@@ -1,7 +1,7 @@
 #sbs-git:slp/pkgs/s/sdbd sdbd 0.0.1 aa7a3c179bce0053087116ae9ee35e8eb88ae5bd
 Name:       sdbd
 Summary:    SDB daemon
-Version: 0.0.1
+Version: 0.0.2
 Release:    0
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
@@ -28,6 +28,6 @@ rm -rf %{buildroot}
 %{_sysconfdir}/init.d/sdbd
 
 %ifarch %{ix86}
-%{_sysconfdir}/rc.d/rc3.d/S40sdbd
+%{_sysconfdir}/rc.d/rc3.d
 %endif
 
