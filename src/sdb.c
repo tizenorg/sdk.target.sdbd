@@ -33,6 +33,7 @@
 //#include <private/android_filesystem_config.h> eric
 #include <linux/capability.h>
 #include <linux/prctl.h>
+#define SDB_PIDPATH "/var/run/sdbd.pid"
 #else
 #include "usb_vendors.h"
 #endif
@@ -41,6 +42,10 @@
 int HOST = 0;
 
 void handle_sig_term(int sig) {
+#ifdef SDB_PIDPATH
+    if (access(SDB_PIDPATH, F_OK) == 0)
+    	sdb_unlink(SDB_PIDPATH);
+#endif
     if (access("/dev/samsung_sdb", F_OK) == 0) {
         exit(0);
     } else {
@@ -666,6 +671,10 @@ void start_device_log(void)
     char    path[PATH_MAX];
     struct tm now;
     time_t t;
+    const char*  p = getenv("SDB_TRACE");
+
+    if (p == NULL)
+    	return;
 
     tzset();
     time(&t);
@@ -684,6 +693,33 @@ void start_device_log(void)
 
     fd = unix_open("/dev/null", O_RDONLY);
     dup2(fd, 0);
+}
+
+int daemonize(void) {
+    switch (fork()) {
+    case -1:
+        return -1;
+    case 0:
+        break;
+    default:
+        _exit(0);
+    }
+
+    if (setsid() == -1)
+        return -1;
+
+    if (chdir("/") < 0)
+        D("sdbd: unable to change working directory to /\n");
+
+#ifdef SDB_PIDPATH
+    FILE *f = fopen(SDB_PIDPATH, "w");
+
+    if (f != NULL) {
+        fprintf(f, "%ld\n", (long) getpid());
+        fclose(f);
+    }
+#endif
+    return 0;
 }
 #endif
 
@@ -1284,6 +1320,8 @@ int main(int argc, char **argv)
     //sdbd will never die on emulator!
     signal(SIGTERM, handle_sig_term);
 #if !SDB_HOST
+    if (daemonize() < 0)
+        fatal("daemonize() failed: %.200s", strerror(errno));
     start_device_log();
 #endif
     return sdb_main(0, DEFAULT_SDB_PORT);

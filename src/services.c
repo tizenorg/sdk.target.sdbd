@@ -304,7 +304,8 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
         int pts;
 
         setsid();
-        chdir(PROCESS_WORKING_DIRECTORY);
+        if (chdir(PROCESS_WORKING_DIRECTORY) < 0)
+        	D("sdb: unable to change working directory to %s\n", PROCESS_WORKING_DIRECTORY);
 
         pts = unix_open(devname, O_RDWR);
         if(pts < 0) exit(-1);

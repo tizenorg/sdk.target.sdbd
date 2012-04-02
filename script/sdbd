@@ -7,7 +7,7 @@ export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
 case "$1" in
   start)
         log_daemon_msg "Starting SDB Daemon..." "sdbd"
-        if start-stop-daemon --start --quiet --background --make-pidfile --pidfile /var/run/sdbd.pid --exec /usr/sbin/sdbd; then
+        if start-stop-daemon --start --quiet --oknodo --pidfile /var/run/sdbd.pid --exec /usr/sbin/sdbd; then
             log_end_msg 0
         else
             log_end_msg 1
@@ -25,7 +25,7 @@ case "$1" in
         log_daemon_msg "Restarting SDB Daemon..." "sdbd"
         start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile /var/run/sdbd.pid
 	sleep 1        
-        if start-stop-daemon --start --quiet --background --make-pidfile --pidfile /var/run/sdbd.pid --exec /usr/sbin/sdbd; then
+        if start-stop-daemon --start --quiet --pidfile /var/run/sdbd.pid --exec /usr/sbin/sdbd; then
             log_end_msg 0
         else
             log_end_msg 1
