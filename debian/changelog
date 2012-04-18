@@ -1,3 +1,11 @@
+sdbd (0.0.2-2) unstable; urgency=low
+
+  * set dir permission to 777
+  * Git: slp/pkgs/s/sdbd
+  * Tag: sdbd_0.0.2-2
+
+ -- Yoonki Park <yoonki.park@samsung.com>  Wed, 18 Apr 2012 16:57:03 +0900
+
 sdbd (0.0.2-1) unstable; urgency=low
 
   * let sshd be daemon and create sshd.pid file

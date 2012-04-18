@@ -1,7 +1,7 @@
 Name:       sdbd
 Summary:    SDB daemon
 Version: 0.0.2
-Release:    1
+Release:    2
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
@@ -31,5 +31,7 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Wed Apr 18 2012 Yoonki Park <yoonki.park@samsung.com>
+ - set dir permission to 777
 * Sat Mar 31 2012 Yoonki Park <yoonki.park@samsung.com>
  - let sshd be daemon and create sshd.pid file

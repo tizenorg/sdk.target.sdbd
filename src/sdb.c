@@ -696,6 +696,10 @@ void start_device_log(void)
 }
 
 int daemonize(void) {
+
+    // set file creation mask to 0
+    umask(0);
+
     switch (fork()) {
     case -1:
         return -1;

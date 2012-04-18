@@ -31,6 +31,11 @@
 #include "sdb.h"
 #include "file_sync_service.h"
 
+/* The typical default value for the umask is S_IWGRP | S_IWOTH (octal 022).
+ * Before use the DIR_PERMISSION, the process umask value should be set 0 using umask().
+ */
+#define DIR_PERMISSION 0777
+
 static int mkdirs(char *name)
 {
     int ret;
@@ -42,7 +47,7 @@ static int mkdirs(char *name)
         x = sdb_dirstart(x);
         if(x == 0) return 0;
         *x = 0;
-        ret = sdb_mkdir(name, 0775);
+        ret = sdb_mkdir(name, DIR_PERMISSION);
         if((ret < 0) && (errno != EEXIST)) {
             D("mkdir(\"%s\") -> %s\n", name, strerror(errno));
             *x = '/';
@@ -287,13 +292,15 @@ static int do_send(int s, char *path, char *buffer)
 #else
         is_link = S_ISLNK(mode);
 #endif
-        mode &= 0777;
+        // extracts file permission from stat.mode. (ex 100644 & 0777 = 644);
+        mode &= 0777; // combination of (S_IRWXU | S_IRWXG | S_IRWXO)
     }
     if(!tmp || errno) {
-        mode = 0644;
+        mode = 0644; // set default permission value in most of unix system.
         is_link = 0;
     }
 
+    // sdb does not allow to check that file exists or not. After deleting old file and creating new file again unconditionally.
     sdb_unlink(path);
 
 
@@ -304,9 +311,13 @@ static int do_send(int s, char *path, char *buffer)
 #else
     {
 #endif
-        /* copy user permission bits to "group" and "other" permissions */
-        mode |= ((mode >> 3) & 0070);
-        mode |= ((mode >> 3) & 0007);
+        /* copy user permission bits to "group" and "other" permissions.
+         * ex) 0644 file will be created copied 0666 file.
+         * the following 2 lines should be commented if sdb process has been set to umask 0.
+         */
+
+        //mode |= ((mode >> 3) & 0070);
+        //mode |= ((mode >> 3) & 0007);
 
         ret = handle_send_file(s, path, mode, buffer);
     }
