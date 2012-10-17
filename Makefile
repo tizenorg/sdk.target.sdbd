@@ -97,7 +97,7 @@ ifeq ($(MODULE),sdbd)
 endif
 ifeq ($(TARGET_ARCH),x86)
 	mkdir -p $(DESTDIR)/$(RCSCRIPTDIR)
-	install script/S06sdbd $(DESTDIR)/$(RCSCRIPTDIR)/S06sdbd
+	install script/S06sdbd $(DESTDIR)/$(RCSCRIPTDIR)/S85sdbd
 endif
 
 clean :
