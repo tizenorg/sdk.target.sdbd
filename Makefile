@@ -95,10 +95,8 @@ ifeq ($(MODULE),sdbd)
 	mkdir -p $(DESTDIR)/$(INITSCRIPTDIR)
 	install script/sdbd $(DESTDIR)/$(INITSCRIPTDIR)/sdbd
 endif
-ifeq ($(TARGET_ARCH),x86)
 	mkdir -p $(DESTDIR)/$(RCSCRIPTDIR)
 	install script/S06sdbd $(DESTDIR)/$(RCSCRIPTDIR)/S06sdbd
-endif
 
 clean :
 	rm -rf $(OBJDIR)/*

@@ -25,10 +25,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-) 
 %{_prefix}/sbin/sdbd
 %{_sysconfdir}/init.d/sdbd
-
-%ifarch %{ix86}
 %{_sysconfdir}/rc.d/rc3.d
-%endif
 
 %changelog
 * Wed Apr 18 2012 Yoonki Park <yoonki.park@samsung.com>
