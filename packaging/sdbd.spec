@@ -22,11 +22,11 @@ rm -rf %{buildroot}
 %make_install
 
 %files
+%manifest sdbd.manifest
 %defattr(-,root,root,-) 
 %{_prefix}/sbin/sdbd
 %{_sysconfdir}/init.d/sdbd
 %{_sysconfdir}/rc.d/rc3.d
-%manifest sdbd.manifest
 
 %changelog
 * Wed Apr 18 2012 Yoonki Park <yoonki.park@samsung.com>
