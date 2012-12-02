@@ -1,7 +1,7 @@
 Name:       sdbd
 Summary:    SDB daemon
 Version: 0.0.3
-Release:    0
+Release:    1
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
@@ -29,6 +29,8 @@ rm -rf %{buildroot}
 %{_sysconfdir}/rc.d/rc3.d
 
 %changelog
+* Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
+ - supports cs report service using inotify
 * Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
  - sdb code dropped from adb (Ice Cream Samdwich 4.1.1)
 * Wed Apr 18 2012 Yoonki Park <yoonki.park@samsung.com>

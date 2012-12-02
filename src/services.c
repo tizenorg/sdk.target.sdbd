@@ -34,6 +34,7 @@
 #  endif
 #else
 #   include "android_reboot.h"
+#   include <sys/inotify.h>
 #endif
 
 typedef struct stinfo stinfo;
@@ -193,6 +194,63 @@ void reboot_service(int fd, void *arg)
     free(arg);
     sdb_close(fd);
 }
+
+#if !SDB_HOST
+#define EVENT_SIZE  ( sizeof (struct inotify_event) )
+#define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
+#define CS_PATH     "/opt/usr/share/crash/report"
+
+void inoti_service(int fd, void *arg)
+{
+    int wd;
+    int ifd;
+    char buffer[BUF_LEN];
+
+    D( "inoti_service start\n");
+    ifd = inotify_init();
+
+    if ( ifd < 0 ) {
+        D( "inotify_init failed\n");
+        return;
+    }
+
+    wd = inotify_add_watch( ifd, CS_PATH, IN_CREATE);
+
+    for ( ; ; ) {
+        int length, i = 0;
+        length = sdb_read( ifd, buffer, BUF_LEN );
+
+        if ( length < 0 ) {
+            D( "inoti read failed\n");
+            goto done;
+        }
+
+        while ( i < length ) {
+            struct inotify_event *event = ( struct inotify_event * )&buffer[i];
+            if (event->len) {
+                if ( event->mask & IN_CREATE) {
+                    if (!(event->mask & IN_ISDIR)) {
+                        char *cspath = NULL;
+                        int len = asprintf(&cspath, "%s/%s", CS_PATH, event->name);
+                        D( "The file %s was created.\n", cspath);
+                        writex(fd, cspath, len);
+                        if (cspath != NULL) {
+                            free(cspath);
+                        }
+                    }
+                }
+            }
+            i += EVENT_SIZE + event->len;
+        }
+    }
+
+done:
+    inotify_rm_watch( ifd, wd );
+    sdb_close(ifd);
+    sdb_close(fd);
+    D( "inoti_service end\n");
+}
+#endif
 #endif
 
 #if 0
@@ -483,12 +541,14 @@ int service_to_fd(const char *name)
         ret = create_service_thread(restart_tcp_service, (void *)port);
     } else if(!strncmp(name, "usb:", 4)) {
         ret = create_service_thread(restart_usb_service, NULL);
-    }
+    } else if(!strncmp(name, "cs:", 5)) {
+        ret = create_service_thread(inoti_service, NULL);
 #endif
 #if 0
     } else if(!strncmp(name, "echo:", 5)){
         ret = create_service_thread(echo_service, 0);
 #endif
+    }
     if (ret >= 0) {
         close_on_exec(ret);
     }
