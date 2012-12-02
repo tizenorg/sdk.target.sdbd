@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -198,7 +198,7 @@ usb_handle* do_usb_open(const wchar_t* interface_name) {
   ret->prev = ret;
 
   // Create interface.
-  ret->sdb_interface = AdbCreateInterfaceByName(interface_name);
+  ret->sdb_interface = SdbCreateInterfaceByName(interface_name);
 
   if (NULL == ret->sdb_interface) {
     free(ret);
@@ -208,21 +208,21 @@ usb_handle* do_usb_open(const wchar_t* interface_name) {
 
   // Open read pipe (endpoint)
   ret->sdb_read_pipe =
-    AdbOpenDefaultBulkReadEndpoint(ret->sdb_interface,
-                                   AdbOpenAccessTypeReadWrite,
-                                   AdbOpenSharingModeReadWrite);
+    SdbOpenDefaultBulkReadEndpoint(ret->sdb_interface,
+                                   SdbOpenAccessTypeReadWrite,
+                                   SdbOpenSharingModeReadWrite);
   if (NULL != ret->sdb_read_pipe) {
     // Open write pipe (endpoint)
     ret->sdb_write_pipe =
-      AdbOpenDefaultBulkWriteEndpoint(ret->sdb_interface,
-                                      AdbOpenAccessTypeReadWrite,
-                                      AdbOpenSharingModeReadWrite);
+      SdbOpenDefaultBulkWriteEndpoint(ret->sdb_interface,
+                                      SdbOpenAccessTypeReadWrite,
+                                      SdbOpenSharingModeReadWrite);
     if (NULL != ret->sdb_write_pipe) {
       // Save interface name
       unsigned long name_len = 0;
 
       // First get expected name length
-      AdbGetInterfaceName(ret->sdb_interface,
+      SdbGetInterfaceName(ret->sdb_interface,
                           NULL,
                           &name_len,
                           true);
@@ -231,7 +231,7 @@ usb_handle* do_usb_open(const wchar_t* interface_name) {
 
         if (NULL != ret->interface_name) {
           // Now save the name
-          if (AdbGetInterfaceName(ret->sdb_interface,
+          if (SdbGetInterfaceName(ret->sdb_interface,
                                   ret->interface_name,
                                   &name_len,
                                   true)) {
@@ -246,28 +246,28 @@ usb_handle* do_usb_open(const wchar_t* interface_name) {
   }
 
   // Something went wrong.
-  errno = GetLastError();
+  int saved_errno = GetLastError();
   usb_cleanup_handle(ret);
   free(ret);
-  SetLastError(errno);
+  SetLastError(saved_errno);
 
   return NULL;
 }
 
 int usb_write(usb_handle* handle, const void* data, int len) {
-  unsigned long time_out = 500 + len * 8;
+  unsigned long time_out = 5000;
   unsigned long written = 0;
   int ret;
 
   D("usb_write %d\n", len);
   if (NULL != handle) {
     // Perform write
-    ret = AdbWriteEndpointSync(handle->sdb_write_pipe,
+    ret = SdbWriteEndpointSync(handle->sdb_write_pipe,
                                (void*)data,
                                (unsigned long)len,
                                &written,
                                time_out);
-    errno = GetLastError();
+    int saved_errno = GetLastError();
 
     if (ret) {
       // Make sure that we've written what we were asked to write
@@ -275,7 +275,7 @@ int usb_write(usb_handle* handle, const void* data, int len) {
       if (written == (unsigned long)len) {
         if(handle->zero_mask && (len & handle->zero_mask) == 0) {
           // Send a zero length packet
-          AdbWriteEndpointSync(handle->sdb_write_pipe,
+          SdbWriteEndpointSync(handle->sdb_write_pipe,
                                (void*)data,
                                0,
                                &written,
@@ -285,9 +285,10 @@ int usb_write(usb_handle* handle, const void* data, int len) {
       }
     } else {
       // assume ERROR_INVALID_HANDLE indicates we are disconnected
-      if (errno == ERROR_INVALID_HANDLE)
+      if (saved_errno == ERROR_INVALID_HANDLE)
         usb_kick(handle);
     }
+    errno = saved_errno;
   } else {
     D("usb_write NULL handle\n");
     SetLastError(ERROR_INVALID_HANDLE);
@@ -299,7 +300,7 @@ int usb_write(usb_handle* handle, const void* data, int len) {
 }
 
 int usb_read(usb_handle *handle, void* data, int len) {
-  unsigned long time_out = 500 + len * 8;
+  unsigned long time_out = 0;
   unsigned long read = 0;
   int ret;
 
@@ -308,25 +309,26 @@ int usb_read(usb_handle *handle, void* data, int len) {
     while (len > 0) {
       int xfer = (len > 4096) ? 4096 : len;
 
-      ret = AdbReadEndpointSync(handle->sdb_read_pipe,
+      ret = SdbReadEndpointSync(handle->sdb_read_pipe,
                                   (void*)data,
                                   (unsigned long)xfer,
                                   &read,
                                   time_out);
-      errno = GetLastError();
-      D("usb_write got: %ld, expected: %d, errno: %d\n", read, xfer, errno);
+      int saved_errno = GetLastError();
+      D("usb_write got: %ld, expected: %d, errno: %d\n", read, xfer, saved_errno);
       if (ret) {
         data += read;
         len -= read;
 
         if (len == 0)
           return 0;
-      } else if (errno != ERROR_SEM_TIMEOUT) {
+      } else {
         // assume ERROR_INVALID_HANDLE indicates we are disconnected
-        if (errno == ERROR_INVALID_HANDLE)
+        if (saved_errno == ERROR_INVALID_HANDLE)
           usb_kick(handle);
         break;
       }
+      errno = saved_errno;
     }
   } else {
     D("usb_read NULL handle\n");
@@ -343,11 +345,11 @@ void usb_cleanup_handle(usb_handle* handle) {
     if (NULL != handle->interface_name)
       free(handle->interface_name);
     if (NULL != handle->sdb_write_pipe)
-      AdbCloseHandle(handle->sdb_write_pipe);
+      SdbCloseHandle(handle->sdb_write_pipe);
     if (NULL != handle->sdb_read_pipe)
-      AdbCloseHandle(handle->sdb_read_pipe);
+      SdbCloseHandle(handle->sdb_read_pipe);
     if (NULL != handle->sdb_interface)
-      AdbCloseHandle(handle->sdb_interface);
+      SdbCloseHandle(handle->sdb_interface);
 
     handle->interface_name = NULL;
     handle->sdb_write_pipe = NULL;
@@ -410,7 +412,7 @@ int recognized_device(usb_handle* handle) {
   // Check vendor and product id first
   USB_DEVICE_DESCRIPTOR device_desc;
 
-  if (!AdbGetUsbDeviceDescriptor(handle->sdb_interface,
+  if (!SdbGetUsbDeviceDescriptor(handle->sdb_interface,
                                  &device_desc)) {
     return 0;
   }
@@ -418,7 +420,7 @@ int recognized_device(usb_handle* handle) {
   // Then check interface properties
   USB_INTERFACE_DESCRIPTOR interf_desc;
 
-  if (!AdbGetUsbInterfaceDescriptor(handle->sdb_interface,
+  if (!SdbGetUsbInterfaceDescriptor(handle->sdb_interface,
                                     &interf_desc)) {
     return 0;
   }
@@ -432,9 +434,9 @@ int recognized_device(usb_handle* handle) {
       interf_desc.bInterfaceClass, interf_desc.bInterfaceSubClass, interf_desc.bInterfaceProtocol)) {
 
     if(interf_desc.bInterfaceProtocol == 0x01) {
-      AdbEndpointInformation endpoint_info;
+      SdbEndpointInformation endpoint_info;
       // assuming zero is a valid bulk endpoint ID
-      if (AdbGetEndpointInformation(handle->sdb_interface, 0, &endpoint_info)) {
+      if (SdbGetEndpointInformation(handle->sdb_interface, 0, &endpoint_info)) {
         handle->zero_mask = endpoint_info.max_packet_size - 1;
       }
     }
@@ -449,18 +451,18 @@ void find_devices() {
         usb_handle* handle = NULL;
   char entry_buffer[2048];
   char interf_name[2048];
-  AdbInterfaceInfo* next_interface = (AdbInterfaceInfo*)(&entry_buffer[0]);
+  SdbInterfaceInfo* next_interface = (SdbInterfaceInfo*)(&entry_buffer[0]);
   unsigned long entry_buffer_size = sizeof(entry_buffer);
   char* copy_name;
 
   // Enumerate all present and active interfaces.
   SDBAPIHANDLE enum_handle =
-    AdbEnumInterfaces(usb_class_id, true, true, true);
+    SdbEnumInterfaces(usb_class_id, true, true, true);
 
   if (NULL == enum_handle)
     return;
 
-  while (AdbNextInterface(enum_handle, next_interface, &entry_buffer_size)) {
+  while (SdbNextInterface(enum_handle, next_interface, &entry_buffer_size)) {
     // TODO: FIXME - temp hack converting wchar_t into char.
     // It would be better to change AdbNextInterface so it will return
     // interface name as single char string.
@@ -482,7 +484,7 @@ void find_devices() {
           D("adding a new device %s\n", interf_name);
           char serial_number[512];
           unsigned long serial_number_len = sizeof(serial_number);
-          if (AdbGetSerialNumber(handle->sdb_interface,
+          if (SdbGetSerialNumber(handle->sdb_interface,
                                 serial_number,
                                 &serial_number_len,
                                 true)) {
@@ -509,5 +511,5 @@ void find_devices() {
     entry_buffer_size = sizeof(entry_buffer);
   }
 
-  AdbCloseHandle(enum_handle);
+  SdbCloseHandle(enum_handle);
 }

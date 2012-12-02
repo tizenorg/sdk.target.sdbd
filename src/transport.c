@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -35,24 +35,30 @@ static atransport transport_list = {
 SDB_MUTEX_DEFINE( transport_lock );
 
 #if SDB_TRACE
+#define MAX_DUMP_HEX_LEN 16
 static void  dump_hex( const unsigned char*  ptr, size_t  len )
 {
     int  nn, len2 = len;
+    // Build a string instead of logging each character.
+    // MAX chars in 2 digit hex, one space, MAX chars, one '\0'.
+    char buffer[MAX_DUMP_HEX_LEN *2 + 1 + MAX_DUMP_HEX_LEN + 1 ], *pb = buffer;
 
-    if (len2 > 16) len2 = 16;
+    if (len2 > MAX_DUMP_HEX_LEN) len2 = MAX_DUMP_HEX_LEN;
 
-    for (nn = 0; nn < len2; nn++)
-        D("%02x", ptr[nn]);
-    D("  ");
+    for (nn = 0; nn < len2; nn++) {
+        sprintf(pb, "%02x", ptr[nn]);
+        pb += 2;
+    }
+    sprintf(pb++, " ");
 
     for (nn = 0; nn < len2; nn++) {
         int  c = ptr[nn];
         if (c < 32 || c > 127)
             c = '.';
-        D("%c", c);
+        *pb++ =  c;
     }
-    D("\n");
-    fflush(stdout);
+    *pb++ = '\0';
+    DR("%s\n", buffer);
 }
 #endif
 
@@ -79,7 +85,7 @@ run_transport_disconnects(atransport*  t)
 {
     adisconnect*  dis = t->disconnects.next;
 
-    D("run_transport_disconnects: %p (%s)\n", t, t->serial ? t->serial : "unknown" );
+    D("%s: run_transport_disconnects\n", t->serial);
     while (dis != &t->disconnects) {
         adisconnect*  next = dis->next;
         dis->func( dis->opaque, t );
@@ -87,75 +93,91 @@ run_transport_disconnects(atransport*  t)
     }
 }
 
+#if SDB_TRACE
+static void
+dump_packet(const char* name, const char* func, apacket* p)
+{
+    unsigned  command = p->msg.command;
+    int       len     = p->msg.data_length;
+    char      cmd[9];
+    char      arg0[12], arg1[12];
+    int       n;
+
+    for (n = 0; n < 4; n++) {
+        int  b = (command >> (n*8)) & 255;
+        if (b < 32 || b >= 127)
+            break;
+        cmd[n] = (char)b;
+    }
+    if (n == 4) {
+        cmd[4] = 0;
+    } else {
+        /* There is some non-ASCII name in the command, so dump
+            * the hexadecimal value instead */
+        snprintf(cmd, sizeof cmd, "%08x", command);
+    }
+
+    if (p->msg.arg0 < 256U)
+        snprintf(arg0, sizeof arg0, "%d", p->msg.arg0);
+    else
+        snprintf(arg0, sizeof arg0, "0x%x", p->msg.arg0);
+
+    if (p->msg.arg1 < 256U)
+        snprintf(arg1, sizeof arg1, "%d", p->msg.arg1);
+    else
+        snprintf(arg1, sizeof arg1, "0x%x", p->msg.arg1);
+
+    D("%s: %s: [%s] arg0=%s arg1=%s (len=%d) ",
+        name, func, cmd, arg0, arg1, len);
+    dump_hex(p->data, len);
+}
+#endif /* SDB_TRACE */
+
 static int
-read_packet(int  fd, apacket** ppacket)
+read_packet(int  fd, const char* name, apacket** ppacket)
 {
     char *p = (char*)ppacket;  /* really read a packet address */
     int   r;
     int   len = sizeof(*ppacket);
+    char  buff[8];
+    if (!name) {
+        snprintf(buff, sizeof buff, "fd=%d", fd);
+        name = buff;
+    }
     while(len > 0) {
         r = sdb_read(fd, p, len);
         if(r > 0) {
             len -= r;
             p   += r;
         } else {
-            D("read_packet: %d error %d %d\n", fd, r, errno);
+            D("%s: read_packet (fd=%d), error ret=%d errno=%d: %s\n", name, fd, r, errno, strerror(errno));
             if((r < 0) && (errno == EINTR)) continue;
             return -1;
         }
     }
 
 #if SDB_TRACE
-    if (SDB_TRACING)
-    {
-        unsigned  command = (*ppacket)->msg.command;
-        int       len     = (*ppacket)->msg.data_length;
-        char      cmd[5];
-        int       n;
-
-        for (n = 0; n < 4; n++) {
-            int  b = (command >> (n*8)) & 255;
-            if (b >= 32 && b < 127)
-                cmd[n] = (char)b;
-            else
-                cmd[n] = '.';
-        }
-        cmd[4] = 0;
-
-        D("read_packet: %d ok: [%08x %s] %08x %08x (%d) ",
-          fd, command, cmd, (*ppacket)->msg.arg0, (*ppacket)->msg.arg1, len);
-        dump_hex((*ppacket)->data, len);
+    if (SDB_TRACING) {
+        dump_packet(name, "from remote", *ppacket);
     }
 #endif
     return 0;
 }
 
 static int
-write_packet(int  fd, apacket** ppacket)
+write_packet(int  fd, const char* name, apacket** ppacket)
 {
     char *p = (char*) ppacket;  /* we really write the packet address */
     int r, len = sizeof(ppacket);
+    char buff[8];
+    if (!name) {
+        snprintf(buff, sizeof buff, "fd=%d", fd);
+        name = buff;
+    }
 
 #if SDB_TRACE
-    if (SDB_TRACING)
-    {
-        unsigned  command = (*ppacket)->msg.command;
-        int       len     = (*ppacket)->msg.data_length;
-        char      cmd[5];
-        int       n;
-
-        for (n = 0; n < 4; n++) {
-            int  b = (command >> (n*8)) & 255;
-            if (b >= 32 && b < 127)
-                cmd[n] = (char)b;
-            else
-                cmd[n] = '.';
-        }
-        cmd[4] = 0;
-
-        D("write_packet: %d [%08x %s] %08x %08x (%d) ",
-          fd, command, cmd, (*ppacket)->msg.arg0, (*ppacket)->msg.arg1, len);
-        dump_hex((*ppacket)->data, len);
+    if (SDB_TRACING) {
+        dump_packet(name, "to remote", *ppacket);
     }
 #endif
     len = sizeof(ppacket);
@@ -165,7 +187,7 @@ write_packet(int  fd, apacket** ppacket)
             len -= r;
             p += r;
         } else {
-            D("write_packet: %d error %d %d\n", fd, r, errno);
+            D("%s: write_packet (fd=%d) error ret=%d errno=%d: %s\n", name, fd, r, errno, strerror(errno));
             if((r < 0) && (errno == EINTR)) continue;
             return -1;
         }
@@ -175,10 +197,12 @@ write_packet(int  fd, apacket** ppacket)
 
 static void transport_socket_events(int fd, unsigned events, void *_t)
 {
+    atransport *t = _t;
+    D("transport_socket_events(fd=%d, events=%04x,...)\n", fd, events);
     if(events & FDE_READ){
         apacket *p = 0;
-        if(read_packet(fd, &p)){
-            D("failed to read packet from transport socket on fd %d\n", fd);
+        if(read_packet(fd, t->serial, &p)){
+            D("%s: failed to read packet from transport socket on fd %d\n", t->serial, fd);
         } else {
             handle_packet(p, (atransport *) _t);
         }
@@ -204,11 +228,13 @@ void send_packet(apacket *p, atransport *t)
     print_packet("send", p);
 
     if (t == NULL) {
-        fatal_errno("Transport is null");
         D("Transport is null \n");
+        // Zap errno because print_packet() and other stuff have errno effect.
+        errno = 0;
+        fatal_errno("Transport is null");
     }
 
-    if(write_packet(t->transport_socket, &p)){
+    if(write_packet(t->transport_socket, t->serial, &p)){
         fatal_errno("cannot enqueue packet on transport socket");
     }
 }
@@ -231,52 +257,51 @@ static void *output_thread(void *_t)
     atransport *t = _t;
     apacket *p;
 
-    D("from_remote: starting thread for transport %p, on fd %d\n", t, t->fd );
-
-    D("from_remote: transport %p SYNC online (%d)\n", t, t->sync_token + 1);
+    D("%s: starting transport output thread on fd %d, SYNC online (%d)\n",
+       t->serial, t->fd, t->sync_token + 1);
     p = get_apacket();
     p->msg.command = A_SYNC;
     p->msg.arg0 = 1;
     p->msg.arg1 = ++(t->sync_token);
     p->msg.magic = A_SYNC ^ 0xffffffff;
-    if(write_packet(t->fd, &p)) {
+    if(write_packet(t->fd, t->serial, &p)) {
         put_apacket(p);
-        D("from_remote: failed to write SYNC apacket to transport %p", t);
+        D("%s: failed to write SYNC packet\n", t->serial);
         goto oops;
     }
 
-    D("from_remote: data pump  for transport %p\n", t);
+    D("%s: data pump started\n", t->serial);
     for(;;) {
         p = get_apacket();
 
         if(t->read_from_remote(p, t) == 0){
-            D("from_remote: received remote packet, sending to transport %p\n",
-              t);
-            if(write_packet(t->fd, &p)){
+            D("%s: received remote packet, sending to transport\n",
+              t->serial);
+            if(write_packet(t->fd, t->serial, &p)){
                 put_apacket(p);
-                D("from_remote: failed to write apacket to transport %p", t);
+                D("%s: failed to write apacket to transport\n", t->serial);
                 goto oops;
             }
         } else {
-            D("from_remote: remote read failed for transport %p\n", p);
+            D("%s: remote read failed for transport\n", t->serial);
             put_apacket(p);
             break;
         }
     }
 
-    D("from_remote: SYNC offline for transport %p\n", t);
+    D("%s: SYNC offline for transport\n", t->serial);
     p = get_apacket();
     p->msg.command = A_SYNC;
     p->msg.arg0 = 0;
     p->msg.arg1 = 0;
     p->msg.magic = A_SYNC ^ 0xffffffff;
-    if(write_packet(t->fd, &p)) {
+    if(write_packet(t->fd, t->serial, &p)) {
         put_apacket(p);
-        D("from_remote: failed to write SYNC apacket to transport %p", t);
+        D("%s: failed to write SYNC apacket to transport", t->serial);
     }
 
 oops:
-    D("from_remote: thread is exiting for transport %p\n", t);
+    D("%s: transport output thread is exiting\n", t->serial);
     kick_transport(t);
     transport_unref(t);
     return 0;
@@ -288,35 +313,35 @@ static void *input_thread(void *_t)
     apacket *p;
     int active = 0;
 
-    D("to_remote: starting input_thread for %p, reading from fd %d\n",
-       t, t->fd);
+    D("%s: starting transport input thread, reading from fd %d\n",
+       t->serial, t->fd);
 
     for(;;){
-        if(read_packet(t->fd, &p)) {
-            D("to_remote: failed to read apacket from transport %p on fd %d\n", 
-               t, t->fd );
+        if(read_packet(t->fd, t->serial, &p)) {
+            D("%s: failed to read apacket from transport on fd %d\n",
+               t->serial, t->fd );
             break;
         }
         if(p->msg.command == A_SYNC){
             if(p->msg.arg0 == 0) {
-                D("to_remote: transport %p SYNC offline\n", t);
+                D("%s: transport SYNC offline\n", t->serial);
                 put_apacket(p);
                 break;
             } else {
                 if(p->msg.arg1 == t->sync_token) {
-                    D("to_remote: transport %p SYNC online\n", t);
+                    D("%s: transport SYNC online\n", t->serial);
                     active = 1;
                 } else {
-                    D("to_remote: trandport %p ignoring SYNC %d != %d\n",
-                      t, p->msg.arg1, t->sync_token);
+                    D("%s: transport ignoring SYNC %d != %d\n",
+                      t->serial, p->msg.arg1, t->sync_token);
                 }
             }
         } else {
             if(active) {
-                D("to_remote: transport %p got packet, sending to remote\n", t);
+                D("%s: transport got packet, sending to remote\n", t->serial);
                 t->write_to_remote(p, t);
             } else {
-                D("to_remote: transport %p ignoring packet while offline\n", t);
+                D("%s: transport ignoring packet while offline\n", t->serial);
             }
         }
 
@@ -327,7 +352,7 @@ static void *input_thread(void *_t)
     // while a client socket is still active.
     close_all_sockets(t);
 
-    D("to_remote: thread is exiting for transport %p, fd %d\n", t, t->fd);
+    D("%s: transport input thread is exiting, fd %d\n", t->serial, t->fd);
     kick_transport(t);
     transport_unref(t);
     return 0;
@@ -508,7 +533,7 @@ transport_read_action(int  fd, struct tmsg*  m)
             p   += r;
         } else {
             if((r < 0) && (errno == EINTR)) continue;
-            D("transport_read_action: on fd %d, error %d: %s\n", 
+            D("transport_read_action: on fd %d, error %d: %s\n",
               fd, errno, strerror(errno));
             return -1;
         }
@@ -530,7 +555,7 @@ transport_write_action(int  fd, struct tmsg*  m)
             p   += r;
         } else {
             if((r < 0) && (errno == EINTR)) continue;
-            D("transport_write_action: on fd %d, error %d: %s\n", 
+            D("transport_write_action: on fd %d, error %d: %s\n",
               fd, errno, strerror(errno));
             return -1;
         }
@@ -557,7 +582,7 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
     t = m.transport;
 
     if(m.action == 0){
-        D("transport: %p removing and free'ing %d\n", t, t->transport_socket);
+        D("transport: %s removing and free'ing %d\n", t->serial, t->transport_socket);
 
             /* IMPORTANT: the remove closes one half of the
             ** socket pair.  The close closes the other half.
@@ -576,6 +601,8 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
             free(t->product);
         if (t->serial)
             free(t->serial);
+        if (t->device_name)
+            free(t->device_name);
 
         memset(t,0xee,sizeof(atransport));
         free(t);
@@ -593,12 +620,11 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
             fatal_errno("cannot open transport socketpair");
         }
 
-        D("transport: %p (%d,%d) starting\n", t, s[0], s[1]);
+        D("transport: %s (%d,%d) starting\n", t->serial, s[0], s[1]);
 
         t->transport_socket = s[0];
         t->fd = s[1];
 
-        D("transport: %p install %d\n", t, t->transport_socket );
         fdevent_install(&(t->transport_fde),
                         t->transport_socket,
                         transport_socket_events,
@@ -653,7 +679,7 @@ static void register_transport(atransport *transport)
     tmsg m;
     m.transport = transport;
     m.action = 1;
-    D("transport: %p registered\n", transport);
+    D("transport: %s registered\n", transport->serial);
     if(transport_write_action(transport_registration_send, &m)) {
         fatal_errno("cannot write transport registration socket\n");
     }
@@ -664,7 +690,7 @@ static void remove_transport(atransport *transport)
     tmsg m;
     m.transport = transport;
     m.action = 0;
-    D("transport: %p removed\n", transport);
+    D("transport: %s removed\n", transport->serial);
     if(transport_write_action(transport_registration_send, &m)) {
         fatal_errno("cannot write transport registration socket\n");
     }
@@ -674,15 +700,16 @@ static void remove_transport(atransport *transport)
 static void transport_unref_locked(atransport *t)
 {
     t->ref_count--;
-    D("transport: %p R- (ref=%d)\n", t, t->ref_count);
     if (t->ref_count == 0) {
-        D("transport: %p kicking and closing\n", t);
+        D("transport: %s unref (kicking and closing)\n", t->serial);
         if (!t->kicked) {
             t->kicked = 1;
             t->kick(t);
         }
         t->close(t);
         remove_transport(t);
+    } else {
+        D("transport: %s unref (count=%d)\n", t->serial, t->ref_count);
     }
 }
 
@@ -806,6 +833,7 @@ static const char *statename(atransport *t)
     case CS_DEVICE: return "device";
     case CS_HOST: return "host";
     case CS_RECOVERY: return "recovery";
+    case CS_SIDELOAD: return "sideload";
     case CS_NOPERM: return "no permissions";
     default: return "unknown";
     }
@@ -822,9 +850,10 @@ int list_transports(char *buf, size_t  bufsize)
     sdb_mutex_lock(&transport_lock);
     for(t = transport_list.next; t != &transport_list; t = t->next) {
         const char* serial = t->serial;
+        const char* devicename = (t->device_name == NULL) ? DEFAULT_DEVICENAME : t->device_name; /* tizen specific */
         if (!serial || !serial[0])
             serial = "????????????";
-        len = snprintf(p, end - p, "%s\t%s\n", serial, statename(t));
+        len = snprintf(p, end - p, "%s\t%s\t%s\n", serial, statename(t), devicename);
 
         if (p + len >= end) {
             /* discard last line if buffer is too short */
@@ -854,18 +883,42 @@ void close_usb_devices()
 }
 #endif // SDB_HOST
 
-void register_socket_transport(int s, const char *serial, int port, int local)
+void register_socket_transport(int s, const char *serial, int port, int local, const char *device_name)
 {
     atransport *t = calloc(1, sizeof(atransport));
-    D("transport: %p init'ing for socket %d, on port %d\n", t, s, port);
+    char buff[32];
+
+    if (!serial) {
+        snprintf(buff, sizeof buff, "T-%p", t);
+        serial = buff;
+    }
+    D("transport: %s init'ing for socket %d, on port %d (%s)\n", serial, s, port, device_name);
     if ( init_socket_transport(t, s, port, local) < 0 ) {
         sdb_close(s);
         free(t);
+#if SDB_HOST /* tizen specific */
+        atransport *old_t = find_transport(serial);
+        if (old_t) {
+           unregister_transport(old_t);
+        } else {
+           D("No such device %s", serial);
+        }
+#endif
         return;
     }
     if(serial) {
         t->serial = strdup(serial);
     }
+#if SDB_HOST /* tizen specific */
+    if (device_name) {/* tizen specific */
+        t->device_name = strdup(device_name);
+    } else { // device_name could be null when sdb server was forked before qemu has sent the connect message.
+        char device_name[DEVICENAME_MAX];
+        if (get_devicename_from_shdmem(port, device_name) == 0) {
+            t->device_name = strdup(device_name);
+        }
+    }
+#endif
     register_transport(t);
 }
 
@@ -924,15 +977,35 @@ void unregister_all_tcp_transports()
 
 #endif
 
+int get_connected_device_count(transport_type type) /* tizen specific */
+{
+    int cnt = 0;
+    atransport *t;
+    sdb_mutex_lock(&transport_lock);
+    for(t = transport_list.next; t != &transport_list; t = t->next) {
+        if (type == kTransportUsb && t->type == kTransportUsb)
+            cnt++;
+     }
+    sdb_mutex_unlock(&transport_lock);
+    D("connected device count:%d\n",cnt);
+    return cnt;
+}
+
 void register_usb_transport(usb_handle *usb, const char *serial, unsigned writeable)
 {
     atransport *t = calloc(1, sizeof(atransport));
+    char device_name[256];
+
     D("transport: %p init'ing for usb_handle %p (sn='%s')\n", t, usb,
       serial ? serial : "");
     init_usb_transport(t, usb, (writeable ? CS_OFFLINE : CS_NOPERM));
     if(serial) {
         t->serial = strdup(serial);
     }
+
+    /* tizen specific */
+    sprintf(device_name, "device-%d",get_connected_device_count(kTransportUsb)+1);
+    t->device_name = strdup(device_name);
     register_transport(t);
 }
 
@@ -961,21 +1034,26 @@ int readx(int fd, void *ptr, size_t len)
 #if SDB_TRACE
     int  len0 = len;
 #endif
-    D("readx: %d %p %d\n", fd, ptr, (int)len);
+    D("readx: fd=%d wanted=%d\n", fd, (int)len);
     while(len > 0) {
         r = sdb_read(fd, p, len);
         if(r > 0) {
             len -= r;
             p += r;
         } else {
-            D("readx: %d %d %s\n", fd, r, strerror(errno));
-            if((r < 0) && (errno == EINTR)) continue;
+            if (r < 0) {
+                D("readx: fd=%d error %d: %s\n", fd, errno, strerror(errno));
+                if (errno == EINTR)
+                    continue;
+            } else {
+                D("readx: fd=%d disconnected\n", fd);
+            }
             return -1;
         }
     }
 
 #if SDB_TRACE
-    D("readx: %d ok: ", fd);
+    D("readx: fd=%d wanted=%d got=%d\n", fd, len0, len0 - len);
     dump_hex( ptr, len0 );
 #endif
     return 0;
@@ -987,7 +1065,7 @@ int writex(int fd, const void *ptr, size_t len)
     int r;
 
 #if SDB_TRACE
-    D("writex: %d %p %d: ", fd, ptr, (int)len);
+    D("writex: fd=%d len=%d: ", fd, (int)len);
     dump_hex( ptr, len );
 #endif
     while(len > 0) {
@@ -996,13 +1074,16 @@ int writex(int fd, const void *ptr, size_t len)
             len -= r;
             p += r;
         } else {
-            D("writex: %d %d %s\n", fd, r, strerror(errno));
-            if((r < 0) && (errno == EINTR)) continue;
+            if (r < 0) {
+                D("writex: fd=%d error %d: %s\n", fd, errno, strerror(errno));
+                if (errno == EINTR)
+                    continue;
+            } else {
+                D("writex: fd=%d disconnected\n", fd);
+            }
             return -1;
         }
     }
-
-    D("writex: %d ok\n", fd);
     return 0;
 }
 
@@ -1039,4 +1120,3 @@ int check_data(apacket *p)
         return 0;
     }
 }
-

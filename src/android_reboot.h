@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-#include <sys/types.h>
-#include <unistd.h>
-#include <limits.h>
-#include <stdio.h>
+#ifndef __CUTILS_ANDROID_REBOOT_H__
+#define __CUTILS_ANDROID_REBOOT_H__
 
-void get_my_path(char *exe, size_t maxLen)
-{
-    char proc[64];
-    snprintf(proc, sizeof proc, "/proc/%d/exe", getpid());
-    int err = readlink(proc, exe, maxLen - 1);
-    if(err > 0) {
-        exe[err] = '\0';
-    } else {
-        exe[0] = '\0';
-    }
-}
+__BEGIN_DECLS
 
+/* Commands */
+#define ANDROID_RB_RESTART  0xDEAD0001
+#define ANDROID_RB_POWEROFF 0xDEAD0002
+#define ANDROID_RB_RESTART2 0xDEAD0003
+
+/* Flags */
+#define ANDROID_RB_FLAG_NO_SYNC       0x1
+#define ANDROID_RB_FLAG_NO_REMOUNT_RO 0x2
+
+int android_reboot(int cmd, int flags, char *arg);
+
+__END_DECLS
+
+#endif /* __CUTILS_ANDROID_REBOOT_H__ */

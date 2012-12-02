@@ -1,3 +1,39 @@
+#
+#
+# Makefile for sdb
+#
+
+#
+HOST_OS := $(shell uname -s | tr A-Z a-z)
+
+# sdb host tool
+# =========================================================
+
+# Default to a virtual (sockets) usb interface
+USB_SRCS :=
+EXTRA_SRCS :=
+
+ifeq ($(HOST_OS),linux)
+	USB_SRCS := usb_linux.c
+	EXTRA_SRCS := get_my_path_linux.c
+	LOCAL_LDLIBS += -lrt -lncurses -lpthread
+endif
+
+ifeq ($(HOST_OS),darwin)
+	USB_SRCS := usb_osx.c
+	EXTRA_SRCS := get_my_path_darwin.c
+	LOCAL_LDLIBS += -lpthread -framework CoreFoundation -framework IOKit -framework Carbon
+	SDB_EXTRA_CFLAGS := -mmacosx-version-min=10.4
+endif
+
+ifeq ($(HOST_OS),freebsd)
+	USB_SRCS := usb_libusb.c
+	EXTRA_SRCS := get_my_path_freebsd.c
+	LOCAL_LDLIBS += -lpthread -lusb
+endif
+
+
+
 SDB_SRC_FILES := \
 	src/sdb.c \
 	src/console.c \
@@ -9,8 +45,8 @@ SDB_SRC_FILES := \
 	src/sockets.c \
 	src/services.c \
 	src/file_sync_client.c \
-	src/usb_linux.c \
-	src/get_my_path_linux.c \
+	src/$(EXTRA_SRCS) \
+	src/$(USB_SRCS) \
 	src/utils.c \
 	src/usb_vendors.c \
 	src/fdevent.c \
@@ -21,10 +57,10 @@ SDB_SRC_FILES := \
 	src/socket_loopback_server.c \
 	src/socket_network_client.c
 
-SDB_CFLAGS := -O2 -g -DSDB_HOST=1  -Wall -Wno-unused-parameter
+SDB_CFLAGS := -O2 -g -DSDB_HOST=1 -DSDB_HOST_ON_TARGET=1 -Wall -Wno-unused-parameter
 SDB_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
-SDB_CFLAGS += -DHAVE_FORKEXEC
-SDB_LFLAGS := -lrt -lncurses
+SDB_CFLAGS += -DHAVE_FORKEXEC -DHAVE_TERMIO_H -DHAVE_SYMLINKS
+SDB_LFLAGS := $(LOCAL_LDLIBS)
 
 SDBD_SRC_FILES := \
 	src/sdb.c \
@@ -35,7 +71,6 @@ SDBD_SRC_FILES := \
 	src/sockets.c \
 	src/services.c \
 	src/file_sync_service.c \
-	src/jdwp_service.c \
 	src/framebuffer_service.c \
 	src/remount_service.c \
 	src/usb_linux_client.c \
@@ -45,7 +80,9 @@ SDBD_SRC_FILES := \
 	src/socket_local_server.c \
 	src/socket_loopback_client.c \
 	src/socket_loopback_server.c \
-	src/socket_network_client.c
+	src/socket_network_client.c \
+	src/properties.c \
+	src/android_reboot.c
 
 SDBD_CFLAGS := -O2 -g -DSDB_HOST=0 -Wall -Wno-unused-parameter
 SDBD_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
@@ -82,7 +119,7 @@ all : $(MODULE)
 
 sdb : $(SDB_SRC_FILES)
 	mkdir -p $(OBJDIR)
-	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDB_CFLAGS) $(SDB_LFLAGS) $(IFLAGS) $(SDB_SRC_FILES)
+	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDB_CFLAGS) $(SDB_EXTRA_CFLAGS) $(SDB_LFLAGS) $(IFLAGS) $(SDB_SRC_FILES)
 
 sdbd : $(SDBD_SRC_FILES)
 	mkdir -p $(OBJDIR)

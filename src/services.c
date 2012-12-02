@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -22,7 +22,7 @@
 
 #include "sysdeps.h"
 
-#define  TRACE_TAG  TRACE_SDB
+#define  TRACE_TAG  TRACE_SERVICES
 #include "sdb.h"
 #include "file_sync_service.h"
 
@@ -30,12 +30,11 @@
 #  ifndef HAVE_WINSOCK
 #    include <netinet/in.h>
 #    include <netdb.h>
+#    include <sys/ioctl.h>
 #  endif
 #else
-//#  include <sys/reboot.h> eric
+#   include "android_reboot.h"
 #endif
-
-#define PROCESS_WORKING_DIRECTORY "/"
 
 typedef struct stinfo stinfo;
 
@@ -75,6 +74,8 @@ static void dns_service(int fd, void *cookie)
     sdb_close(fd);
 }
 #else
+
+#if 0
 extern int recovery_mode;
 
 static void recover_service(int s, void *cookie)
@@ -107,7 +108,7 @@ static void recover_service(int s, void *cookie)
     fd = sdb_creat("/tmp/update.begin", 0644);
     sdb_close(fd);
 }
-#if 0 //eric
+
 void restart_root_service(int fd, void *cookie)
 {
     char buf[100];
@@ -130,12 +131,9 @@ void restart_root_service(int fd, void *cookie)
         snprintf(buf, sizeof(buf), "restarting sdbd as root\n");
         writex(fd, buf, strlen(buf));
         sdb_close(fd);
-
-        // quit, and init will restart us as root
-        sleep(1);
-        exit(1);
     }
 }
+#endif
 
 void restart_tcp_service(int fd, void *cookie)
 {
@@ -155,10 +153,6 @@ void restart_tcp_service(int fd, void *cookie)
     snprintf(buf, sizeof(buf), "restarting in TCP mode port: %d\n", port);
     writex(fd, buf, strlen(buf));
     sdb_close(fd);
-
-    // quit, and init will restart us in TCP mode
-    sleep(1);
-    exit(1);
 }
 
 void restart_usb_service(int fd, void *cookie)
@@ -169,13 +163,8 @@ void restart_usb_service(int fd, void *cookie)
     snprintf(buf, sizeof(buf), "restarting in USB mode\n");
     writex(fd, buf, strlen(buf));
     sdb_close(fd);
-
-    // quit, and init will restart us in USB mode
-    sleep(1);
-    exit(1);
 }
 
-#endif
 void reboot_service(int fd, void *arg)
 {
     char buf[100];
@@ -196,8 +185,7 @@ void reboot_service(int fd, void *arg)
         waitpid(pid, &ret, 0);
     }
 
-//    ret = __reboot(LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
-//                    LINUX_REBOOT_CMD_RESTART2, (char *)arg);
+    ret = android_reboot(ANDROID_RB_RESTART2, 0, (char *) arg);
     if (ret < 0) {
         snprintf(buf, sizeof(buf), "reboot failed: %s\n", strerror(errno));
         writex(fd, buf, strlen(buf));
@@ -205,7 +193,6 @@ void reboot_service(int fd, void *arg)
     free(arg);
     sdb_close(fd);
 }
-
 #endif
 
 #if 0
@@ -271,15 +258,16 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
     return s[0];
 }
 
-static int create_subprocess(const char *cmd, const char *arg0, const char *arg1)
+#if !SDB_HOST
+static int create_subprocess(const char *cmd, const char *arg0, const char *arg1, pid_t *pid)
 {
 #ifdef HAVE_WIN32_PROC
-	fprintf(stderr, "error: create_subprocess not implemented on Win32 (%s %s %s)\n", cmd, arg0, arg1);
-	return -1;
+    D("create_subprocess(cmd=%s, arg0=%s, arg1=%s)\n", cmd, arg0, arg1);
+    fprintf(stderr, "error: create_subprocess not implemented on Win32 (%s %s %s)\n", cmd, arg0, arg1);
+    return -1;
 #else /* !HAVE_WIN32_PROC */
     char *devname;
     int ptm;
-    pid_t pid;
 
     ptm = unix_open("/dev/ptmx", O_RDWR); // | O_NOCTTY);
     if(ptm < 0){
@@ -291,40 +279,38 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
     if(grantpt(ptm) || unlockpt(ptm) ||
        ((devname = (char*) ptsname(ptm)) == 0)){
         printf("[ trouble with /dev/ptmx - %s ]\n", strerror(errno));
+        sdb_close(ptm);
         return -1;
     }
 
-    pid = fork();
-    if(pid < 0) {
+    *pid = fork();
+    if(*pid < 0) {
         printf("- fork failed: %s -\n", strerror(errno));
+        sdb_close(ptm);
         return -1;
     }
 
-    if(pid == 0){
+    if(*pid == 0){
         int pts;
 
         setsid();
-        if (chdir(PROCESS_WORKING_DIRECTORY) < 0)
-        	D("sdb: unable to change working directory to %s\n", PROCESS_WORKING_DIRECTORY);
 
         pts = unix_open(devname, O_RDWR);
-        if(pts < 0) exit(-1);
+        if(pts < 0) {
+            fprintf(stderr, "child failed to open pseudo-term slave: %s\n", devname);
+            exit(-1);
+        }
 
         dup2(pts, 0);
         dup2(pts, 1);
         dup2(pts, 2);
 
+        sdb_close(pts);
         sdb_close(ptm);
 
-        execl(cmd, cmd, arg0, arg1, NULL);
-        fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
-                cmd, strerror(errno), errno);
-        exit(-1);
-    } else {
-#if !SDB_HOST
-        // set child's OOM adjustment to zero
+        // set OOM adjustment to zero
         char text[64];
-        snprintf(text, sizeof text, "/proc/%d/oom_adj", pid);
+        snprintf(text, sizeof text, "/proc/%d/oom_adj", getpid());
         int fd = sdb_open(text, O_WRONLY);
         if (fd >= 0) {
             sdb_write(fd, "0", 1);
@@ -332,17 +318,89 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
         } else {
            D("sdb: unable to open %s\n", text);
         }
-#endif
+        execl(cmd, cmd, arg0, arg1, NULL);
+        fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
+                cmd, strerror(errno), errno);
+        exit(-1);
+    } else {
+        // Don't set child's OOM adjustment to zero.
+        // Let the child do it itself, as sometimes the parent starts
+        // running before the child has a /proc/pid/oom_adj.
+        // """sdb: unable to open /proc/644/oom_adj""" seen in some logs.
         return ptm;
     }
 #endif /* !HAVE_WIN32_PROC */
 }
+#endif  /* !SDB_HOST */
 
-//#if SDB_HOST
+#if SDB_HOST
 #define SHELL_COMMAND "/bin/sh"
-//#else
-//#define SHELL_COMMAND "/system/bin/sh"
-//#endif
+#else
+#define SHELL_COMMAND "/bin/sh" /* tizen specific */
+#endif
+
+#if !SDB_HOST
+static void subproc_waiter_service(int fd, void *cookie)
+{
+    pid_t pid = (pid_t)cookie;
+
+    D("entered. fd=%d of pid=%d\n", fd, pid);
+    for (;;) {
+        int status;
+        pid_t p = waitpid(pid, &status, 0);
+        if (p == pid) {
+            D("fd=%d, post waitpid(pid=%d) status=%04x\n", fd, p, status);
+            if (WIFSIGNALED(status)) {
+                D("*** Killed by signal %d\n", WTERMSIG(status));
+                break;
+            } else if (!WIFEXITED(status)) {
+                D("*** Didn't exit!!. status %d\n", status);
+                break;
+            } else if (WEXITSTATUS(status) >= 0) {
+                D("*** Exit code %d\n", WEXITSTATUS(status));
+                break;
+            }
+         }
+    }
+    D("shell exited fd=%d of pid=%d err=%d\n", fd, pid, errno);
+    if (SHELL_EXIT_NOTIFY_FD >=0) {
+      int res;
+      res = writex(SHELL_EXIT_NOTIFY_FD, &fd, sizeof(fd));
+      D("notified shell exit via fd=%d for pid=%d res=%d errno=%d\n",
+        SHELL_EXIT_NOTIFY_FD, pid, res, errno);
+    }
+}
+
+static int create_subproc_thread(const char *name)
+{
+    stinfo *sti;
+    sdb_thread_t t;
+    int ret_fd;
+    pid_t pid;
+    if(name) {
+        ret_fd = create_subprocess(SHELL_COMMAND, "-c", name, &pid);
+    } else {
+        ret_fd = create_subprocess(SHELL_COMMAND, "-", 0, &pid);
+    }
+    D("create_subprocess() ret_fd=%d pid=%d\n", ret_fd, pid);
+
+    sti = malloc(sizeof(stinfo));
+    if(sti == 0) fatal("cannot allocate stinfo");
+    sti->func = subproc_waiter_service;
+    sti->cookie = (void*)pid;
+    sti->fd = ret_fd;
+
+    if(sdb_thread_create( &t, service_bootstrap_func, sti)){
+        free(sti);
+        sdb_close(ret_fd);
+        printf("cannot create service thread\n");
+        return -1;
+    }
+
+    D("service thread started, fd=%d pid=%d\n",ret_fd, pid);
+    return ret_fd;
+}
+#endif
 
 int service_to_fd(const char *name)
 {
@@ -384,7 +442,7 @@ int service_to_fd(const char *name)
         if(n == 0) return -1;
         ret = create_service_thread(dns_service, n);
 #else /* !SDB_HOST */
-    } else if(!strncmp("dev:", name, 4)) {
+    }/* else if(!strncmp("dev:", name, 4)) {// tizen specific
         ret = unix_open(name + 4, O_RDWR);
     } else if(!strncmp(name, "framebuffer:", 12)) {
         ret = create_service_thread(framebuffer_service, 0);
@@ -392,46 +450,45 @@ int service_to_fd(const char *name)
         ret = create_service_thread(recover_service, (void*) atoi(name + 8));
     } else if (!strncmp(name, "jdwp:", 5)) {
         ret = create_jdwp_connection_fd(atoi(name+5));
-#if 0	// eric
     } else if (!strncmp(name, "log:", 4)) {
         ret = create_service_thread(log_service, get_log_file_path(name + 4));
-#endif
-#endif
-    } else if(!HOST && !strncmp(name, "shell:", 6)) {
+    }*/ else if(!HOST && !strncmp(name, "shell:", 6)) {
         if(name[6]) {
-            ret = create_subprocess(SHELL_COMMAND, "-c", name + 6);
+            ret = create_subproc_thread(name + 6);
         } else {
-            ret = create_subprocess(SHELL_COMMAND, "-", 0);
+            ret = create_subproc_thread(0);
         }
-#if !SDB_HOST
     } else if(!strncmp(name, "sync:", 5)) {
         ret = create_service_thread(file_sync_service, NULL);
-#if 0 //eric
-    } else if(!strncmp(name, "remount:", 8)) {
+    }/*  else if(!strncmp(name, "remount:", 8)) {
         ret = create_service_thread(remount_service, NULL);
-#endif
     } else if(!strncmp(name, "reboot:", 7)) {
         void* arg = strdup(name + 7);
         if(arg == 0) return -1;
         ret = create_service_thread(reboot_service, arg);
-#if 0 //eric
     } else if(!strncmp(name, "root:", 5)) {
         ret = create_service_thread(restart_root_service, NULL);
-    } else if(!strncmp(name, "tcpip:", 6)) {
+    } else if(!strncmp(name, "backup:", 7)) {
+        char* arg = strdup(name+7);
+        if (arg == NULL) return -1;
+        ret = backup_service(BACKUP, arg);
+    } else if(!strncmp(name, "restore:", 8)) {
+        ret = backup_service(RESTORE, NULL);
+    }*/ else if(!strncmp(name, "tcpip:", 6)) {
         int port;
-        if (sscanf(name + 6, "%d", &port) == 0) {
+        /*if (sscanf(name + 6, "%d", &port) == 0) {
             port = 0;
-        }
+        }*/
+        port = DEFAULT_SDB_LOCAL_TRANSPORT_PORT;
         ret = create_service_thread(restart_tcp_service, (void *)port);
     } else if(!strncmp(name, "usb:", 4)) {
         ret = create_service_thread(restart_usb_service, NULL);
-#endif
+    }
 #endif
 #if 0
     } else if(!strncmp(name, "echo:", 5)){
         ret = create_service_thread(echo_service, 0);
 #endif
-    }
     if (ret >= 0) {
         close_on_exec(ret);
     }

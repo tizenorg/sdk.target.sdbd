@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -37,19 +37,16 @@
 #include "sdb_client.h"
 #include "file_sync_service.h"
 
-enum {
-    IGNORE_DATA,
-    WIPE_DATA,
-    FLASH_DATA
-};
-
 static int do_cmd(transport_type ttype, char* serial, char *cmd, ...);
 
 void get_my_path(char *s, size_t maxLen);
 int find_sync_dirs(const char *srcarg,
         char **android_srcdir_out, char **data_srcdir_out);
-// int install_app(transport_type transport, char* serial, int argc, char** argv); eric
+int install_app(transport_type transport, char* serial, int argc, char** argv);
+int uninstall_app_sdb(const char *app_id);
+int install_app_sdb(const char *srcpath);
 int uninstall_app(transport_type transport, char* serial, int argc, char** argv);
+int sdb_command2(const char* cmd);
 
 static const char *gProductOutPath = NULL;
 
@@ -85,36 +82,50 @@ void help()
     version(stderr);
 
     fprintf(stderr,
-	"\n"
-	" Usage : sdb [option] <command> [parameters]\n"
+    "\n"
+    " Usage : sdb [option] <command> [parameters]\n"
         "\n"
-	" options:\n"
-	" -d                            - directs command to the only connected USB device\n"
-	"                                 returns an error if more than one USB device is present.\n"
-	" -e                            - directs command to the only running emulator.\n"
-	"                                 returns an error if more than one emulator is running.\n"
-	" -s <serial number>            - directs command to the USB device or emulator with\n"
-	"                                 the given serial number.\n"
-	" devices                       - list all connected devices\n"
-	"\n"
-	" commands:\n"
-	"  sdb push <local> <remote>    - copy file/dir to device\n"
-	"  sdb pull <remote> [<local>]  - copy file/dir from device\n"
-	"  sdb shell                    - run remote shell interactively\n"
-	"  sdb shell <command>          - run remote shell command\n"
-	"  sdb dlog [ <filter-spec> ]   - view device log\n"
-	"  sdb forward <local> <remote> - forward socket connections\n"
-	"                                 forward spec is : \n"
-	"                                   tcp:<port>\n"
-	"  sdb help                     - show this help message\n"
-	"  sdb version                  - show version num\n"
-        "\n"
-        "  sdb start-server             - ensure that there is a server running\n"
-        "  sdb kill-server              - kill the server if it is running\n"
-        "  sdb get-state                - prints: offline | bootloader | device\n"
-        "  sdb get-serialno             - prints: <serial-number>\n"
-        "  sdb status-window            - continuously print device status for a specified device\n"
-        "\n"
+    " options:\n"
+    " -d                            - directs command to the only connected USB device\n"
+    "                                 returns an error if more than one USB device is present.\n"
+    " -e                            - directs command to the only running emulator.\n"
+    "                                 returns an error if more than one emulator is running.\n"
+    " -s <serial number>            - directs command to the USB device or emulator with\n"
+    "                                 the given serial number.\n"
+    " devices                       - list all connected devices\n"
+    " connect <host>[:<port>]       - connect to a device via TCP/IP\n"
+    "                                 Port 26101 is used by default if no port number is specified.\n"
+    " disconnect [<host>[:<port>]]  - disconnect from a TCP/IP device.\n"
+    "                                 Port 26101 is used by default if no port number is specified.\n"
+    "                                 Using this command with no additional arguments\n"
+    "                                 will disconnect from all connected TCP/IP devices.\n"
+    "\n"
+    " commands:\n"
+    "  sdb push <local> <remote> [-with-utf8]\n"
+    "                               - copy file/dir to device\n"
+    "                                 (-with-utf8 means to create the remote file with utf8 character encoding)\n"
+    "  sdb pull <remote> [<local>]  - copy file/dir from device\n"
+    "  sdb shell                    - run remote shell interactively\n"
+    "  sdb shell <command>          - run remote shell \n"
+    "  sdb dlog [ <filter-spec> ]   - view device log\n"
+    "  sdb install <path_to_tpk>    - push tpk package file and install it\n"
+    "  sdb uninstall <appid>        - uninstall this app from the device\n"
+    "  sdb forward <local> <remote> - forward socket connections\n"
+
+    "                                 forward spec is : \n"
+    "                                   tcp:<port>\n"
+    "  sdb help                     - show this help message\n"
+    "  sdb version                  - show version num\n"
+    "\n"
+    "  sdb start-server             - ensure that there is a server running\n"
+    "  sdb kill-server              - kill the server if it is running\n"
+    "  sdb get-state                - prints: offline | bootloader | device\n"
+    "  sdb get-serialno             - prints: <serial-number>\n"
+    "  sdb status-window            - continuously print device status for a specified device\n"
+    "  sdb usb                      - restarts the sdbd daemon listing on USB\n"
+//    "  sdb tcpip <port>             - restarts the sdbd daemon listing on TCP on the specified port"
+    "  sdb tcpip                    - restarts the sdbd daemon listing on TCP"
+    "\n"
         );
 }
 
@@ -157,7 +168,9 @@ static void read_and_dump(int fd)
     int len;
 
     while(fd >= 0) {
+        D("read_and_dump(): pre sdb_read(fd=%d)\n", fd);
         len = sdb_read(fd, buf, 4096);
+        D("read_and_dump(): post sdb_read(fd=%d): len=%d\n", fd, len);
         if(len == 0) {
             break;
         }
@@ -169,6 +182,34 @@ static void read_and_dump(int fd)
         fwrite(buf, 1, len, stdout);
         fflush(stdout);
     }
+}
+
+static void copy_to_file(int inFd, int outFd) {
+    const size_t BUFSIZE = 32 * 1024;
+    char* buf = (char*) malloc(BUFSIZE);
+    int len;
+    long total = 0;
+
+    D("copy_to_file(%d -> %d)\n", inFd, outFd);
+    for (;;) {
+        len = sdb_read(inFd, buf, BUFSIZE);
+        if (len == 0) {
+            D("copy_to_file() : read 0 bytes; exiting\n");
+            break;
+        }
+        if (len < 0) {
+            if (errno == EINTR) {
+                D("copy_to_file() : EINTR, retrying\n");
+                continue;
+            }
+            D("copy_to_file() : error %d\n", errno);
+            break;
+        }
+        sdb_write(outFd, buf, len);
+        total += len;
+    }
+    D("copy_to_file() finished after %lu bytes\n", total);
+    free(buf);
 }
 
 static void *stdin_read_thread(void *x)
@@ -185,7 +226,9 @@ static void *stdin_read_thread(void *x)
 
     for(;;) {
         /* fdi is really the client's stdin, so use read, not sdb_read here */
+        D("stdin_read_thread(): pre unix_read(fdi=%d,...)\n", fdi);
         r = unix_read(fdi, buf, 1024);
+        D("stdin_read_thread(): post unix_read(fdi=%d,...)\n", fdi);
         if(r == 0) break;
         if(r < 0) {
             if(errno == EINTR) continue;
@@ -265,7 +308,83 @@ static void format_host_command(char* buffer, size_t  buflen, const char* comman
         snprintf(buffer, buflen, "%s:%s", prefix, command);
     }
 }
+#if 0 /* tizen specific */
+int sdb_download_buffer(const char *service, const void* data, int sz,
+                        unsigned progress)
+{
+    char buf[4096];
+    unsigned total;
+    int fd;
+    const unsigned char *ptr;
 
+    sprintf(buf,"%s:%d", service, sz);
+    fd = sdb_connect(buf);
+    if(fd < 0) {
+        fprintf(stderr,"error: %s\n", sdb_error());
+        return -1;
+    }
+
+    int opt = CHUNK_SIZE;
+    opt = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &opt, sizeof(opt));
+
+    total = sz;
+    ptr = data;
+
+    if(progress) {
+        char *x = strrchr(service, ':');
+        if(x) service = x + 1;
+    }
+
+    while(sz > 0) {
+        unsigned xfer = (sz > CHUNK_SIZE) ? CHUNK_SIZE : sz;
+        if(writex(fd, ptr, xfer)) {
+            sdb_status(fd);
+            fprintf(stderr,"* failed to write data '%s' *\n", sdb_error());
+            return -1;
+        }
+        sz -= xfer;
+        ptr += xfer;
+        if(progress) {
+            printf("sending: '%s' %4d%%    \r", service, (int)(100LL - ((100LL * sz) / (total))));
+            fflush(stdout);
+        }
+    }
+    if(progress) {
+        printf("\n");
+    }
+
+    if(readx(fd, buf, 4)){
+        fprintf(stderr,"* error reading response *\n");
+        sdb_close(fd);
+        return -1;
+    }
+    if(memcmp(buf, "OKAY", 4)) {
+        buf[4] = 0;
+        fprintf(stderr,"* error response '%s' *\n", buf);
+        sdb_close(fd);
+        return -1;
+    }
+
+    sdb_close(fd);
+    return 0;
+}
+
+int sdb_download(const char *service, const char *fn, unsigned progress)
+{
+    void *data;
+    unsigned sz;
+
+    data = load_file(fn, &sz);
+    if(data == 0) {
+        fprintf(stderr,"* cannot read '%s' *\n", service);
+        return -1;
+    }
+
+    int status = sdb_download_buffer(service, data, sz, progress);
+    free(data);
+    return status;
+}
+#endif
 static void status_window(transport_type ttype, const char* serial)
 {
     char command[4096];
@@ -455,11 +574,14 @@ static int logcat(transport_type transport, char* serial, int argc, char **argv)
     quoted_log_tags = dupAndQuote(log_tags == NULL ? "" : log_tags);
 
     snprintf(buf, sizeof(buf),
-        "shell:export ANDROID_LOG_TAGS=\"\%s\" ; exec dlogutil",
-        //"shell:export ANDROID_LOG_TAGS=\"\%s\" ; exec logcat",
+        "shell:export ANDROID_LOG_TAGS=\"\%s\" ; exec logcat",
         quoted_log_tags);
 
     free(quoted_log_tags);
+
+    if (!strcmp(argv[0],"longcat")) {
+        strncat(buf, " -v long", sizeof(buf)-1);
+    }
 
     argc -= 1;
     argv += 1;
@@ -474,6 +596,109 @@ static int logcat(transport_type transport, char* serial, int argc, char **argv)
     }
 
     send_shellcommand(transport, serial, buf);
+    return 0;
+}
+
+static int mkdirs(char *path)
+{
+    int ret;
+    char *x = path + 1;
+
+    for(;;) {
+        x = sdb_dirstart(x);
+        if(x == 0) return 0;
+        *x = 0;
+        ret = sdb_mkdir(path, 0775);
+        *x = OS_PATH_SEPARATOR;
+        if((ret < 0) && (errno != EEXIST)) {
+            return ret;
+        }
+        x++;
+    }
+    return 0;
+}
+
+static int backup(int argc, char** argv) {
+    char buf[4096];
+    char default_name[32];
+    const char* filename = strcpy(default_name, "./backup.ab");
+    int fd, outFd;
+    int i, j;
+
+    /* find, extract, and use any -f argument */
+    for (i = 1; i < argc; i++) {
+        if (!strcmp("-f", argv[i])) {
+            if (i == argc-1) {
+                fprintf(stderr, "sdb: -f passed with no filename\n");
+                return usage();
+            }
+            filename = argv[i+1];
+            for (j = i+2; j <= argc; ) {
+                argv[i++] = argv[j++];
+            }
+            argc -= 2;
+            argv[argc] = NULL;
+        }
+    }
+
+    /* bare "sdb backup" or "sdb backup -f filename" are not valid invocations */
+    if (argc < 2) return usage();
+
+    sdb_unlink(filename);
+    mkdirs((char *)filename);
+    outFd = sdb_creat(filename, 0640);
+    if (outFd < 0) {
+        fprintf(stderr, "sdb: unable to open file %s\n", filename);
+        return -1;
+    }
+
+    snprintf(buf, sizeof(buf), "backup");
+    for (argc--, argv++; argc; argc--, argv++) {
+        strncat(buf, ":", sizeof(buf) - strlen(buf) - 1);
+        strncat(buf, argv[0], sizeof(buf) - strlen(buf) - 1);
+    }
+
+    D("backup. filename=%s buf=%s\n", filename, buf);
+    fd = sdb_connect(buf);
+    if (fd < 0) {
+        fprintf(stderr, "sdb: unable to connect for backup\n");
+        sdb_close(outFd);
+        return -1;
+    }
+
+    printf("Now unlock your device and confirm the backup operation.\n");
+    copy_to_file(fd, outFd);
+
+    sdb_close(fd);
+    sdb_close(outFd);
+    return 0;
+}
+
+static int restore(int argc, char** argv) {
+    const char* filename;
+    int fd, tarFd;
+
+    if (argc != 2) return usage();
+
+    filename = argv[1];
+    tarFd = sdb_open(filename, O_RDONLY);
+    if (tarFd < 0) {
+        fprintf(stderr, "sdb: unable to open file %s\n", filename);
+        return -1;
+    }
+
+    fd = sdb_connect("restore:");
+    if (fd < 0) {
+        fprintf(stderr, "sdb: unable to connect for backup\n");
+        sdb_close(tarFd);
+        return -1;
+    }
+
+    printf("Now unlock your device and confirm the restore operation.\n");
+    copy_to_file(tarFd, fd);
+
+    sdb_close(fd);
+    sdb_close(tarFd);
     return 0;
 }
 
@@ -623,6 +848,7 @@ int sdb_commandline(int argc, char **argv)
     char buf[4096];
     int no_daemon = 0;
     int is_daemon = 0;
+    int is_server = 0;
     int persist = 0;
     int r;
     int quote;
@@ -659,7 +885,9 @@ int sdb_commandline(int argc, char **argv)
 
     /* modifiers and flags */
     while(argc > 0) {
-        if(!strcmp(argv[0],"nodaemon")) {
+        if(!strcmp(argv[0],"server")) {
+            is_server = 1;
+        } else if(!strcmp(argv[0],"nodaemon")) {
             no_daemon = 1;
         } else if (!strcmp(argv[0], "fork-server")) {
             /* this is a special flag used only when the SDB client launches the SDB Server */
@@ -706,7 +934,7 @@ int sdb_commandline(int argc, char **argv)
     sdb_set_transport(ttype, serial);
     sdb_set_tcp_specifics(server_port);
 
-    if ((argc > 0) && (!strcmp(argv[0],"server"))) {
+    if (is_server) {
         if (no_daemon || is_daemon) {
             r = sdb_main(is_daemon, server_port);
         } else {
@@ -718,7 +946,7 @@ int sdb_commandline(int argc, char **argv)
         return r;
     }
 
-//top:
+top:
     if(argc == 0) {
         return usage();
     }
@@ -731,6 +959,22 @@ int sdb_commandline(int argc, char **argv)
         tmp = sdb_query(buf);
         if(tmp) {
             printf("List of devices attached \n");
+            printf("%s", tmp);
+            return 0;
+        } else {
+            return 1;
+        }
+    }
+
+    if(!strcmp(argv[0], "connect")) {
+        char *tmp;
+        if (argc != 2) {
+            fprintf(stderr, "Usage: sdb connect <host>[:<port>]\n");
+            return 1;
+        }
+        snprintf(buf, sizeof buf, "host:connect:%s", argv[1]);
+        tmp = sdb_query(buf);
+        if(tmp) {
             printf("%s\n", tmp);
             return 0;
         } else {
@@ -738,63 +982,49 @@ int sdb_commandline(int argc, char **argv)
         }
     }
 
-    if(!strcmp(argv[0], "test")) {
+    if(!strcmp(argv[0], "disconnect")) {
         char *tmp;
-        snprintf(buf, sizeof buf, "host:emulator:26101");
+        if (argc > 2) {
+            fprintf(stderr, "Usage: sdb disconnect [<host>[:<port>]]\n");
+            return 1;
+        }
+        if (argc == 2) {
+            snprintf(buf, sizeof buf, "host:disconnect:%s", argv[1]);
+        } else {
+            snprintf(buf, sizeof buf, "host:disconnect:");
+        }
         tmp = sdb_query(buf);
         if(tmp) {
+            printf("%s\n", tmp);
             return 0;
         } else {
             return 1;
         }
     }
 
-//    if(!strcmp(argv[0], "connect")) {
-//        char *tmp;
-//        if (argc != 2) {
-//            fprintf(stderr, "Usage: sdb connect <host>[:<port>]\n");
-//            return 1;
-//        }
-//        snprintf(buf, sizeof buf, "host:connect:%s", argv[1]);
-//        tmp = sdb_query(buf);
-//        if(tmp) {
-//            printf("%s\n", tmp);
-//            return 0;
-//        } else {
-//            return 1;
-//        }
-//    }
+    if (!strcmp(argv[0], "emu")) {
+        return sdb_send_emulator_command(argc, argv);
+    }
 
-//    if(!strcmp(argv[0], "disconnect")) {
-//        char *tmp;
-//        if (argc > 2) {
-//            fprintf(stderr, "Usage: sdb disconnect [<host>[:<port>]]\n");
-//            return 1;
-//        }
-//        if (argc == 2) {
-//            snprintf(buf, sizeof buf, "host:disconnect:%s", argv[1]);
-//        } else {
-//            snprintf(buf, sizeof buf, "host:disconnect:");
-//        }
-//        tmp = sdb_query(buf);
-//        if(tmp) {
-//            printf("%s\n", tmp);
-//            return 0;
-//        } else {
-//            return 1;
-//        }
-//    }
-
-//    if (!strcmp(argv[0], "emu")) {
-//        return sdb_send_emulator_command(argc, argv);
-//    }
-
-    if(!strcmp(argv[0], "shell")) {
+    if(!strcmp(argv[0], "shell") || !strcmp(argv[0], "hell")) {
         int r;
         int fd;
 
+        char h = (argv[0][0] == 'h');
+
+        if (h) {
+            printf("\x1b[41;33m");
+            fflush(stdout);
+        }
+
         if(argc < 2) {
-            return interactive_shell();
+            D("starting interactive shell\n");
+            r = interactive_shell();
+            if (h) {
+                printf("\x1b[0m");
+                fflush(stdout);
+            }
+            return r;
         }
 
         snprintf(buf, sizeof buf, "shell:%s", argv[1]);
@@ -813,9 +1043,12 @@ int sdb_commandline(int argc, char **argv)
         }
 
         for(;;) {
+            D("interactive shell loop. buff=%s\n", buf);
             fd = sdb_connect(buf);
             if(fd >= 0) {
+                D("about to read_and_dump(fd=%d)\n", fd);
                 read_and_dump(fd);
+                D("read_and_dump() done.\n");
                 sdb_close(fd);
                 r = 0;
             } else {
@@ -828,6 +1061,11 @@ int sdb_commandline(int argc, char **argv)
                 sdb_sleep_ms(1000);
                 do_cmd(ttype, serial, "wait-for-device", 0);
             } else {
+                if (h) {
+                    printf("\x1b[0m");
+                    fflush(stdout);
+                }
+                D("interactive shell loop. return r=%d\n", r);
                 return r;
             }
         }
@@ -842,66 +1080,75 @@ int sdb_commandline(int argc, char **argv)
         }
         return 0;
     }
+#if 0 /* tizen specific */
+    if(!strcmp(argv[0], "sideload")) {
+        if(argc != 2) return usage();
+        if(sdb_download("sideload", argv[1], 1)) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+#endif
+    if(!strcmp(argv[0], "remount") || !strcmp(argv[0], "reboot")
+            || !strcmp(argv[0], "reboot-bootloader")
+            || !strcmp(argv[0], "tcpip") || !strcmp(argv[0], "usb")
+            || !strcmp(argv[0], "root")) {
+        char command[100];
+        if (!strcmp(argv[0], "reboot-bootloader"))
+            snprintf(command, sizeof(command), "reboot:bootloader");
+        else if (argc > 1)
+            snprintf(command, sizeof(command), "%s:%s", argv[0], argv[1]);
+        else
+            snprintf(command, sizeof(command), "%s:", argv[0]);
+        int fd = sdb_connect(command);
+        if(fd >= 0) {
+            read_and_dump(fd);
+            sdb_close(fd);
+            return 0;
+        }
+        fprintf(stderr,"error: %s\n", sdb_error());
+        return 1;
+    }
 
-//    if(!strcmp(argv[0], "remount") || !strcmp(argv[0], "reboot")
-//            || !strcmp(argv[0], "reboot-bootloader")
-//            || !strcmp(argv[0], "tcpip") || !strcmp(argv[0], "usb")
-//            || !strcmp(argv[0], "root")) {
-//        char command[100];
-//        if (!strcmp(argv[0], "reboot-bootloader"))
-//            snprintf(command, sizeof(command), "reboot:bootloader");
-//        else if (argc > 1)
-//            snprintf(command, sizeof(command), "%s:%s", argv[0], argv[1]);
-//        else
-//            snprintf(command, sizeof(command), "%s:", argv[0]);
-//        int fd = sdb_connect(command);
-//        if(fd >= 0) {
-//            read_and_dump(fd);
-//            sdb_close(fd);
-//            return 0;
-//        }
-//        fprintf(stderr,"error: %s\n", sdb_error());
-//        return 1;
-//    }
-
-//    if(!strcmp(argv[0], "bugreport")) {
-//        if (argc != 1) return usage();
-//        do_cmd(ttype, serial, "shell", "bugreport", 0);
-//        return 0;
-//    }
+    if(!strcmp(argv[0], "bugreport")) {
+        if (argc != 1) return usage();
+        do_cmd(ttype, serial, "shell", "bugreport", 0);
+        return 0;
+    }
 
     /* sdb_command() wrapper commands */
 
-//    if(!strncmp(argv[0], "wait-for-", strlen("wait-for-"))) {
-//        char* service = argv[0];
-//        if (!strncmp(service, "wait-for-device", strlen("wait-for-device"))) {
-//            if (ttype == kTransportUsb) {
-//                service = "wait-for-usb";
-//            } else if (ttype == kTransportLocal) {
-//                service = "wait-for-local";
-//            } else {
-//                service = "wait-for-any";
-//            }
-//        }
-//
-//        format_host_command(buf, sizeof buf, service, ttype, serial);
-//
-//        if (sdb_command(buf)) {
-//            D("failure: %s *\n",sdb_error());
-//            fprintf(stderr,"error: %s\n", sdb_error());
-//            return 1;
-//        }
-//
-//        /* Allow a command to be run after wait-for-device,
-//            * e.g. 'sdb wait-for-device shell'.
-//            */
-//        if(argc > 1) {
-//            argc--;
-//            argv++;
-//            goto top;
-//        }
-//        return 0;
-//    }
+    if(!strncmp(argv[0], "wait-for-", strlen("wait-for-"))) {
+        char* service = argv[0];
+        if (!strncmp(service, "wait-for-device", strlen("wait-for-device"))) {
+            if (ttype == kTransportUsb) {
+                service = "wait-for-usb";
+            } else if (ttype == kTransportLocal) {
+                service = "wait-for-local";
+            } else {
+                service = "wait-for-any";
+            }
+        }
+
+        format_host_command(buf, sizeof buf, service, ttype, serial);
+
+        if (sdb_command(buf)) {
+            D("failure: %s *\n",sdb_error());
+            fprintf(stderr,"error: %s\n", sdb_error());
+            return 1;
+        }
+
+        /* Allow a command to be run after wait-for-device,
+            * e.g. 'sdb wait-for-device shell'.
+            */
+        if(argc > 1) {
+            argc--;
+            argv++;
+            goto top;
+        }
+        return 0;
+    }
 
     if(!strcmp(argv[0], "forward")) {
         if(argc != 3) return usage();
@@ -929,8 +1176,34 @@ int sdb_commandline(int argc, char **argv)
     }
 
     if(!strcmp(argv[0], "push")) {
-        if(argc != 3) return usage();
-        return do_sync_push(argv[1], argv[2], 0 /* no verify APK */);
+        int i=0;
+        int utf8=0;
+
+        if(argc < 3) return usage();
+        if (argv[argc-1][0] == '-') {
+            if (!strcmp(argv[argc-1], "-with-utf8")) {
+                utf8 = 1;
+                argc = argc - 1;
+            } else {
+                return usage();
+            }
+        }
+        for (i=1; i<argc-1; i++) {
+            do_sync_push(argv[i], argv[argc-1], 0 /* no verify APK */, utf8);
+        }
+        return 0;
+    }
+
+    if(!strcmp(argv[0], "install")) {
+        if(argc != 2) return usage();
+
+        return install_app_sdb(argv[1]);
+    }
+
+    if(!strcmp(argv[0], "uninstall")) {
+        if(argc != 2) return usage();
+
+        return uninstall_app_sdb(argv[1]);
     }
 
     if(!strcmp(argv[0], "pull")) {
@@ -943,49 +1216,49 @@ int sdb_commandline(int argc, char **argv)
         }
     }
 
-//    if(!strcmp(argv[0], "install")) {
-//        if (argc < 2) return usage();
-//        return install_app(ttype, serial, argc, argv);
-//    }
-//
-//    if(!strcmp(argv[0], "uninstall")) {
-//        if (argc < 2) return usage();
-//        return uninstall_app(ttype, serial, argc, argv);
-//    }
+    if(!strcmp(argv[0], "install")) {
+        if (argc < 2) return usage();
+        return install_app(ttype, serial, argc, argv);
+    }
 
-//    if(!strcmp(argv[0], "sync")) {
-//        char *srcarg, *android_srcpath, *data_srcpath;
-//        int listonly = 0;
-//
-//        int ret;
-//        if(argc < 2) {
-//            /* No local path was specified. */
-//            srcarg = NULL;
-//        } else if (argc >= 2 && strcmp(argv[1], "-l") == 0) {
-//            listonly = 1;
-//            if (argc == 3) {
-//                srcarg = argv[2];
-//            } else {
-//                srcarg = NULL;
-//            }
-//        } else if(argc == 2) {
-//            /* A local path or "android"/"data" arg was specified. */
-//            srcarg = argv[1];
-//        } else {
-//            return usage();
-//        }
-//        ret = find_sync_dirs(srcarg, &android_srcpath, &data_srcpath);
-//        if(ret != 0) return usage();
-//
-//        if(android_srcpath != NULL)
-//            ret = do_sync_sync(android_srcpath, "/system", listonly);
-//        if(ret == 0 && data_srcpath != NULL)
-//            ret = do_sync_sync(data_srcpath, "/data", listonly);
-//
-//        free(android_srcpath);
-//        free(data_srcpath);
-//        return ret;
-//    }
+    if(!strcmp(argv[0], "uninstall")) {
+        if (argc < 2) return usage();
+        return uninstall_app(ttype, serial, argc, argv);
+    }
+
+    if(!strcmp(argv[0], "sync")) {
+        char *srcarg, *android_srcpath, *data_srcpath;
+        int listonly = 0;
+
+        int ret;
+        if(argc < 2) {
+            /* No local path was specified. */
+            srcarg = NULL;
+        } else if (argc >= 2 && strcmp(argv[1], "-l") == 0) {
+            listonly = 1;
+            if (argc == 3) {
+                srcarg = argv[2];
+            } else {
+                srcarg = NULL;
+            }
+        } else if(argc == 2) {
+            /* A local path or "android"/"data" arg was specified. */
+            srcarg = argv[1];
+        } else {
+            return usage();
+        }
+        ret = find_sync_dirs(srcarg, &android_srcpath, &data_srcpath);
+        if(ret != 0) return usage();
+
+        if(android_srcpath != NULL)
+            ret = do_sync_sync(android_srcpath, "/system", listonly);
+        if(ret == 0 && data_srcpath != NULL)
+            ret = do_sync_sync(data_srcpath, "/data", listonly);
+
+        free(android_srcpath);
+        free(data_srcpath);
+        return ret;
+    }
 
     /* passthrough commands */
 
@@ -1011,29 +1284,37 @@ int sdb_commandline(int argc, char **argv)
         return 0;
     }
 
-    if(!strcmp(argv[0],"dlog")) {
+    if(!strcmp(argv[0],"logcat") || !strcmp(argv[0],"lolcat") || !strcmp(argv[0],"longcat")) {
         return logcat(ttype, serial, argc, argv);
     }
 
-//    if(!strcmp(argv[0],"ppp")) {
-//        return ppp(argc, argv);
-//    }
+    if(!strcmp(argv[0],"ppp")) {
+        return ppp(argc, argv);
+    }
 
     if (!strcmp(argv[0], "start-server")) {
         return sdb_connect("host:start-server");
     }
 
-//    if (!strcmp(argv[0], "jdwp")) {
-//        int  fd = sdb_connect("jdwp");
-//        if (fd >= 0) {
-//            read_and_dump(fd);
-//            sdb_close(fd);
-//            return 0;
-//        } else {
-//            fprintf(stderr, "error: %s\n", sdb_error());
-//            return -1;
-//        }
-//    }
+    if (!strcmp(argv[0], "backup")) {
+        return backup(argc, argv);
+    }
+
+    if (!strcmp(argv[0], "restore")) {
+        return restore(argc, argv);
+    }
+
+    if (!strcmp(argv[0], "jdwp")) {
+        int  fd = sdb_connect("jdwp");
+        if (fd >= 0) {
+            read_and_dump(fd);
+            sdb_close(fd);
+            return 0;
+        } else {
+            fprintf(stderr, "error: %s\n", sdb_error());
+            return -1;
+        }
+    }
 
     /* "sdb /?" is a common idiom under Windows */
     if(!strcmp(argv[0], "help") || !strcmp(argv[0], "/?")) {
@@ -1142,6 +1423,73 @@ static int pm_command(transport_type transport, char* serial,
     return 0;
 }
 
+int sdb_command2(const char* cmd) {
+    int result = sdb_connect(cmd);
+
+    if(result < 0) {
+        return result;
+    }
+
+    D("about to read_and_dump(fd=%d)\n", result);
+    read_and_dump(result);
+    D("read_and_dump() done.\n");
+    sdb_close(result);
+
+    return 0;
+}
+
+int install_app_sdb(const char *srcpath) {
+    D("Install start\n");
+    const char * APP_DEST = "/opt/apps/PKGS/%s";
+    const char* filename = sdb_dirstop(srcpath);
+    char destination[PATH_MAX];
+
+    if (filename) {
+        filename++;
+        snprintf(destination, sizeof destination, APP_DEST, filename);
+    } else {
+        snprintf(destination, sizeof destination, APP_DEST, srcpath);
+    }
+
+    D("Push file: %s to %s\n", srcpath, destination);
+    int result = do_sync_push(srcpath, destination, 0, 0);
+
+    if(result < 0) {
+        fprintf(stderr, "error: %s\n", sdb_error());
+        return -1;
+    }
+
+    const char* SHELL_INSTALL_CMD ="shell:pkgcmd -i -t tpk -p %s -q";
+    char full_cmd[PATH_MAX];
+    snprintf(full_cmd, sizeof full_cmd, SHELL_INSTALL_CMD, destination);
+    D("Install command: %s\n", full_cmd);
+    result = sdb_command2(full_cmd);
+
+    if(result < 0) {
+        fprintf(stderr, "error: %s\n", sdb_error());
+        return result;
+    }
+
+    const char* SHELL_REMOVE_CMD = "shell:rm %s";
+    snprintf(full_cmd, sizeof full_cmd, SHELL_REMOVE_CMD, destination);
+    D("Remove file command: %s\n", full_cmd);
+    result = sdb_command2(full_cmd);
+
+    if(result < 0) {
+        fprintf(stderr, "error: %s\n", sdb_error());
+        return result;
+    }
+
+    return 0;
+}
+
+int uninstall_app_sdb(const char *appid) {
+    const char* SHELL_UNINSTALL_CMD ="shell:pkgcmd -u -t tpk -n %s -q";
+    char full_cmd[PATH_MAX];
+    snprintf(full_cmd, sizeof full_cmd, SHELL_UNINSTALL_CMD, appid);
+    return sdb_command(full_cmd);
+}
+
 int uninstall_app(transport_type transport, char* serial, int argc, char** argv)
 {
     /* if the user choose the -k option, we refuse to do it until devices are
@@ -1160,7 +1508,6 @@ int uninstall_app(transport_type transport, char* serial, int argc, char** argv)
     return pm_command(transport, serial, argc, argv);
 }
 
-#if 0 //eric
 static int delete_file(transport_type transport, char* serial, char* filename)
 {
     char buf[4096];
@@ -1175,51 +1522,125 @@ static int delete_file(transport_type transport, char* serial, char* filename)
     return 0;
 }
 
-int install_app(transport_type transport, char* serial, int argc, char** argv)
+const char* get_basename(const char* filename)
+{
+    const char* basename = sdb_dirstop(filename);
+    if (basename) {
+        basename++;
+        return basename;
+    } else {
+        return filename;
+    }
+}
+
+static int check_file(const char* filename)
 {
     struct stat st;
-    int err;
-    const char *const DATA_DEST = "/data/local/tmp/%s";
-    const char *const SD_DEST = "/sdcard/tmp/%s";
-    const char* where = DATA_DEST;
-    char to[PATH_MAX];
-    char* filename = argv[argc - 1];
-    const char* p;
-    int i;
 
-    for (i = 0; i < argc; i++) {
-        if (!strcmp(argv[i], "-s"))
-            where = SD_DEST;
+    if (filename == NULL) {
+        return 0;
     }
 
-    p = sdb_dirstop(filename);
-    if (p) {
-        p++;
-        snprintf(to, sizeof to, where, p);
-    } else {
-        snprintf(to, sizeof to, where, filename);
-    }
-    if (p[0] == '\0') {
-    }
-
-    err = stat(filename, &st);
-    if (err != 0) {
+    if (stat(filename, &st) != 0) {
         fprintf(stderr, "can't find '%s' to install\n", filename);
         return 1;
     }
+
     if (!S_ISREG(st.st_mode)) {
-        fprintf(stderr, "can't install '%s' because it's not a file\n",
-                filename);
+        fprintf(stderr, "can't install '%s' because it's not a file\n", filename);
         return 1;
     }
 
-    if (!(err = do_sync_push(filename, to, 1 /* verify APK */))) {
-        /* file in place; tell the Package Manager to install it */
-        argv[argc - 1] = to;       /* destination name, not source location */
-        pm_command(transport, serial, argc, argv);
-        delete_file(transport, serial, to);
+    return 0;
+}
+
+int install_app(transport_type transport, char* serial, int argc, char** argv)
+{
+    static const char *const DATA_DEST = "/data/local/tmp/%s";
+    static const char *const SD_DEST = "/sdcard/tmp/%s";
+    const char* where = DATA_DEST;
+    char apk_dest[PATH_MAX];
+    char verification_dest[PATH_MAX];
+    char* apk_file;
+    char* verification_file = NULL;
+    int file_arg = -1;
+    int err;
+    int i;
+    int verify_apk = 1;
+
+    for (i = 1; i < argc; i++) {
+        if (*argv[i] != '-') {
+            file_arg = i;
+            break;
+        } else if (!strcmp(argv[i], "-i")) {
+            // Skip the installer package name.
+            i++;
+        } else if (!strcmp(argv[i], "-s")) {
+            where = SD_DEST;
+        } else if (!strcmp(argv[i], "--algo")) {
+            verify_apk = 0;
+            i++;
+        } else if (!strcmp(argv[i], "--iv")) {
+            verify_apk = 0;
+            i++;
+        } else if (!strcmp(argv[i], "--key")) {
+            verify_apk = 0;
+            i++;
+        }
     }
+
+    if (file_arg < 0) {
+        fprintf(stderr, "can't find filename in arguments\n");
+        return 1;
+    } else if (file_arg + 2 < argc) {
+        fprintf(stderr, "too many files specified; only takes APK file and verifier file\n");
+        return 1;
+    }
+
+    apk_file = argv[file_arg];
+
+    if (file_arg != argc - 1) {
+        verification_file = argv[file_arg + 1];
+    }
+
+    if (check_file(apk_file) || check_file(verification_file)) {
+        return 1;
+    }
+
+    snprintf(apk_dest, sizeof apk_dest, where, get_basename(apk_file));
+    if (verification_file != NULL) {
+        snprintf(verification_dest, sizeof(verification_dest), where, get_basename(verification_file));
+
+        if (!strcmp(apk_dest, verification_dest)) {
+            fprintf(stderr, "APK and verification file can't have the same name\n");
+            return 1;
+        }
+    }
+
+    err = do_sync_push(apk_file, apk_dest, verify_apk, 0);
+    if (err) {
+        goto cleanup_apk;
+    } else {
+        argv[file_arg] = apk_dest; /* destination name, not source location */
+    }
+
+    if (verification_file != NULL) {
+        err = do_sync_push(verification_file, verification_dest, 0 /* no verify APK */, 0);
+        if (err) {
+            goto cleanup_apk;
+        } else {
+            argv[file_arg + 1] = verification_dest; /* destination name, not source location */
+        }
+    }
+
+    pm_command(transport, serial, argc, argv);
+
+cleanup_apk:
+    if (verification_file != NULL) {
+        delete_file(transport, serial, verification_dest);
+    }
+
+    delete_file(transport, serial, apk_dest);
 
     return err;
 }
-#endif

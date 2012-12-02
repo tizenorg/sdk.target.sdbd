@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -45,7 +45,7 @@
 /* usb scan debugging is waaaay too verbose */
 #define DBGX(x...)
 
-static sdb_mutex_t usb_lock = SDB_MUTEX_INITIALIZER;
+SDB_MUTEX_DEFINE( usb_lock );
 
 struct usb_handle
 {
@@ -149,7 +149,7 @@ static void find_usb_device(const char *base,
 
 //        DBGX("[ scanning %s ]\n", busname);
         while((de = readdir(devdir))) {
-            unsigned char devdesc[256];
+            unsigned char devdesc[4096];
             unsigned char* bufptr = devdesc;
             unsigned char* bufend;
             struct usb_device_descriptor* device;
@@ -158,7 +158,7 @@ static void find_usb_device(const char *base,
             struct usb_endpoint_descriptor *ep1, *ep2;
             unsigned zero_mask = 0;
             unsigned vid, pid;
-            size_t desclength;
+            unsigned int desclength;
 
             if(badname(de->d_name)) continue;
             snprintf(devname, sizeof devname, "%s/%s", busname, de->d_name);
@@ -191,14 +191,14 @@ static void find_usb_device(const char *base,
                 continue;
             }
 
-            vid = __le16_to_cpu(device->idVendor);
-            pid = __le16_to_cpu(device->idProduct);
-            pid = devdesc[10] | (devdesc[11] << 8);
+            vid = device->idVendor;
+            pid = device->idProduct;
             DBGX("[ %s is V:%04x P:%04x ]\n", devname, vid, pid);
 
                 // should have config descriptor next
             config = (struct usb_config_descriptor *)bufptr;
-                // sdb needs 2nd configuration
+
+            /* tizen specific */
             if (device->bNumConfigurations > 1) {
                 bufptr += config->wTotalLength;
                 config = (struct usb_config_descriptor *)bufptr;
@@ -206,7 +206,6 @@ static void find_usb_device(const char *base,
             }
 
             bufptr += USB_DT_CONFIG_SIZE;
-
             if (config->bLength != USB_DT_CONFIG_SIZE || config->bDescriptorType != USB_DT_CONFIG) {
                 D("usb_config_descriptor not found\n");
                 sdb_close(fd);
@@ -236,7 +235,7 @@ static void find_usb_device(const char *base,
                             is_sdb_interface(vid, pid, interface->bInterfaceClass,
                             interface->bInterfaceSubClass, interface->bInterfaceProtocol))  {
 
-                        DBGX("looking for bulk endpoints\n");
+                        D("looking for bulk endpoints\n");
                             // looks like SDB...
                         ep1 = (struct usb_endpoint_descriptor *)bufptr;
                         bufptr += USB_DT_ENDPOINT_SIZE;
@@ -259,7 +258,7 @@ static void find_usb_device(const char *base,
                             continue;
                         }
                             /* aproto 01 needs 0 termination */
-                        if(interface->bInterfaceProtocol == 0x02) {
+                        if(interface->bInterfaceProtocol == 0x01) {
                             zero_mask = ep1->wMaxPacketSize - 1;
                         }
 
@@ -378,6 +377,7 @@ static int usb_bulk_read(usb_handle *h, void *data, int len)
         h->reaper_thread = pthread_self();
         sdb_mutex_unlock(&h->lock);
         res = ioctl(h->desc, USBDEVFS_REAPURB, &out);
+        int saved_errno = errno;
         sdb_mutex_lock(&h->lock);
         h->reaper_thread = 0;
         if(h->dead) {
@@ -385,7 +385,7 @@ static int usb_bulk_read(usb_handle *h, void *data, int len)
             break;
         }
         if(res < 0) {
-            if(errno == EINTR) {
+            if(saved_errno == EINTR) {
                 continue;
             }
             D("[ reap urb - error ]\n");
@@ -547,7 +547,7 @@ static void register_device(const char *dev_name,
     usb_handle* usb = 0;
     int n = 0;
     char serial[256];
-    int bConfigurationValue = 2; /* sdb needs 2nd configruation */
+    int bConfigurationValue = 2; /* tizen specific : sdb needs 2nd configruation */
 
         /* Since Linux will not reassign the device ID (and dev_name)
         ** as long as the device is open, we can add to the list here
@@ -590,11 +590,23 @@ static void register_device(const char *dev_name,
         D("[ usb open read-only %s fd = %d]\n", usb->fname, usb->desc);
     } else {
         D("[ usb open %s fd = %d]\n", usb->fname, usb->desc);
+        /* tizen specific */
         n = ioctl(usb->desc, USBDEVFS_RESET);
-        if(n != 0) goto fail;
-        ioctl(usb->desc, USBDEVFS_SETCONFIGURATION, &bConfigurationValue);
+        if(n != 0) {
+            D("[ usb reset failed %s fd = %d]\n", usb->fname, usb->desc);
+            goto fail;
+        }
+        n = ioctl(usb->desc, USBDEVFS_SETCONFIGURATION, &bConfigurationValue);
+        if (n != 0) {
+            D("[ usb set %d configuration failed %s fd = %d]\n", bConfigurationValue, usb->fname, usb->desc);
+            goto fail;
+        }
+
         n = ioctl(usb->desc, USBDEVFS_CLAIMINTERFACE, &interface);
-        if(n != 0) goto fail;
+        if(n != 0) {
+            D("[ usb claim failed %s fd = %d]\n", usb->fname, usb->desc);
+            goto fail;
+        }
     }
 
         /* read the device's serial number */
@@ -617,6 +629,7 @@ static void register_device(const char *dev_name,
         ctrl.wIndex = 0;
         ctrl.wLength = sizeof(languages);
         ctrl.data = languages;
+        ctrl.timeout = 1000;
 
         result = ioctl(usb->desc, USBDEVFS_CONTROL, &ctrl);
         if (result > 0)
@@ -629,9 +642,10 @@ static void register_device(const char *dev_name,
             ctrl.bRequestType = USB_DIR_IN|USB_TYPE_STANDARD|USB_RECIP_DEVICE;
             ctrl.bRequest = USB_REQ_GET_DESCRIPTOR;
             ctrl.wValue = (USB_DT_STRING << 8) | serial_index;
-            ctrl.wIndex = languages[i];
+            ctrl.wIndex = __le16_to_cpu(languages[i]);
             ctrl.wLength = sizeof(buffer);
             ctrl.data = buffer;
+            ctrl.timeout = 1000;
 
             result = ioctl(usb->desc, USBDEVFS_CONTROL, &ctrl);
             if (result > 0) {
@@ -639,7 +653,7 @@ static void register_device(const char *dev_name,
                 // skip first word, and copy the rest to the serial string, changing shorts to bytes.
                 result /= 2;
                 for (i = 1; i < result; i++)
-                    serial[i - 1] = buffer[i];
+                    serial[i - 1] = __le16_to_cpu(buffer[i]);
                 serial[i - 1] = 0;
                 break;
             }
@@ -698,4 +712,3 @@ void usb_init()
         fatal_errno("cannot create input thread");
     }
 }
-

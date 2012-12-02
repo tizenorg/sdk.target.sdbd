@@ -14,20 +14,13 @@
  * limitations under the License.
  */
 
-#include <sys/types.h>
-#include <unistd.h>
-#include <limits.h>
-#include <stdio.h>
+#ifndef __TRANSPORT_H
+#define __TRANSPORT_H
 
-void get_my_path(char *exe, size_t maxLen)
-{
-    char proc[64];
-    snprintf(proc, sizeof proc, "/proc/%d/exe", getpid());
-    int err = readlink(proc, exe, maxLen - 1);
-    if(err > 0) {
-        exe[err] = '\0';
-    } else {
-        exe[0] = '\0';
-    }
-}
-
+/* convenience wrappers around read/write that will retry on
+** EINTR and/or short read/write.  Returns 0 on success, -1
+** on error or EOF.
+*/
+int readx(int fd, void *ptr, size_t len);
+int writex(int fd, const void *ptr, size_t len);
+#endif   /* __TRANSPORT_H */

@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -18,6 +18,8 @@
 #define __SDB_H
 
 #include <limits.h>
+
+#include "transport.h"  /* readx(), writex() */
 
 #define MAX_PAYLOAD 4096
 
@@ -83,6 +85,11 @@ struct asocket {
         ** but packets are still queued for delivery
         */
     int    closing;
+
+        /* flag: quit adbd when both ends close the
+        ** local service socket
+        */
+    int    exit_on_close;
 
         /* the asocket we are connected to
         */
@@ -184,6 +191,7 @@ struct atransport
     char *serial;
     char *product;
     int sdb_port; // Use for emulators (local transport)
+    char *device_name; // for connection explorer
 
         /* a list of adisconnect callbacks called when the transport is kicked */
     int          kicked;
@@ -273,7 +281,7 @@ void init_usb_transport(atransport *t, usb_handle *usb, int state);
 void close_usb_devices();
 
 /* cause new transports to be init'd and added to the list */
-void register_socket_transport(int s, const char *serial, int port, int local);
+void register_socket_transport(int s, const char *serial, int port, int local, const char *device_name);
 
 /* these should only be used for the "sdb disconnect" command */
 void unregister_transport(atransport *t);
@@ -302,12 +310,15 @@ int       create_jdwp_connection_fd(int  jdwp_pid);
 #endif
 
 #if !SDB_HOST
+typedef enum {
+    BACKUP,
+    RESTORE
+} BackupOperation;
+int backup_service(BackupOperation operation, char* args);
 void framebuffer_service(int fd, void *cookie);
-#if 0 //eric
 void log_service(int fd, void *cookie);
 void remount_service(int fd, void *cookie);
 char * get_log_file_path(const char * log_name);
-#endif
 #endif
 
 /* packet allocator */
@@ -316,13 +327,6 @@ void put_apacket(apacket *p);
 
 int check_header(apacket *p);
 int check_data(apacket *p);
-
-/* convenience wrappers around read/write that will retry on
-** EINTR and/or short read/write.  Returns 0 on success, -1
-** on error or EOF.
-*/
-int readx(int fd, void *ptr, size_t len);
-int writex(int fd, const void *ptr, size_t len);
 
 /* define SDB_TRACE to 1 to enable tracing support, or 0 to disable it */
 
@@ -342,28 +346,63 @@ typedef enum {
     TRACE_SYNC,
     TRACE_SYSDEPS,
     TRACE_JDWP,
-} AdbTrace;
+    TRACE_SERVICES,
+    TRACE_PROPERTIES
+} SdbTrace;
 
 #if SDB_TRACE
 
-  int     sdb_trace_mask;
+#if !SDB_HOST
+/*
+ * When running inside the emulator, guest's sdbd can connect to 'sdb-debug'
+ * qemud service that can display sdb trace messages (on condition that emulator
+ * has been started with '-debug sdb' option).
+ */
 
+/* Delivers a trace message to the emulator via QEMU pipe. */
+void sdb_qemu_trace(const char* fmt, ...);
+/* Macro to use to send SDB trace messages to the emulator. */
+#define DQ(...)    sdb_qemu_trace(__VA_ARGS__)
+#else
+#define DQ(...) ((void)0)
+#endif  /* !SDB_HOST */
+
+  extern int     sdb_trace_mask;
+  extern unsigned char    sdb_trace_output_count;
   void    sdb_trace_init(void);
 
 #  define SDB_TRACING  ((sdb_trace_mask & (1 << TRACE_TAG)) != 0)
 
   /* you must define TRACE_TAG before using this macro */
-  #define  D(...)                                      \
+#  define  D(...)                                      \
         do {                                           \
-            if (SDB_TRACING)                           \
+            if (SDB_TRACING) {                         \
+                int save_errno = errno;                \
+                sdb_mutex_lock(&D_lock);               \
+                fprintf(stderr, "%s::%s():",           \
+                        __FILE__, __FUNCTION__);       \
+                errno = save_errno;                    \
                 fprintf(stderr, __VA_ARGS__ );         \
+                fflush(stderr);                        \
+                sdb_mutex_unlock(&D_lock);             \
+                errno = save_errno;                    \
+           }                                           \
+        } while (0)
+#  define  DR(...)                                     \
+        do {                                           \
+            if (SDB_TRACING) {                         \
+                int save_errno = errno;                \
+                sdb_mutex_lock(&D_lock);               \
+                errno = save_errno;                    \
+                fprintf(stderr, __VA_ARGS__ );         \
+                fflush(stderr);                        \
+                sdb_mutex_unlock(&D_lock);             \
+                errno = save_errno;                    \
+           }                                           \
         } while (0)
 #else
-//#  define  D(...)          ((void)0)
-  #define  D(...)                                      \
-        do {                                           \
-            fprintf(stderr, __VA_ARGS__ );         \
-        } while (0)
+#  define  D(...)          ((void)0)
+#  define  DR(...)         ((void)0)
 #  define  SDB_TRACING     0
 #endif
 
@@ -372,17 +411,25 @@ typedef enum {
 #define print_packet(tag,p) do {} while (0)
 #endif
 
-#define DEFAULT_SDB_PORT 26099
-#define DEFAULT_SDB_LOCAL_TRANSPORT_PORT 26101
+#if SDB_HOST_ON_TARGET
+/* sdb and sdbd are coexisting on the target, so use 26099 for sdb
+ * to avoid conflicting with sdbd's usage of 26098
+ */
+#  define DEFAULT_SDB_PORT 26099 /* tizen specific */
+#else
+#  define DEFAULT_SDB_PORT 26099 /* tizen specific */
+#endif
 
-#define SDB_CLASS              0xFF
-#define SDB_SUBCLASS           0x20
-#define SDB_PROTOCOL           0x02
+#define DEFAULT_SDB_LOCAL_TRANSPORT_PORT 26101 /* tizen specific */
+
+#define SDB_CLASS              0xff
+#define SDB_SUBCLASS           0x20 //0x42 /* tizen specific */
+#define SDB_PROTOCOL           0x02 //0x01 /* tizen specific */
 
 
 void local_init(int port);
-int  local_connect(int  port);
-int  local_connect_arbitrary_ports(int console_port, int sdb_port);
+int  local_connect(int  port, const char *device_name);
+int  local_connect_arbitrary_ports(int console_port, int sdb_port, const char *device_name);
 
 /* usb host/client interface */
 void usb_init();
@@ -409,12 +456,23 @@ int connection_state(atransport *t);
 #define CS_HOST       3
 #define CS_RECOVERY   4
 #define CS_NOPERM     5 /* Insufficient permissions to communicate with the device */
+#define CS_SIDELOAD   6
 
 extern int HOST;
+extern int SHELL_EXIT_NOTIFY_FD;
 
 #define CHUNK_SIZE (64*1024)
 
 int sendfailmsg(int fd, const char *reason);
 int handle_host_request(char *service, transport_type ttype, char* serial, int reply_fd, asocket *s);
 
+#if SDB_HOST /* tizen-specific */
+#define DEVICEMAP_SEPARATOR ":"
+#define DEVICENAME_MAX 256
+#define VMS_PATH OS_PATH_SEPARATOR_STR "vms" OS_PATH_SEPARATOR_STR // should include sysdeps.h above
+#define DEFAULT_DEVICENAME "<unknown>"
+void register_device_name(const char *device_type, const char *device_name, int port);
+int get_devicename_from_shdmem(int port, char *device_name);
+int read_line(const int fd, char* ptr, const size_t maxlen);
+#endif
 #endif
