@@ -65,7 +65,8 @@ static int do_stat(int s, const char *path)
 
     msg.stat.id = ID_STAT;
 
-    if(lstat(path, &st)) {
+    /* follow link */
+    if(stat(path, &st)) {
         msg.stat.mode = 0;
         msg.stat.size = 0;
         msg.stat.time = 0;
