@@ -92,7 +92,6 @@ IFLAGS := -Iinclude -Isrc
 OBJDIR := bin
 INSTALLDIR := usr/sbin
 INITSCRIPTDIR := etc/init.d
-RCSCRIPTDIR := etc/rc.d/rc3.d
 
 UNAME := $(shell uname -sm)
 ifneq (,$(findstring 86,$(UNAME)))
@@ -132,8 +131,6 @@ ifeq ($(MODULE),sdbd)
 	mkdir -p $(DESTDIR)/$(INITSCRIPTDIR)
 	install script/sdbd $(DESTDIR)/$(INITSCRIPTDIR)/sdbd
 endif
-	mkdir -p $(DESTDIR)/$(RCSCRIPTDIR)
-	install script/S06sdbd $(DESTDIR)/$(RCSCRIPTDIR)/S06sdbd
 
 clean :
 	rm -rf $(OBJDIR)/*
