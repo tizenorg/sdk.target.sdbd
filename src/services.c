@@ -168,6 +168,7 @@ void restart_usb_service(int fd, void *cookie)
 
 void reboot_service(int fd, void *arg)
 {
+#if 0
     char buf[100];
     int pid, ret;
 
@@ -179,6 +180,7 @@ void reboot_service(int fd, void *arg)
     pid = fork();
     if (pid == 0) {
         /* ask vdc to unmount it */
+        // prevent: Use of untrusted string value (TAINTED_STRING)
         execl("/system/bin/vdc", "/system/bin/vdc", "volume", "unmount",
                 getenv("EXTERNAL_STORAGE"), "force", NULL);
     } else if (pid > 0) {
@@ -193,6 +195,7 @@ void reboot_service(int fd, void *arg)
     }
     free(arg);
     sdb_close(fd);
+#endif
 }
 
 #if !SDB_HOST
@@ -332,7 +335,9 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
         printf("[ cannot open /dev/ptmx - %s ]\n",strerror(errno));
         return -1;
     }
-    fcntl(ptm, F_SETFD, FD_CLOEXEC);
+    if (fcntl(ptm, F_SETFD, FD_CLOEXEC) < 0) {
+        printf("[ cannot set cloexec to /dev/ptmx - %s ]\n",strerror(errno));
+    }
 
     if(grantpt(ptm) || unlockpt(ptm) ||
        ((devname = (char*) ptsname(ptm)) == 0)){
@@ -414,9 +419,11 @@ static void subproc_waiter_service(int fd, void *cookie)
             } else if (!WIFEXITED(status)) {
                 D("*** Didn't exit!!. status %d\n", status);
                 break;
-            } else if (WEXITSTATUS(status) >= 0) {
-                D("*** Exit code %d\n", WEXITSTATUS(status));
-                break;
+            } else { // only should be evaluated if the pid is exited
+                if (WEXITSTATUS(status) >= 0) {
+                    D("*** Exit code %d\n", WEXITSTATUS(status));
+                    break;
+                }
             }
          }
     }
@@ -435,6 +442,7 @@ static int create_subproc_thread(const char *name)
     sdb_thread_t t;
     int ret_fd;
     pid_t pid;
+
     if(name) {
         ret_fd = create_subprocess(SHELL_COMMAND, "-c", name, &pid);
     } else {
@@ -442,6 +450,10 @@ static int create_subproc_thread(const char *name)
     }
     D("create_subprocess() ret_fd=%d pid=%d\n", ret_fd, pid);
 
+    if (ret_fd < 0) {
+        printf("cannot create service thread\n");
+        return -1;
+    }
     sti = malloc(sizeof(stinfo));
     if(sti == 0) fatal("cannot allocate stinfo");
     sti->func = subproc_waiter_service;

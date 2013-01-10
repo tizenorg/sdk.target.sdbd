@@ -33,7 +33,7 @@
 //#include <private/android_filesystem_config.h> eric
 #include <linux/capability.h>
 #include <linux/prctl.h>
-#define SDB_PIDPATH "/var/run/sdbd.pid"
+#define SDB_PIDPATH "/tmp/.sdbd.pid"
 #else
 #include "usb_vendors.h"
 #endif
@@ -44,7 +44,7 @@ SDB_MUTEX_DEFINE( D_lock );
 
 int HOST = 0;
 
-/*
+
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
     if (access(SDB_PIDPATH, F_OK) == 0)
@@ -55,7 +55,7 @@ void handle_sig_term(int sig) {
     } else {
     	// do nothing on a emulator
     }
-}*/
+}
 
 static const char *sdb_device_banner = "device";
 
@@ -212,7 +212,10 @@ apacket *get_apacket(void)
 
 void put_apacket(apacket *p)
 {
-    free(p);
+    if (p != NULL) {
+        free(p);
+        p = NULL;
+    }
 }
 
 void handle_online(void)
@@ -714,12 +717,20 @@ void start_logging(void)
     int fd;
 
     fd = unix_open("/dev/null", O_RDONLY);
+    if (fd < 0) {
+        // hopefully not gonna happen
+        return;
+    }
     dup2(fd, 0);
     sdb_close(fd);
 
     fd = unix_open("/tmp/sdb.log", O_WRONLY | O_CREAT | O_APPEND, 0640);
     if(fd < 0) {
         fd = unix_open("/dev/null", O_WRONLY);
+        if (fd < 0) {
+            // hopefully not gonna happen
+            return;
+        }
     }
     dup2(fd, 1);
     dup2(fd, 2);
@@ -755,8 +766,9 @@ void start_device_log(void)
                 "/tmp/sdbd-%Y-%m-%d-%H-%M-%S.txt",
                 &now);
     fd = unix_open(path, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-    if (fd < 0)
+    if (fd < 0) {
         return;
+    }
 
     // redirect stdout and stderr to the log file
     dup2(fd, 1);
@@ -765,6 +777,10 @@ void start_device_log(void)
     sdb_close(fd);
 
     fd = unix_open("/dev/null", O_RDONLY);
+    if (fd < 0) {
+        // hopefully not gonna happen
+        return;
+    }
     dup2(fd, 0);
     sdb_close(fd);
 }
@@ -1442,7 +1458,7 @@ int main(int argc, char **argv)
     D("Handling main()\n");
 
     //sdbd will never die on emulator!
-    //signal(SIGTERM, handle_sig_term); /* tizen specific */
+    signal(SIGTERM, handle_sig_term); /* tizen specific */
     return sdb_main(0, DEFAULT_SDB_PORT);
 #endif
 }

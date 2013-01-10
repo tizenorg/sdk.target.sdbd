@@ -75,7 +75,9 @@ int socket_local_server_bind(int s, const char *name, int namespaceId)
     }
 
     n = 1;
-    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n)) < 0 ) {
+        return -1;
+    }
 
     if(bind(s, (struct sockaddr *) &addr, alen) < 0) {
         return -1;

@@ -27,7 +27,8 @@
 #define  TRACE_TAG  TRACE_SDB
 #include "sdb.h"
 
-
+/* remount service is not supported yet */
+#if 0
 static int system_ro = 1;
 
 /* Returns the device used to mount a directory in /proc/mounts */
@@ -41,8 +42,9 @@ static char *find_mount(const char *dir)
     char buf[4096];
 
     fd = unix_open("/proc/mounts", O_RDONLY);
-    if (fd < 0)
+    if (fd < 0) {
         return NULL;
+    }
 
     buf[sizeof(buf) - 1] = '\0';
     size = sdb_read(fd, buf, sizeof(buf) - 1);
@@ -108,4 +110,4 @@ void remount_service(int fd, void *cookie)
 
     sdb_close(fd);
 }
-
+#endif
