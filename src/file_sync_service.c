@@ -100,14 +100,18 @@ static int do_list(int s, const char *path)
     msg.dent.id = ID_DENT;
 
     d = opendir(path);
-    if(d == 0) goto done;
+    if(d == 0) {
+        goto done;
+    }
 
     while((de = readdir(d))) {
         int len = strlen(de->d_name);
 
             /* not supposed to be possible, but
                if it does happen, let's not buffer overrun */
-        if(len > 256) continue;
+        if(len > 256) {
+            continue;
+        }
 
         strcpy(fname, de->d_name);
         if(lstat(tmp, &st) == 0) {
@@ -118,6 +122,7 @@ static int do_list(int s, const char *path)
 
             if(writex(s, &msg.dent, sizeof(msg.dent)) ||
                writex(s, de->d_name, len)) {
+                closedir(d);
                 return -1;
             }
         }

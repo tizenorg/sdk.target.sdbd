@@ -318,9 +318,9 @@ typedef  pthread_mutex_t          sdb_mutex_t;
 #define  SDB_MUTEX(x)   extern sdb_mutex_t  x;
 #include "mutex_list.h"
 
-static __inline__ void  close_on_exec(int  fd)
+static __inline__ int  close_on_exec(int  fd)
 {
-    fcntl( fd, F_SETFD, FD_CLOEXEC );
+    return fcntl( fd, F_SETFD, FD_CLOEXEC );
 }
 
 static __inline__ int  unix_open(const char*  path, int options,...)

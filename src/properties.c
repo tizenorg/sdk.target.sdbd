@@ -91,8 +91,10 @@ void property_save()
         sdb_unlink(TIZEN_PROPERTY_FILE);
 
     fd = unix_open(TIZEN_PROPERTY_FILE, O_WRONLY | O_CREAT | O_APPEND, 0640);
-    if (fd <0 )
+    if (fd <0 ) {
+        mutex_unlock(&env_lock);
         return;
+    }
 
     for (i = 0; sdbd_config[i].key; i++) {
         sprintf(buffer,"%s%s%s\n", sdbd_config[i].key, PROPERTY_SEPARATOR, sdbd_config[i].value);

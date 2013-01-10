@@ -41,43 +41,44 @@
 
 int get_loopback_status(void) {
 
-	int           s;
-	struct ifconf ifc;
-	struct ifreq *ifr;
-	int           ifcnt;
-	char          buf[1024];
-	int i;
+    int           s;
+    struct ifconf ifc;
+    struct ifreq *ifr;
+    int           ifcnt;
+    char          buf[1024];
+    int i;
 
-	s = socket(AF_INET, SOCK_DGRAM, 0);
-	if(s < 0)
-	{
-		perror("socket");
-		return LOOPBACK_DOWN;
-	}
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if(s < 0)
+    {
+        perror("socket");
+        return LOOPBACK_DOWN;
+    }
 
-	// query available interfaces
-	ifc.ifc_len = sizeof(buf);
-	ifc.ifc_buf = buf;
-	if(ioctl(s, SIOCGIFCONF, &ifc) < 0)
-	{
-		perror("ioctl(SIOCGIFCONF)");
-		return LOOPBACK_DOWN;
-	}
+    // query available interfaces
+    ifc.ifc_len = sizeof(buf);
+    ifc.ifc_buf = buf;
+    if(ioctl(s, SIOCGIFCONF, &ifc) < 0)
+    {
+        perror("ioctl(SIOCGIFCONF)");
+        sdb_close(s);
+        return LOOPBACK_DOWN;
+    }
 
-	// iterate the list of interfaces
-	ifr = ifc.ifc_req;
-	ifcnt = ifc.ifc_len / sizeof(struct ifreq);
-	for(i = 0; i < ifcnt; i++)
-	{
-		struct sockaddr_in *addr;
-		addr = (struct sockaddr_in *)&ifr->ifr_addr;
+    // iterate the list of interfaces
+    ifr = ifc.ifc_req;
+    ifcnt = ifc.ifc_len / sizeof(struct ifreq);
+    for(i = 0; i < ifcnt; i++)
+    {
+        struct sockaddr_in *addr;
+        addr = (struct sockaddr_in *)&ifr->ifr_addr;
 
-		if (ntohl(addr->sin_addr.s_addr) == INADDR_LOOPBACK)
-		{
-			return LOOPBACK_UP;
-		}
-	}
-	return LOOPBACK_DOWN;
+        if (ntohl(addr->sin_addr.s_addr) == INADDR_LOOPBACK)
+        {
+            return LOOPBACK_UP;
+        }
+    }
+    return LOOPBACK_DOWN;
 }
 
 /* open listen() port on loopback interface */
@@ -104,18 +105,20 @@ int socket_loopback_server(int port, int type)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
 
-    if(cnt_max ==0)
-    	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    else
-    	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
+    if(cnt_max ==0) {
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    }
     s = socket(AF_INET, type, 0);
-    if(s < 0) return -1;
+    if(s < 0) {
+        return -1;
+    }
 
     n = 1;
-    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
-
-
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n)) < 0) {
+        return -1;
+    }
 
     if(bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
         sdb_close(s);
