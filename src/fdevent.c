@@ -601,7 +601,9 @@ void fdevent_install(fdevent *fde, int fd, fd_func func, void *arg)
     fde->arg = arg;
 
 #ifndef HAVE_WINSOCK
-    fcntl(fd, F_SETFL, O_NONBLOCK);
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0) {
+        D("failed to close fd exec:%d\n",fd);
+    }
 #endif
     fdevent_register(fde);
     dump_fde(fde, "connect");

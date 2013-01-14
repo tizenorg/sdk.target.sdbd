@@ -562,7 +562,9 @@ int service_to_fd(const char *name)
 #endif
     }
     if (ret >= 0) {
-        close_on_exec(ret);
+        if (close_on_exec(ret) < 0) {
+            D("failed to close fd exec\n");
+        } 
     }
     return ret;
 }

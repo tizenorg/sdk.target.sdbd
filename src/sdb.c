@@ -650,7 +650,9 @@ static int install_listener(const char *local_name, const char *connect_to, atra
         return -2;
     }
 
-    close_on_exec(l->fd);
+    if (close_on_exec(l->fd) < 0) {
+        D("fail to close fd exec:%d\n",l->fd);
+    }
     if(!strcmp(l->connect_to, "*smartsocket*")) {
         fdevent_install(&l->fde, l->fd, ss_listener_event_func, l);
     } else {
