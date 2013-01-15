@@ -75,9 +75,11 @@ int get_loopback_status(void) {
 
         if (ntohl(addr->sin_addr.s_addr) == INADDR_LOOPBACK)
         {
+            sdb_close(s);
             return LOOPBACK_UP;
         }
     }
+    sdb_close(s);
     return LOOPBACK_DOWN;
 }
 
@@ -117,6 +119,7 @@ int socket_loopback_server(int port, int type)
 
     n = 1;
     if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n)) < 0) {
+        sdb_close(s);
         return -1;
     }
 

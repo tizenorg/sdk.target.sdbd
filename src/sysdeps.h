@@ -95,7 +95,7 @@ static __inline__ int  sdb_thread_create( sdb_thread_t  *thread, sdb_thread_func
     return 0;
 }
 
-static __inline__ void  close_on_exec(int  fd)
+static __inline__ int  close_on_exec(int  fd)
 {
     /* nothing really */
 }
@@ -349,9 +349,12 @@ static __inline__ int  sdb_open_mode( const char*  pathname, int  options, int  
 static __inline__ int  sdb_open( const char*  pathname, int  options )
 {
     int  fd = open( pathname, options );
-    if (fd < 0)
+    if (fd < 0) {
         return -1;
-    close_on_exec( fd );
+    }
+    if (close_on_exec( fd ) < 0 ) {
+        return -1;
+    }
     return fd;
 }
 #undef   open
@@ -405,10 +408,13 @@ static __inline__  int  sdb_creat(const char*  path, int  mode)
 {
     int  fd = creat(path, mode);
 
-    if ( fd < 0 )
+    if ( fd < 0 ) {
         return -1;
+    }
 
-    close_on_exec(fd);
+    if (close_on_exec(fd) < 0) {
+        return -1;
+    }
     return fd;
 }
 #undef   creat
@@ -419,8 +425,11 @@ static __inline__ int  sdb_socket_accept(int  serverfd, struct sockaddr*  addr, 
     int fd;
 
     fd = accept(serverfd, addr, addrlen);
-    if (fd >= 0)
-        close_on_exec(fd);
+    if (fd >= 0) {
+        if (close_on_exec(fd) < 0) {
+            return -1;
+        }
+    }
 
     return fd;
 }
@@ -469,11 +478,16 @@ static __inline__ int  sdb_socketpair( int  sv[2] )
     int  rc;
 
     rc = unix_socketpair( AF_UNIX, SOCK_STREAM, 0, sv );
-    if (rc < 0)
+    if (rc < 0) {
         return -1;
+    }
 
-    close_on_exec( sv[0] );
-    close_on_exec( sv[1] );
+    if (close_on_exec( sv[0] ) < 0 ) {
+        return -1;
+    }
+    if (close_on_exec( sv[1] ) < 0 ) {
+        return -1;
+    }
     return 0;
 }
 
