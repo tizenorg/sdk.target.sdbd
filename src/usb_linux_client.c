@@ -69,7 +69,9 @@ static void *usb_open_thread(void *x)
         } while (fd < 0);
         D("[ opening device succeeded ]\n");
 
-        close_on_exec(fd);
+        if (close_on_exec(fd) < 0) {
+            D("[closing fd exec failed ]\n");
+        }
         usb->fd = fd;
 
         D("[ usb_thread - registering device ]\n");

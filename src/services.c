@@ -416,7 +416,8 @@ static void subproc_waiter_service(int fd, void *cookie)
             if (WIFSIGNALED(status)) {
                 D("*** Killed by signal %d\n", WTERMSIG(status));
                 break;
-            } else if (!WIFEXITED(status)) {
+            }
+            if (!WIFEXITED(status)) {
                 D("*** Didn't exit!!. status %d\n", status);
                 break;
             } else { // only should be evaluated if the pid is exited
@@ -562,7 +563,9 @@ int service_to_fd(const char *name)
 #endif
     }
     if (ret >= 0) {
-        close_on_exec(ret);
+        if (close_on_exec(ret) < 0) {
+            D("failed to close fd exec\n");
+        }
     }
     return ret;
 }

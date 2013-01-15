@@ -129,7 +129,9 @@ int local_connect_arbitrary_ports(int console_port, int sdb_port, const char *de
 
     if (fd >= 0) {
         D("client: connected on remote on fd %d\n", fd);
-        close_on_exec(fd);
+        if (close_on_exec(fd) < 0) {
+            D("failed to close fd exec\n");
+        }
         disable_tcp_nagle(fd);
         snprintf(buf, sizeof buf, "%s%d", LOCAL_CLIENT_PREFIX, console_port);
         register_socket_transport(fd, buf, sdb_port, 1, device_name);
@@ -254,7 +256,9 @@ static void *server_socket_thread(void * arg)
                 sdb_sleep_ms(1000);
                 continue;
             }
-            close_on_exec(serverfd);
+            if (close_on_exec(serverfd) < 0) {
+                D("failed to close serverfd exec\n");
+            }
         }
 
         alen = sizeof(addr);
@@ -262,7 +266,9 @@ static void *server_socket_thread(void * arg)
         fd = sdb_socket_accept(serverfd, &addr, &alen);
         if(fd >= 0) {
             D("server: new connection on fd %d\n", fd);
-            close_on_exec(fd);
+            if (close_on_exec(fd) < 0) {
+                D("failed to close fd exec\n");
+            }
             disable_tcp_nagle(fd);
             register_socket_transport(fd, "host", port, 1, NULL);
         }

@@ -48,6 +48,7 @@ int socket_inaddr_any_server(int port, int type)
 
     n = 1;
     if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n)) < 0) {
+        close(s);
         return -1;
     }
 
