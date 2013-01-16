@@ -413,18 +413,16 @@ static void subproc_waiter_service(int fd, void *cookie)
         pid_t p = waitpid(pid, &status, 0);
         if (p == pid) {
             D("fd=%d, post waitpid(pid=%d) status=%04x\n", fd, p, status);
-            if (WIFSIGNALED(status)) {
+            
+            if (WIFEXITED(status)) {
+                D("*** Exit code %d\n", WEXITSTATUS(status));
+                break;
+            } else if (WIFSIGNALED(status)) {
                 D("*** Killed by signal %d\n", WTERMSIG(status));
                 break;
-            }
-            if (!WIFEXITED(status)) {
-                D("*** Didn't exit!!. status %d\n", status);
+            } else {
+                D("*** Killed by unknown code %d\n", status);
                 break;
-            } else { // only should be evaluated if the pid is exited
-                if (WEXITSTATUS(status) >= 0) {
-                    D("*** Exit code %d\n", WEXITSTATUS(status));
-                    break;
-                }
             }
          }
     }
