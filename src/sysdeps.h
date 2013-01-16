@@ -353,6 +353,7 @@ static __inline__ int  sdb_open( const char*  pathname, int  options )
         return -1;
     }
     if (close_on_exec( fd ) < 0 ) {
+        close(fd);
         return -1;
     }
     return fd;
