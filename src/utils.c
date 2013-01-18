@@ -1,23 +1,24 @@
 /*
- * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "utils.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
+#define STRING_MAXLEN 1024
 char*
 buff_addc (char*  buff, char*  buffEnd, int  c)
 {
@@ -103,4 +104,21 @@ buff_add  (char*  buff, char*  buffEnd, const char*  format, ... )
             buff[0] = 0;
     }
     return buff;
+}
+
+char *str_trim(const char* string)
+{
+    const char* s = string;
+    const char* e = string + (strlen(string) - 1);
+    char* ret;
+
+    while(*s == ' ' || *s == '\t') // ltrim
+        s++;
+    while(*e == ' ' || *e == '\t') // rtrim
+        e--;
+
+    ret = strdup(s);
+    ret[e - s + 1] = 0;
+
+    return  ret;
 }

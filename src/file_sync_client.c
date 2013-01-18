@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -24,9 +24,8 @@
 #include <dirent.h>
 #include <limits.h>
 #include <sys/types.h>
-#if 0 //eric
-#include <zipfile/zipfile.h>
-#endif
+// tizen specific #include <zipfile/zipfile.h>
+
 #include "sysdeps.h"
 #include "sdb.h"
 #include "sdb_client.h"
@@ -35,6 +34,7 @@
 
 static unsigned total_bytes;
 static long long start_time;
+extern const char* get_basename(const char* filename);
 
 static long long NOW()
 {
@@ -50,7 +50,7 @@ static void BEGIN()
     start_time = NOW();
 }
 
-static void END()
+static void END(const char* filename)
 {
     long long t = NOW() - start_time;
     if(total_bytes == 0) return;
@@ -58,10 +58,12 @@ static void END()
     if (t == 0)  /* prevent division by 0 :-) */
         t = 1000000;
 
-    fprintf(stderr,"%lld KB/s (%d bytes in %lld.%03llds)\n",
+    fprintf(stderr,"%-30s   %lld KB/s (%lld bytes in %lld.%03llds)\n",
+            filename,
             ((((long long) total_bytes) * 1000000LL) / t) / 1024LL,
-            total_bytes, (t / 1000000LL), (t % 1000000LL) / 1000LL);
+            (long long) total_bytes, (t / 1000000LL), (t % 1000000LL) / 1000LL);
 }
+
 
 void sync_quit(int fd)
 {
@@ -310,9 +312,8 @@ static int sync_send(int fd, const char *lpath, const char *rpath,
 
     snprintf(tmp, sizeof(tmp), ",%d", mode);
     r = strlen(tmp);
-
+#if 0 /* tizen specific */
     if (verifyApk) {
-#if 0 //eric
         int lfd;
         zipfile_t zip;
         zipentry_t entry;
@@ -367,9 +368,8 @@ static int sync_send(int fd, const char *lpath, const char *rpath,
             free(file_buffer);
             return 1;
         }
-#endif
     }
-
+#endif
     msg.req.id = ID_SEND;
     msg.req.namelen = htoll(len + r);
 
@@ -644,8 +644,9 @@ static int local_build_list(copyinfo **filelist,
         } else {
             ci = mkcopyinfo(lpath, rpath, name, 0);
             if(lstat(ci->src, &st)) {
-                closedir(d);
                 fprintf(stderr,"cannot stat '%s': %s\n", ci->src, strerror(errno));
+                closedir(d);
+
                 return -1;
             }
             if(!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode)) {
@@ -741,11 +742,14 @@ static int copy_local_dir_remote(int fd, const char *lpath, const char *rpath, i
 }
 
 
-int do_sync_push(const char *lpath, const char *rpath, int verifyApk)
+int do_sync_push(const char *lpath, const char *rpath, int verifyApk, int isUtf8)
 {
     struct stat st;
     unsigned mode;
     int fd;
+    char *tmp = NULL;
+    char *utf8 = NULL;
+    int ret = 0;
 
     fd = sdb_connect("sync:");
     if(fd < 0) {
@@ -764,13 +768,14 @@ int do_sync_push(const char *lpath, const char *rpath, int verifyApk)
         if(copy_local_dir_remote(fd, lpath, rpath, 0, 0)) {
             return 1;
         } else {
-            END();
+            END(get_basename(lpath));
             sync_quit(fd);
         }
     } else {
         if(sync_readmode(fd, rpath, &mode)) {
             return 1;
         }
+
         if((mode != 0) && S_ISDIR(mode)) {
                 /* if we're copying a local file to a remote directory,
                 ** we *really* want to copy to remotedir + "/" + localfilename
@@ -782,22 +787,36 @@ int do_sync_push(const char *lpath, const char *rpath, int verifyApk)
                 name++;
             }
             int  tmplen = strlen(name) + strlen(rpath) + 2;
-            char *tmp = malloc(strlen(name) + strlen(rpath) + 2);
+            tmp = malloc(strlen(name) + strlen(rpath) + 2);
             if(tmp == 0) return 1;
             snprintf(tmp, tmplen, "%s/%s", rpath, name);
-            rpath = tmp;
+            if (isUtf8 != 0) { //ansi to utf8
+                utf8 = ansi_to_utf8(tmp);
+                rpath = utf8;
+            } else {
+                rpath = tmp;
+            }
         }
         BEGIN();
         if(sync_send(fd, lpath, rpath, st.st_mtime, st.st_mode, verifyApk)) {
-            return 1;
+            ret = 1;
+            goto cleanup;
         } else {
-            END();
+            END(get_basename(lpath));
             sync_quit(fd);
-            return 0;
+            ret = 0;
+            goto cleanup;
         }
     }
-
     return 0;
+cleanup:
+    if (tmp != NULL) {
+        free(tmp);
+    }
+    if (utf8 != NULL) {
+        free(utf8);
+    }
+    return ret;
 }
 
 
@@ -986,7 +1005,7 @@ int do_sync_pull(const char *rpath, const char *lpath)
         if(sync_recv(fd, rpath, lpath)) {
             return 1;
         } else {
-            END();
+            END(get_basename(rpath));
             sync_quit(fd);
             return 0;
         }
@@ -995,7 +1014,7 @@ int do_sync_pull(const char *rpath, const char *lpath)
         if (copy_remote_dir_local(fd, rpath, lpath, 0)) {
             return 1;
         } else {
-            END();
+            END(get_basename(rpath));
             sync_quit(fd);
             return 0;
         }
@@ -1019,7 +1038,7 @@ int do_sync_sync(const char *lpath, const char *rpath, int listonly)
     if(copy_local_dir_remote(fd, lpath, rpath, 1, listonly)){
         return 1;
     } else {
-        END();
+        END(get_basename(lpath));
         sync_quit(fd);
         return 0;
     }

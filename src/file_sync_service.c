@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -47,7 +47,9 @@ static int mkdirs(char *name)
         x = sdb_dirstart(x);
         if(x == 0) return 0;
         *x = 0;
+        /* tizen specific */
         ret = sdb_mkdir(name, DIR_PERMISSION);
+
         if((ret < 0) && (errno != EEXIST)) {
             D("mkdir(\"%s\") -> %s\n", name, strerror(errno));
             *x = '/';
@@ -65,7 +67,8 @@ static int do_stat(int s, const char *path)
 
     msg.stat.id = ID_STAT;
 
-    if(lstat(path, &st)) {
+    /* follow link */
+    if(stat(path, &st)) {
         msg.stat.mode = 0;
         msg.stat.size = 0;
         msg.stat.time = 0;
@@ -97,14 +100,18 @@ static int do_list(int s, const char *path)
     msg.dent.id = ID_DENT;
 
     d = opendir(path);
-    if(d == 0) goto done;
+    if(d == 0) {
+        goto done;
+    }
 
     while((de = readdir(d))) {
         int len = strlen(de->d_name);
 
             /* not supposed to be possible, but
                if it does happen, let's not buffer overrun */
-        if(len > 256) continue;
+        if(len > 256) {
+            continue;
+        }
 
         strcpy(fname, de->d_name);
         if(lstat(tmp, &st) == 0) {
@@ -115,6 +122,7 @@ static int do_list(int s, const char *path)
 
             if(writex(s, &msg.dent, sizeof(msg.dent)) ||
                writex(s, de->d_name, len)) {
+                closedir(d);
                 return -1;
             }
         }
@@ -198,9 +206,11 @@ static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
         if(fd < 0)
             continue;
         if(writex(fd, buffer, len)) {
+            int saved_errno = errno;
             sdb_close(fd);
             sdb_unlink(path);
             fd = -1;
+            errno = saved_errno;
             if(fail_errno(s)) return -1;
         }
     }

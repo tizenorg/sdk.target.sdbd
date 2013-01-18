@@ -1,19 +1,19 @@
-/* libs/cutils/socket_loopback_server.c
-**
-** Copyright 2006, The Android Open Source Project
-**
-** Licensed under the Apache License, Version 2.0 (the "License"); 
-** you may not use this file except in compliance with the License. 
-** You may obtain a copy of the License at 
-**
-**     http://www.apache.org/licenses/LICENSE-2.0 
-**
-** Unless required by applicable law or agreed to in writing, software 
-** distributed under the License is distributed on an "AS IS" BASIS, 
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-** See the License for the specific language governing permissions and 
-** limitations under the License.
-*/
+/*
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+// libs/cutils/socket_loopback_server.c
 
 #include "sockets.h"
 
@@ -41,43 +41,46 @@
 
 int get_loopback_status(void) {
 
-	int           s;
-	struct ifconf ifc;
-	struct ifreq *ifr;
-	int           ifcnt;
-	char          buf[1024];
-	int i;
+    int           s;
+    struct ifconf ifc;
+    struct ifreq *ifr;
+    int           ifcnt;
+    char          buf[1024];
+    int i;
 
-	s = socket(AF_INET, SOCK_DGRAM, 0);
-	if(s < 0)
-	{
-		perror("socket");
-		return LOOPBACK_DOWN;
-	}
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if(s < 0)
+    {
+        perror("socket");
+        return LOOPBACK_DOWN;
+    }
 
-	// query available interfaces
-	ifc.ifc_len = sizeof(buf);
-	ifc.ifc_buf = buf;
-	if(ioctl(s, SIOCGIFCONF, &ifc) < 0)
-	{
-		perror("ioctl(SIOCGIFCONF)");
-		return LOOPBACK_DOWN;
-	}
+    // query available interfaces
+    ifc.ifc_len = sizeof(buf);
+    ifc.ifc_buf = buf;
+    if(ioctl(s, SIOCGIFCONF, &ifc) < 0)
+    {
+        perror("ioctl(SIOCGIFCONF)");
+        sdb_close(s);
+        return LOOPBACK_DOWN;
+    }
 
-	// iterate the list of interfaces
-	ifr = ifc.ifc_req;
-	ifcnt = ifc.ifc_len / sizeof(struct ifreq);
-	for(i = 0; i < ifcnt; i++)
-	{
-		struct sockaddr_in *addr;
-		addr = (struct sockaddr_in *)&ifr->ifr_addr;
+    // iterate the list of interfaces
+    ifr = ifc.ifc_req;
+    ifcnt = ifc.ifc_len / sizeof(struct ifreq);
+    for(i = 0; i < ifcnt; i++)
+    {
+        struct sockaddr_in *addr;
+        addr = (struct sockaddr_in *)&ifr->ifr_addr;
 
-		if (ntohl(addr->sin_addr.s_addr) == INADDR_LOOPBACK)
-		{
-			return LOOPBACK_UP;
-		}
-	}
-	return LOOPBACK_DOWN;
+        if (ntohl(addr->sin_addr.s_addr) == INADDR_LOOPBACK)
+        {
+            sdb_close(s);
+            return LOOPBACK_UP;
+        }
+    }
+    sdb_close(s);
+    return LOOPBACK_DOWN;
 }
 
 /* open listen() port on loopback interface */
@@ -87,6 +90,8 @@ int socket_loopback_server(int port, int type)
     int s, n;
     int cnt_max = 30;
 
+    /* tizen specific */
+#if !SDB_HOST
     // check the loopback interface has been up in 30 sec
     while(cnt_max > 0) {
         if(get_loopback_status() == LOOPBACK_DOWN) {
@@ -97,23 +102,26 @@ int socket_loopback_server(int port, int type)
             break;
         }
     }
-
+#endif
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
 
-    if(cnt_max ==0)
-    	addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    else
-    	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
+    if(cnt_max ==0) {
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    } else {
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    }
     s = socket(AF_INET, type, 0);
-    if(s < 0) return -1;
+    if(s < 0) {
+        return -1;
+    }
 
     n = 1;
-    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
-
-
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n)) < 0) {
+        sdb_close(s);
+        return -1;
+    }
 
     if(bind(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
         sdb_close(s);

@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
+ *
+ * Licensed under the Apache License, Version 2.0 (the License);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an AS IS BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /* implement the "debug-ports" and "track-debug-ports" device services */
 #include "sysdeps.h"
 #define  TRACE_TAG   TRACE_JDWP
@@ -5,6 +20,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 /* here's how these things work.
 
@@ -320,6 +336,7 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
             struct iovec     iov;
             char             dummy = '!';
             char             buffer[sizeof(struct cmsghdr) + sizeof(int)];
+            int flags;
 
             iov.iov_base       = &dummy;
             iov.iov_len        = 1;
@@ -337,10 +354,27 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
             cmsg->cmsg_type  = SCM_RIGHTS;
             ((int*)CMSG_DATA(cmsg))[0] = fd;
 
+            flags = fcntl(proc->socket,F_GETFL,0);
+
+            if (flags == -1) {
+                D("failed to get cntl flags for socket %d: %s\n",
+                  proc->pid, strerror(errno));
+                goto CloseProcess;
+
+            }
+
+            if (fcntl(proc->socket, F_SETFL, flags & ~O_NONBLOCK) == -1) {
+                D("failed to remove O_NONBLOCK flag for socket %d: %s\n",
+                  proc->pid, strerror(errno));
+                goto CloseProcess;
+            }
+
             for (;;) {
                 ret = sendmsg(proc->socket, &msg, 0);
-                if (ret >= 0)
+                if (ret >= 0) {
+                    sdb_close(fd);
                     break;
+                }
                 if (errno == EINTR)
                     continue;
                 D("sending new file descriptor to JDWP %d failed: %s\n",
@@ -353,6 +387,12 @@ jdwp_process_event( int  socket, unsigned  events, void*  _proc )
 
             for (n = 1; n < proc->out_count; n++)
                 proc->out_fds[n-1] = proc->out_fds[n];
+
+            if (fcntl(proc->socket, F_SETFL, flags) == -1) {
+                D("failed to set O_NONBLOCK flag for socket %d: %s\n",
+                  proc->pid, strerror(errno));
+                goto CloseProcess;
+            }
 
             if (--proc->out_count == 0)
                 fdevent_del( proc->fde, FDE_WRITE );
@@ -474,6 +514,7 @@ jdwp_control_init( JdwpControl*  control,
 
     /* only wait for incoming connections */
     fdevent_add(control->fde, FDE_READ);
+    close_on_exec(s);
 
     D("jdwp control socket started (%d)\n", control->listen_socket);
     return 0;
@@ -706,4 +747,3 @@ init_jdwp(void)
 }
 
 #endif /* !SDB_HOST */
-

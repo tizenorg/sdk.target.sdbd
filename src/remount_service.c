@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2008 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -27,7 +27,8 @@
 #define  TRACE_TAG  TRACE_SDB
 #include "sdb.h"
 
-
+/* remount service is not supported yet */
+#if 0
 static int system_ro = 1;
 
 /* Returns the device used to mount a directory in /proc/mounts */
@@ -41,8 +42,9 @@ static char *find_mount(const char *dir)
     char buf[4096];
 
     fd = unix_open("/proc/mounts", O_RDONLY);
-    if (fd < 0)
+    if (fd < 0) {
         return NULL;
+    }
 
     buf[sizeof(buf) - 1] = '\0';
     size = sdb_read(fd, buf, sizeof(buf) - 1);
@@ -108,4 +110,4 @@ void remount_service(int fd, void *cookie)
 
     sdb_close(fd);
 }
-
+#endif

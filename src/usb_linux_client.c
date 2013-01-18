@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -57,20 +57,21 @@ static void *usb_open_thread(void *x)
         D("[ usb_thread - opening device ]\n");
         do {
             /* XXX use inotify? */
-            fd = unix_open("/dev/samsung_sdb", O_RDWR);
-#if 0
+            fd = unix_open("/dev/samsung_sdb", O_RDWR); /* tizen-specific */
             if (fd < 0) {
                 // to support older kernels
-                fd = unix_open("/dev/android", O_RDWR);
+                //fd = unix_open("/dev/android", O_RDWR);
+                D("[ opening /dev/samsung_sdb device failed ]\n");
             }
-#endif
             if (fd < 0) {
                 sdb_sleep_ms(1000);
             }
         } while (fd < 0);
         D("[ opening device succeeded ]\n");
 
-        close_on_exec(fd);
+        if (close_on_exec(fd) < 0) {
+            D("[closing fd exec failed ]\n");
+        }
         usb->fd = fd;
 
         D("[ usb_thread - registering device ]\n");
@@ -85,14 +86,14 @@ int usb_write(usb_handle *h, const void *data, int len)
 {
     int n;
 
-    D("[ write %d ]\n", len);
+    D("about to write (fd=%d, len=%d)\n", h->fd, len);
     n = sdb_write(h->fd, data, len);
     if(n != len) {
-        D("ERROR: n = %d, errno = %d (%s)\n",
-            n, errno, strerror(errno));
+        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
+            h->fd, n, errno, strerror(errno));
         return -1;
     }
-    D("[ done ]\n");
+    D("[ done fd=%d ]\n", h->fd);
     return 0;
 }
 
@@ -100,13 +101,14 @@ int usb_read(usb_handle *h, void *data, int len)
 {
     int n;
 
-    D("[ read %d ]\n", len);
+    D("about to read (fd=%d, len=%d)\n", h->fd, len);
     n = sdb_read(h->fd, data, len);
     if(n != len) {
-        D("ERROR: n = %d, errno = %d (%s)\n",
-            n, errno, strerror(errno));
+        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
+            h->fd, n, errno, strerror(errno));
         return -1;
     }
+    D("[ done fd=%d ]\n", h->fd);
     return 0;
 }
 
@@ -114,9 +116,8 @@ void usb_init()
 {
     usb_handle *h;
     sdb_thread_t tid;
-#if 0 //eric
-    int fd;
-#endif
+//  int fd;
+
     h = calloc(1, sizeof(usb_handle));
     h->fd = -1;
     sdb_cond_init(&h->notify, 0);
@@ -127,7 +128,7 @@ void usb_init()
     // We never touch this file again - just leave it open
     // indefinitely so the kernel will know when we are running
     // and when we are not.
-#if 0 //eric
+#if 0 /* tizen specific */
     fd = unix_open("/dev/android_sdb_enable", O_RDWR);
     if (fd < 0) {
        D("failed to open /dev/android_sdb_enable\n");

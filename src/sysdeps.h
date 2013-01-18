@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -44,10 +44,31 @@ typedef CRITICAL_SECTION          sdb_mutex_t;
 #define  SDB_MUTEX_DEFINE(x)     sdb_mutex_t   x
 
 /* declare all mutexes */
+/* For win32, sdb_sysdeps_init() will do the mutex runtime initialization. */
 #define  SDB_MUTEX(x)   extern sdb_mutex_t  x;
 #include "mutex_list.h"
 
 extern void  sdb_sysdeps_init(void);
+
+static __inline__ char* ansi_to_utf8(const char *str)
+{
+    int len;
+    char *utf8;
+    wchar_t *unicode;
+
+    //ANSI( MutiByte ) -> UCS-2( WideByte ) -> UTF-8( MultiByte )
+    len = MultiByteToWideChar (CP_ACP, 0, str, -1, NULL, 0);
+    unicode = (wchar_t *)calloc (len+1, sizeof(wchar_t));
+    MultiByteToWideChar (CP_ACP, 0, str, -1, unicode, len);
+
+    len = WideCharToMultiByte (CP_UTF8, 0, unicode, -1, NULL, 0, NULL, NULL);
+    utf8 = (char *)calloc (len+1, sizeof(char));
+
+    WideCharToMultiByte (CP_UTF8, 0, unicode, -1, utf8, len, NULL, NULL);
+    free (unicode);
+
+    return utf8;
+}
 
 static __inline__ void sdb_mutex_lock( sdb_mutex_t*  lock )
 {
@@ -74,7 +95,7 @@ static __inline__ int  sdb_thread_create( sdb_thread_t  *thread, sdb_thread_func
     return 0;
 }
 
-static __inline__ void  close_on_exec(int  fd)
+static __inline__ int  close_on_exec(int  fd)
 {
     /* nothing really */
 }
@@ -103,7 +124,7 @@ static __inline__  int    sdb_unlink(const char*  path)
 
 static __inline__ int  sdb_mkdir(const char*  path, int mode)
 {
-	return _mkdir(path);
+    return _mkdir(path);
 }
 #undef   mkdir
 #define  mkdir  ___xxx_mkdir
@@ -195,6 +216,8 @@ struct fdevent {
     fdevent *prev;
 
     int fd;
+    int force_eof;
+
     unsigned short state;
     unsigned short events;
 
@@ -255,6 +278,9 @@ static __inline__  int  sdb_is_absolute_host_path( const char*  path )
 
 #include "fdevent.h"
 #include "sockets.h"
+#include "properties.h"
+// tizen specific #include <cutils/misc.h>
+#include <stdio.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -272,13 +298,14 @@ static __inline__  int  sdb_is_absolute_host_path( const char*  path )
 #define OS_PATH_SEPARATOR_STR "/"
 
 typedef  pthread_mutex_t          sdb_mutex_t;
+
 #define  SDB_MUTEX_INITIALIZER    PTHREAD_MUTEX_INITIALIZER
 #define  sdb_mutex_init           pthread_mutex_init
 #define  sdb_mutex_lock           pthread_mutex_lock
 #define  sdb_mutex_unlock         pthread_mutex_unlock
 #define  sdb_mutex_destroy        pthread_mutex_destroy
 
-#define  SDB_MUTEX_DEFINE(m)      static sdb_mutex_t   m = PTHREAD_MUTEX_INITIALIZER
+#define  SDB_MUTEX_DEFINE(m)      sdb_mutex_t   m = PTHREAD_MUTEX_INITIALIZER
 
 #define  sdb_cond_t               pthread_cond_t
 #define  sdb_cond_init            pthread_cond_init
@@ -287,9 +314,13 @@ typedef  pthread_mutex_t          sdb_mutex_t;
 #define  sdb_cond_signal          pthread_cond_signal
 #define  sdb_cond_destroy         pthread_cond_destroy
 
-static __inline__ void  close_on_exec(int  fd)
+/* declare all mutexes */
+#define  SDB_MUTEX(x)   extern sdb_mutex_t  x;
+#include "mutex_list.h"
+
+static __inline__ int  close_on_exec(int  fd)
 {
-    fcntl( fd, F_SETFD, FD_CLOEXEC );
+    return fcntl( fd, F_SETFD, FD_CLOEXEC );
 }
 
 static __inline__ int  unix_open(const char*  path, int options,...)
@@ -318,9 +349,13 @@ static __inline__ int  sdb_open_mode( const char*  pathname, int  options, int  
 static __inline__ int  sdb_open( const char*  pathname, int  options )
 {
     int  fd = open( pathname, options );
-    if (fd < 0)
+    if (fd < 0) {
         return -1;
-    close_on_exec( fd );
+    }
+    if (close_on_exec( fd ) < 0 ) {
+        close(fd);
+        return -1;
+    }
     return fd;
 }
 #undef   open
@@ -374,10 +409,13 @@ static __inline__  int  sdb_creat(const char*  path, int  mode)
 {
     int  fd = creat(path, mode);
 
-    if ( fd < 0 )
+    if ( fd < 0 ) {
         return -1;
+    }
 
-    close_on_exec(fd);
+    if (close_on_exec(fd) < 0) {
+        return -1;
+    }
     return fd;
 }
 #undef   creat
@@ -385,7 +423,16 @@ static __inline__  int  sdb_creat(const char*  path, int  mode)
 
 static __inline__ int  sdb_socket_accept(int  serverfd, struct sockaddr*  addr, socklen_t  *addrlen)
 {
-    return  accept( serverfd, addr, addrlen );
+    int fd;
+
+    fd = accept(serverfd, addr, addrlen);
+    if (fd >= 0) {
+        if (close_on_exec(fd) < 0) {
+            return -1;
+        }
+    }
+
+    return fd;
 }
 
 #undef   accept
@@ -432,11 +479,16 @@ static __inline__ int  sdb_socketpair( int  sv[2] )
     int  rc;
 
     rc = unix_socketpair( AF_UNIX, SOCK_STREAM, 0, sv );
-    if (rc < 0)
+    if (rc < 0) {
         return -1;
+    }
 
-    close_on_exec( sv[0] );
-    close_on_exec( sv[1] );
+    if (close_on_exec( sv[0] ) < 0 ) {
+        return -1;
+    }
+    if (close_on_exec( sv[1] ) < 0 ) {
+        return -1;
+    }
     return 0;
 }
 
@@ -472,6 +524,19 @@ static __inline__ char*  sdb_dirstop(const char*  path)
 static __inline__  int  sdb_is_absolute_host_path( const char*  path )
 {
     return path[0] == '/';
+}
+
+static __inline__  char* ansi_to_utf8(const char *str)
+{
+    // Not implement!
+    // If need, use iconv later event though unix system is using utf8 encoding.
+    int len;
+    char *utf8;
+
+    len = strlen(str);
+    utf8 = (char *)calloc(len+1, sizeof(char));
+    strcpy(utf8, str);
+    return utf8;
 }
 
 #endif /* !_WIN32 */
