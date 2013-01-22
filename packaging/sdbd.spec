@@ -1,7 +1,7 @@
 Name:       sdbd
 Summary:    SDB daemon
 Version:    2.0.2
-Release:    1
+Release:    2
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
@@ -26,7 +26,10 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-) 
 %{_prefix}/sbin/sdbd
 %{_sysconfdir}/init.d/sdbd
-%{_sysconfdir}/rc.d/rc3.d
+
+%ifarch %{ix86}
+    %{_sysconfdir}/rc.d/rc3.d
+%endif
 
 %changelog
 * Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
