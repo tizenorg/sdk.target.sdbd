@@ -226,6 +226,8 @@ static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
         msg.status.msglen = 0;
         if(writex(s, &msg.status, sizeof(msg.status)))
             return -1;
+        // flush file system buffers due to N_SE-22305
+        sync();
     }
     return 0;
 
