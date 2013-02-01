@@ -428,6 +428,7 @@ static __inline__ int  sdb_socket_accept(int  serverfd, struct sockaddr*  addr, 
     fd = accept(serverfd, addr, addrlen);
     if (fd >= 0) {
         if (close_on_exec(fd) < 0) {
+            sdb_close(fd);
             return -1;
         }
     }
