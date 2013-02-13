@@ -965,41 +965,15 @@ void build_local_name(char* target_str, size_t target_size, int server_port)
   snprintf(target_str, target_size, "tcp:%d", server_port);
 }
 
-#if 0
 #if !SDB_HOST
 static int should_drop_privileges() {
 #ifndef ALLOW_SDBD_ROOT
     return 1;
 #else /* ALLOW_SDBD_ROOT */
-    int secure = 0;
-    char value[PROPERTY_VALUE_MAX];
-
-   /* run sdbd in secure mode if ro.secure is set and
-    ** we are not in the emulator
-    */
-    property_get("ro.kernel.qemu", value, "");
-    if (strcmp(value, "1") != 0) {
-        property_get("ro.secure", value, "1");
-        if (strcmp(value, "1") == 0) {
-            // don't run as root if ro.secure is set...
-            secure = 1;
-
-            // ... except we allow running as root in userdebug builds if the
-            // service.sdb.root property has been set by the "sdb root" command
-            property_get("ro.debuggable", value, "");
-            if (strcmp(value, "1") == 0) {
-                property_get("service.sdb.root", value, "");
-                if (strcmp(value, "1") == 0) {
-                    secure = 0;
-                }
-            }
-        }
-    }
-    return secure;
+    return 0;
 #endif /* ALLOW_SDBD_ROOT */
 }
 #endif /* !SDB_HOST */
-#endif
 
 int sdb_main(int is_daemon, int server_port)
 {
@@ -1033,7 +1007,6 @@ int sdb_main(int is_daemon, int server_port)
         exit(1);
     }
 #else
-#if 0 /* tizen specific */
     /* don't listen on a port (default 5037) if running in secure mode */
     /* don't run as root if we are running in secure mode */
     if (should_drop_privileges()) {
@@ -1043,31 +1016,20 @@ int sdb_main(int is_daemon, int server_port)
         if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) != 0) {
             exit(1);
         }
-
         /* add extra groups:
-        ** AID_SDB to access the USB driver
-        ** AID_LOG to read system logs (sdb logcat)
-        ** AID_INPUT to diagnose input issues (getevent)
-        ** AID_INET to diagnose network issues (netcfg, ping)
-        ** AID_GRAPHICS to access the frame buffer
-        ** AID_NET_BT and AID_NET_BT_ADMIN to diagnose bluetooth (hcidump)
-        ** AID_SDCARD_R to allow reading from the SD card
-        ** AID_SDCARD_RW to allow writing to the SD card
-        ** AID_MOUNT to allow unmounting the SD card before rebooting
-        ** AID_NET_BW_STATS to read out qtaguid statistics
+        ** SID_TTY to access /dev/ptmx
         */
-        gid_t groups[] = { AID_SDB, AID_LOG, AID_INPUT, AID_INET, AID_GRAPHICS,
-                           AID_NET_BT, AID_NET_BT_ADMIN, AID_SDCARD_R, AID_SDCARD_RW,
-                           AID_MOUNT, AID_NET_BW_STATS };
+        gid_t groups[] = { SID_TTY };
         if (setgroups(sizeof(groups)/sizeof(groups[0]), groups) != 0) {
             exit(1);
         }
-
-        /* then switch user and group to "shell" */
-        if (setgid(AID_SHELL) != 0) {
+        /* then switch user and group to "developer" */
+        if (setgid(SID_DEVELOPER) != 0) {
+            fprintf(stderr, "set group id failed errno: %d\n", errno);
             exit(1);
         }
-        if (setuid(AID_SHELL) != 0) {
+        if (setuid(SID_DEVELOPER) != 0) {
+            fprintf(stderr, "set user id failed errno: %d\n", errno);
             exit(1);
         }
 
@@ -1080,15 +1042,12 @@ int sdb_main(int is_daemon, int server_port)
 
         D("Local port disabled\n");
     } else {
-#endif
         char local_name[30];
         build_local_name(local_name, sizeof(local_name), server_port);
         if(install_listener(local_name, "*smartsocket*", NULL)) {
             exit(1);
         }
-#if 0 /* tizen specific */
     }
-#endif
         /* for the device, start the usb transport if the
         ** android usb device exists and the "service.sdb.tcp.port" and
         ** "persist.sdb.tcp.port" properties are not set.
