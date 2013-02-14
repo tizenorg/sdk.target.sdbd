@@ -35,7 +35,7 @@
 #define SDB_VERSION_MAJOR 2         // Used for help/version information
 #define SDB_VERSION_MINOR 0         // Used for help/version information
 
-#define SDB_SERVER_VERSION 2        // Increment this when we want to force users to start a new sdb server
+#define SDB_SERVER_VERSION 3        // Increment this when we want to force users to start a new sdb server
 
 typedef struct amessage amessage;
 typedef struct apacket apacket;
@@ -319,6 +319,12 @@ void framebuffer_service(int fd, void *cookie);
 void log_service(int fd, void *cookie);
 void remount_service(int fd, void *cookie);
 char * get_log_file_path(const char * log_name);
+
+// This is the users and groups config for the platform
+
+#define SID_TTY         5    /* group for /dev/ptmx */
+#define SID_APP         5000 /* application */
+#define SID_DEVELOPER   5100 /* developer with SDK */
 #endif
 
 /* packet allocator */

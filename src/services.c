@@ -332,23 +332,23 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
 
     ptm = unix_open("/dev/ptmx", O_RDWR); // | O_NOCTTY);
     if(ptm < 0){
-        printf("[ cannot open /dev/ptmx - %s ]\n",strerror(errno));
+        D("[ cannot open /dev/ptmx - %s ]\n",strerror(errno));
         return -1;
     }
     if (fcntl(ptm, F_SETFD, FD_CLOEXEC) < 0) {
-        printf("[ cannot set cloexec to /dev/ptmx - %s ]\n",strerror(errno));
+        D("[ cannot set cloexec to /dev/ptmx - %s ]\n",strerror(errno));
     }
 
     if(grantpt(ptm) || unlockpt(ptm) ||
        ((devname = (char*) ptsname(ptm)) == 0)){
-        printf("[ trouble with /dev/ptmx - %s ]\n", strerror(errno));
+        D("[ trouble with /dev/ptmx - %s ]\n", strerror(errno));
         sdb_close(ptm);
         return -1;
     }
 
     *pid = fork();
     if(*pid < 0) {
-        printf("- fork failed: %s -\n", strerror(errno));
+        D("- fork failed: %s -\n", strerror(errno));
         sdb_close(ptm);
         return -1;
     }
@@ -379,7 +379,8 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
             sdb_write(fd, "0", 1);
             sdb_close(fd);
         } else {
-           D("sdb: unable to open %s\n", text);
+           // FIXME: not supposed to be here
+           //D("sdb: unable to open %s due to %s\n", text, strerror(errno));
         }
         execl(cmd, cmd, arg0, arg1, NULL);
         fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
