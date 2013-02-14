@@ -1,5 +1,8 @@
 <manifest>
+    <define>
+        <domain name="sdbd" />
+    </define>
     <request>
-        <domain name="_" />
+        <domain name="sdbd" />
     </request>
 </manifest>
