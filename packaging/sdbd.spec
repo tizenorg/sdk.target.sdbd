@@ -32,6 +32,8 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Sat Feb 16 2013 Yoonki Park <yoonki.park@samsung.com>
+ - sycn sources from master to task/slp/release
 * Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
  - supports cs report service using inotify
 * Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
