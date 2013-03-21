@@ -36,15 +36,16 @@
 #include "sdb.h"
 #include "sdb_client.h"
 #include "file_sync_service.h"
+#include "sdktools.h"
 
 static int do_cmd(transport_type ttype, char* serial, char *cmd, ...);
 
 void get_my_path(char *s, size_t maxLen);
-int find_sync_dirs(const char *srcarg,
-        char **android_srcdir_out, char **data_srcdir_out);
-int install_app(transport_type transport, char* serial, int argc, char** argv);
+int find_sync_dirs(const char *srcarg, char **android_srcdir_out, char **data_srcdir_out);
 int uninstall_app_sdb(const char *app_id);
 int install_app_sdb(const char *srcpath);
+
+int install_app(transport_type transport, char* serial, int argc, char** argv);
 int uninstall_app(transport_type transport, char* serial, int argc, char** argv);
 int sdb_command2(const char* cmd);
 
@@ -124,7 +125,8 @@ void help()
     "  sdb status-window            - continuously print device status for a specified device\n"
     "  sdb usb                      - restarts the sdbd daemon listing on USB\n"
 //    "  sdb tcpip <port>             - restarts the sdbd daemon listing on TCP on the specified port"
-    "  sdb tcpip                    - restarts the sdbd daemon listing on TCP"
+    "  sdb tcpip                    - restarts the sdbd daemon listing on TCP\n"
+    "  sdb root <on|off>            - allows a developer to run remote shell with root permission\n"
     "\n"
         );
 }
@@ -183,7 +185,7 @@ static void read_and_dump(int fd)
         fflush(stdout);
     }
 }
-
+#if 0
 static void copy_to_file(int inFd, int outFd) {
     const size_t BUFSIZE = 32 * 1024;
     char* buf = (char*) malloc(BUFSIZE);
@@ -211,7 +213,7 @@ static void copy_to_file(int inFd, int outFd) {
     D("copy_to_file() finished after %lu bytes\n", total);
     free(buf);
 }
-
+#endif
 static void *stdin_read_thread(void *x)
 {
     int fd, fdi;
@@ -563,25 +565,11 @@ static int send_shellcommand(transport_type transport, char* serial, char* buf)
     return ret;
 }
 
-static int logcat(transport_type transport, char* serial, int argc, char **argv)
+static int dlog(transport_type transport, char* serial, int argc, char **argv)
 {
     char buf[4096];
 
-    char *log_tags;
-    char *quoted_log_tags;
-
-    log_tags = getenv("ANDROID_LOG_TAGS");
-    quoted_log_tags = dupAndQuote(log_tags == NULL ? "" : log_tags);
-
-    snprintf(buf, sizeof(buf),
-        "shell:export ANDROID_LOG_TAGS=\"\%s\" ; exec logcat",
-        quoted_log_tags);
-
-    free(quoted_log_tags);
-
-    if (!strcmp(argv[0],"longcat")) {
-        strncat(buf, " -v long", sizeof(buf)-1);
-    }
+    snprintf(buf, sizeof(buf), "shell:dlogutil");
 
     argc -= 1;
     argv += 1;
@@ -598,7 +586,7 @@ static int logcat(transport_type transport, char* serial, int argc, char **argv)
     send_shellcommand(transport, serial, buf);
     return 0;
 }
-
+#if 0
 static int mkdirs(char *path)
 {
     int ret;
@@ -617,7 +605,9 @@ static int mkdirs(char *path)
     }
     return 0;
 }
+#endif
 
+#if 0
 static int backup(int argc, char** argv) {
     char buf[4096];
     char default_name[32];
@@ -701,7 +691,7 @@ static int restore(int argc, char** argv) {
     sdb_close(tarFd);
     return 0;
 }
-
+#endif
 #define SENTINEL_FILE "config" OS_PATH_SEPARATOR_STR "envsetup.make"
 static int top_works(const char *top)
 {
@@ -1006,7 +996,7 @@ top:
         return sdb_send_emulator_command(argc, argv);
     }
 
-    if(!strcmp(argv[0], "shell") || !strcmp(argv[0], "hell")) {
+    if(!strcmp(argv[0], "shell")) {
         int r;
         int fd;
 
@@ -1089,7 +1079,7 @@ top:
             return 0;
         }
     }
-#endif
+
     if(!strcmp(argv[0], "remount") || !strcmp(argv[0], "reboot")
             || !strcmp(argv[0], "reboot-bootloader")
             || !strcmp(argv[0], "tcpip") || !strcmp(argv[0], "usb")
@@ -1116,7 +1106,7 @@ top:
         do_cmd(ttype, serial, "shell", "bugreport", 0);
         return 0;
     }
-
+#endif
     /* sdb_command() wrapper commands */
 
     if(!strncmp(argv[0], "wait-for-", strlen("wait-for-"))) {
@@ -1149,71 +1139,12 @@ top:
         }
         return 0;
     }
-
-    if(!strcmp(argv[0], "forward")) {
-        if(argc != 3) return usage();
-        if (serial) {
-            snprintf(buf, sizeof buf, "host-serial:%s:forward:%s;%s",serial, argv[1], argv[2]);
-        } else if (ttype == kTransportUsb) {
-            snprintf(buf, sizeof buf, "host-usb:forward:%s;%s", argv[1], argv[2]);
-        } else if (ttype == kTransportLocal) {
-            snprintf(buf, sizeof buf, "host-local:forward:%s;%s", argv[1], argv[2]);
-        } else {
-            snprintf(buf, sizeof buf, "host:forward:%s;%s", argv[1], argv[2]);
-        }
-        if(sdb_command(buf)) {
-            fprintf(stderr,"error: %s\n", sdb_error());
-            return 1;
-        }
-        return 0;
-    }
-
+#if 0
     /* do_sync_*() commands */
 
     if(!strcmp(argv[0], "ls")) {
         if(argc != 2) return usage();
         return do_sync_ls(argv[1]);
-    }
-
-    if(!strcmp(argv[0], "push")) {
-        int i=0;
-        int utf8=0;
-
-        if(argc < 3) return usage();
-        if (argv[argc-1][0] == '-') {
-            if (!strcmp(argv[argc-1], "-with-utf8")) {
-                utf8 = 1;
-                argc = argc - 1;
-            } else {
-                return usage();
-            }
-        }
-        for (i=1; i<argc-1; i++) {
-            do_sync_push(argv[i], argv[argc-1], 0 /* no verify APK */, utf8);
-        }
-        return 0;
-    }
-
-    if(!strcmp(argv[0], "install")) {
-        if(argc != 2) return usage();
-
-        return install_app_sdb(argv[1]);
-    }
-
-    if(!strcmp(argv[0], "uninstall")) {
-        if(argc != 2) return usage();
-
-        return uninstall_app_sdb(argv[1]);
-    }
-
-    if(!strcmp(argv[0], "pull")) {
-        if (argc == 2) {
-            return do_sync_pull(argv[1], ".");
-        } else if (argc == 3) {
-            return do_sync_pull(argv[1], argv[2]);
-        } else {
-            return usage();
-        }
     }
 
     if(!strcmp(argv[0], "install")) {
@@ -1260,6 +1191,66 @@ top:
         return ret;
     }
 
+#endif
+    if(!strcmp(argv[0], "forward")) {
+        if(argc != 3) return usage();
+        if (serial) {
+            snprintf(buf, sizeof buf, "host-serial:%s:forward:%s;%s",serial, argv[1], argv[2]);
+        } else if (ttype == kTransportUsb) {
+            snprintf(buf, sizeof buf, "host-usb:forward:%s;%s", argv[1], argv[2]);
+        } else if (ttype == kTransportLocal) {
+            snprintf(buf, sizeof buf, "host-local:forward:%s;%s", argv[1], argv[2]);
+        } else {
+            snprintf(buf, sizeof buf, "host:forward:%s;%s", argv[1], argv[2]);
+        }
+        if(sdb_command(buf)) {
+            fprintf(stderr,"error: %s\n", sdb_error());
+            return 1;
+        }
+        return 0;
+    }
+
+    if(!strcmp(argv[0], "push")) {
+        int i=0;
+        int utf8=0;
+
+        if(argc < 3) return usage();
+        if (argv[argc-1][0] == '-') {
+            if (!strcmp(argv[argc-1], "-with-utf8")) {
+                utf8 = 1;
+                argc = argc - 1;
+            } else {
+                return usage();
+            }
+        }
+        for (i=1; i<argc-1; i++) {
+            do_sync_push(argv[i], argv[argc-1], 0 /* no verify APK */, utf8);
+        }
+        return 0;
+    }
+
+    if(!strcmp(argv[0], "pull")) {
+        if (argc == 2) {
+            return do_sync_pull(argv[1], ".");
+        } else if (argc == 3) {
+            return do_sync_pull(argv[1], argv[2]);
+        } else {
+            return usage();
+        }
+    }
+
+    if(!strcmp(argv[0], "install")) {
+        if(argc != 2) return usage();
+
+        return install_app_sdb(argv[1]);
+    }
+
+    if(!strcmp(argv[0], "uninstall")) {
+        if(argc != 2) return usage();
+
+        return uninstall_app_sdb(argv[1]);
+    }
+
     /* passthrough commands */
 
     if(!strcmp(argv[0],"get-state") ||
@@ -1284,10 +1275,10 @@ top:
         return 0;
     }
 
-    if(!strcmp(argv[0],"logcat") || !strcmp(argv[0],"lolcat") || !strcmp(argv[0],"longcat")) {
-        return logcat(ttype, serial, argc, argv);
+    if(!strcmp(argv[0],"dlog")) {
+        return dlog(ttype, serial, argc, argv);
     }
-
+#if 0
     if(!strcmp(argv[0],"ppp")) {
         return ppp(argc, argv);
     }
@@ -1315,7 +1306,23 @@ top:
             return -1;
         }
     }
+#endif
+    if( !strcmp(argv[0], "root")) {
+        if(argc != 2) {
+            return usage();
+        }
 
+        char command[100];
+        snprintf(command, sizeof(command), "%s:%s", argv[0], argv[1]);
+        int fd = sdb_connect(command);
+        if(fd >= 0) {
+            read_and_dump(fd);
+            sdb_close(fd);
+            return 0;
+        }
+        fprintf(stderr,"error: %s\n", sdb_error());
+        return 1;
+    }
     /* "sdb /?" is a common idiom under Windows */
     if(!strcmp(argv[0], "help") || !strcmp(argv[0], "/?")) {
         help();
@@ -1326,7 +1333,22 @@ top:
         version(stdout);
         return 0;
     }
+#if 0
+    if(!strcmp(argv[0], "debug")) {
+        const char* SHELL_INSTALL_CMD ="shell:/home/developer/sdk_tools/gdbserver/gdbserver :26102 /opt/apps/59yuQJxnag/bin/aaaa.exe";
+        char full_cmd[PATH_MAX];
+        snprintf(full_cmd, sizeof full_cmd, SHELL_INSTALL_CMD);
 
+        int result = sdb_command2(full_cmd);
+
+        if(result < 0) {
+            fprintf(stderr, "error: %s\n", sdb_error());
+            return result;
+        }
+
+        return 0;
+    }
+#endif
     usage();
     return 1;
 }
