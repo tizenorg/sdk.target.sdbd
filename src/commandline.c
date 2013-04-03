@@ -47,6 +47,7 @@ int uninstall_app_sdb(const char *app_id);
 int install_app_sdb(const char *srcpath);
 int uninstall_app(transport_type transport, char* serial, int argc, char** argv);
 int sdb_command2(const char* cmd);
+void version_sdbd(transport_type ttype, char* serial);
 
 static const char *gProductOutPath = NULL;
 
@@ -86,11 +87,11 @@ void help()
     " Usage : sdb [option] <command> [parameters]\n"
         "\n"
     " options:\n"
-    " -d                            - directs command to the only connected USB device\n"
-    "                                 returns an error if more than one USB device is present.\n"
-    " -e                            - directs command to the only running emulator.\n"
-    "                                 returns an error if more than one emulator is running.\n"
-    " -s <serial number>            - directs command to the USB device or emulator with\n"
+    " -d                            - direct command to the only connected USB device\n"
+    "                                 return an error if more than one USB device is present.\n"
+    " -e                            - direct command to the only running emulator.\n"
+    "                                 return an error if more than one emulator is running.\n"
+    " -s <serial number>            - direct command to the USB device or emulator with\n"
     "                                 the given serial number.\n"
     " devices                       - list all connected devices\n"
     " connect <host>[:<port>]       - connect to a device via TCP/IP\n"
@@ -101,14 +102,14 @@ void help()
     "                                 will disconnect from all connected TCP/IP devices.\n"
     "\n"
     " commands:\n"
-    "  sdb push <local> <remote> [-with-utf8]\n"
+    "  sdb push <local> <remote> [--with-utf8]\n"
     "                               - copy file/dir to device\n"
-    "                                 (-with-utf8 means to create the remote file with utf8 character encoding)\n"
+    "                                 (--with-utf8 means to create the remote file with utf-8 character encoding)\n"
     "  sdb pull <remote> [<local>]  - copy file/dir from device\n"
     "  sdb shell                    - run remote shell interactively\n"
     "  sdb shell <command>          - run remote shell \n"
-    "  sdb dlog [ <filter-spec> ]   - view device log\n"
-    "  sdb install <path_to_tpk>    - push tpk package file and install it\n"
+    "  sdb dlog [<filter-spec>]     - view device log\n"
+    "  sdb install <path-to-tpk>    - push tpk package file and install it\n"
     "  sdb uninstall <appid>        - uninstall this app from the device\n"
     "  sdb forward <local> <remote> - forward socket connections\n"
 
@@ -119,12 +120,13 @@ void help()
     "\n"
     "  sdb start-server             - ensure that there is a server running\n"
     "  sdb kill-server              - kill the server if it is running\n"
-    "  sdb get-state                - prints: offline | bootloader | device\n"
-    "  sdb get-serialno             - prints: <serial-number>\n"
+    "  sdb get-state                - print: offline | bootloader | device\n"
+    "  sdb get-serialno             - print: <serial-number>\n"
     "  sdb status-window            - continuously print device status for a specified device\n"
-    "  sdb usb                      - restarts the sdbd daemon listing on USB\n"
-//    "  sdb tcpip <port>             - restarts the sdbd daemon listing on TCP on the specified port"
-    "  sdb tcpip                    - restarts the sdbd daemon listing on TCP"
+//    "  sdb usb                      - restarts the sdbd daemon listing on USB\n"
+//    "  sdb tcpip                    - restarts the sdbd daemon listing on TCP\n"
+    "  sdb root <on|off>            - switch to root or developer account mode\n"
+    "                                 'on' means to root mode, and vice versa"
     "\n"
         );
 }
@@ -567,21 +569,14 @@ static int logcat(transport_type transport, char* serial, int argc, char **argv)
 {
     char buf[4096];
 
-    char *log_tags;
-    char *quoted_log_tags;
-
-    log_tags = getenv("ANDROID_LOG_TAGS");
-    quoted_log_tags = dupAndQuote(log_tags == NULL ? "" : log_tags);
-
     snprintf(buf, sizeof(buf),
-        "shell:export ANDROID_LOG_TAGS=\"\%s\" ; exec logcat",
-        quoted_log_tags);
+        "shell:/usr/bin/dlogutil");
 
-    free(quoted_log_tags);
-
+/*
     if (!strcmp(argv[0],"longcat")) {
         strncat(buf, " -v long", sizeof(buf)-1);
     }
+*/
 
     argc -= 1;
     argv += 1;
@@ -931,8 +926,9 @@ int sdb_commandline(int argc, char **argv)
         argv++;
     }
 
-    sdb_set_transport(ttype, serial);
-    sdb_set_tcp_specifics(server_port);
+
+//    sdb_set_transport(ttype, serial);
+//    sdb_set_tcp_specifics(server_port);
 
     if (is_server) {
         if (no_daemon || is_daemon) {
@@ -951,6 +947,23 @@ top:
         return usage();
     }
 
+    // first, get the uniq device from the partial serial with prefix matching
+    if (serial) {
+        char *tmp;
+        snprintf(buf, sizeof(buf), "host:serial-match:%s", serial);
+        tmp = sdb_query(buf);
+        if (tmp) {
+            //printf("connect to device: %s\n", tmp);
+            serial = strdup(tmp);
+            sdb_set_transport(ttype, serial);
+            sdb_set_tcp_specifics(server_port);
+        } else {
+            return 1;
+        }
+    } else {
+        sdb_set_transport(ttype, serial);
+        sdb_set_tcp_specifics(server_port);
+    }
     /* sdb_connect() commands */
 
     if(!strcmp(argv[0], "devices")) {
@@ -1181,7 +1194,7 @@ top:
 
         if(argc < 3) return usage();
         if (argv[argc-1][0] == '-') {
-            if (!strcmp(argv[argc-1], "-with-utf8")) {
+            if (!strcmp(argv[argc-1], "--with-utf8")) {
                 utf8 = 1;
                 argc = argc - 1;
             } else {
@@ -1284,7 +1297,7 @@ top:
         return 0;
     }
 
-    if(!strcmp(argv[0],"logcat") || !strcmp(argv[0],"lolcat") || !strcmp(argv[0],"longcat")) {
+    if(!strcmp(argv[0],"dlog")) {
         return logcat(ttype, serial, argc, argv);
     }
 
@@ -1323,7 +1336,11 @@ top:
     }
 
     if(!strcmp(argv[0], "version")) {
-        version(stdout);
+        if (ttype == kTransportUsb || ttype == kTransportLocal) {
+            version_sdbd(ttype, serial);
+        } else {
+            version(stdout);
+        }
         return 0;
     }
 
@@ -1350,7 +1367,9 @@ static int do_cmd(transport_type ttype, char* serial, char *cmd, ...)
     }
 
     argv[argc++] = cmd;
-    while((argv[argc] = va_arg(ap, char*)) != 0) argc++;
+    while((argv[argc] = va_arg(ap, char*)) != 0) {
+        argc++;
+    }
     va_end(ap);
 
 #if 0
@@ -1486,8 +1505,16 @@ int install_app_sdb(const char *srcpath) {
 int uninstall_app_sdb(const char *appid) {
     const char* SHELL_UNINSTALL_CMD ="shell:pkgcmd -u -t tpk -n %s -q";
     char full_cmd[PATH_MAX];
+    int result = 0;
     snprintf(full_cmd, sizeof full_cmd, SHELL_UNINSTALL_CMD, appid);
-    return sdb_command(full_cmd);
+    result = sdb_command2(full_cmd);
+
+    if(result < 0) {
+        fprintf(stderr, "error: %s\n", sdb_error());
+        return result;
+    }
+
+    return 0;
 }
 
 int uninstall_app(transport_type transport, char* serial, int argc, char** argv)
@@ -1643,4 +1670,9 @@ cleanup_apk:
     delete_file(transport, serial, apk_dest);
 
     return err;
+}
+
+void version_sdbd(transport_type ttype, char* serial) {
+    char* VERSION_QUERY ="shell:rpm -qa | grep sdbd";
+    send_shellcommand(ttype, serial, VERSION_QUERY);
 }

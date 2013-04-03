@@ -77,6 +77,7 @@ typedef union {
 
 
 void file_sync_service(int fd, void *cookie);
+void file_sync_subproc(int fd, void *cookie);
 int do_sync_ls(const char *path);
 int do_sync_push(const char *lpath, const char *rpath, int verifyApk, int isUtf8);
 int do_sync_sync(const char *lpath, const char *rpath, int listonly);

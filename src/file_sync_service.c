@@ -22,7 +22,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <utime.h>
-
+#include <regex.h>
 #include <errno.h>
 
 #include "sysdeps.h"
@@ -30,6 +30,20 @@
 #define TRACE_TAG  TRACE_SYNC
 #include "sdb.h"
 #include "file_sync_service.h"
+
+struct sync_permit_rule
+{
+    const char *name;
+    const char *regx;
+    int mode; // 0:push, 1: pull, 2: push&push
+};
+
+struct sync_permit_rule sdk_sync_permit_rule[] = {
+//    /* 0 */ {"rds", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/info/\\.sdk_delta\\.info$", 1},
+    /* 1 */ {"unitest", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", 1},
+    /* 2 */ {"codecoverage", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/+([a-zA-Z0-9_/])*+[a-zA-Z0-9_\\-]{1,50}\\.gcda$", 1},
+    /* end */ {NULL, NULL, 0}
+};
 
 /* The typical default value for the umask is S_IWGRP | S_IWOTH (octal 022).
  * Before use the DIR_PERMISSION, the process umask value should be set 0 using umask().
@@ -72,6 +86,7 @@ static int do_stat(int s, const char *path)
         msg.stat.mode = 0;
         msg.stat.size = 0;
         msg.stat.time = 0;
+        D("failed to stat %s due to: %s\n", path, strerror(errno));
     } else {
         msg.stat.mode = htoll(st.st_mode);
         msg.stat.size = htoll(st.st_size);
@@ -100,7 +115,8 @@ static int do_list(int s, const char *path)
     msg.dent.id = ID_DENT;
 
     d = opendir(path);
-    if(d == 0) {
+    if(d == NULL) {
+        D("failed to open dir due to: %s\n", strerror(errno));
         goto done;
     }
 
@@ -180,13 +196,11 @@ static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
             return -1;
         fd = -1;
     }
-
     for(;;) {
         unsigned int len;
 
         if(readx(s, &msg.data, sizeof(msg.data)))
             goto fail;
-
         if(msg.data.id != ID_DATA) {
             if(msg.data.id == ID_DONE) {
                 timestamp = ltohl(msg.data.size);
@@ -228,6 +242,9 @@ static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
             return -1;
         // flush file system buffers due to N_SE-22305
         sync();
+    } else {
+        D("sync error: %d!!!\n", fd);
+        return -1;
     }
     return 0;
 
@@ -330,7 +347,6 @@ static int do_send(int s, char *path, char *buffer)
 
         //mode |= ((mode >> 3) & 0070);
         //mode |= ((mode >> 3) & 0007);
-
         ret = handle_send_file(s, path, mode, buffer);
     }
 
@@ -373,8 +389,53 @@ static int do_recv(int s, const char *path, char *buffer)
     if(writex(s, &msg.data, sizeof(msg.data))) {
         return -1;
     }
-
     return 0;
+}
+
+static int verify_sync_rule(const char* path) {
+    regex_t regex;
+    int ret;
+    char buf[PATH_MAX];
+    int i=0;
+
+    for (i=0; sdk_sync_permit_rule[i].regx != NULL; i++) {
+        ret = regcomp(&regex, sdk_sync_permit_rule[i].regx, REG_EXTENDED);
+        if(ret){
+            return 0;
+        }
+        // execute regular expression
+        ret = regexec(&regex, path, 0, NULL, 0);
+        if(!ret){
+            regfree(&regex);
+            D("found matched rule(%s) from %s path\n", sdk_sync_permit_rule[i].name, path);
+            return 1;
+        } else if( ret == REG_NOMATCH ){
+            // do nothin
+        } else{
+            regerror(ret, &regex, buf, sizeof(buf));
+            D("regex match failed(%s): %s\n",sdk_sync_permit_rule[i].name, buf);
+        }
+    }
+    regfree(&regex);
+    return 0;
+}
+
+void file_sync_subproc(int fd, void *cookie) {
+    if (should_drop_privileges()) {
+        pid_t pid = fork();
+        int ret = 0;
+        if (pid == 0) {
+            file_sync_service(fd, cookie);
+        } else if (pid > 0) {
+            waitpid(pid, &ret, 0);
+        }
+        if(pid < 0) {
+            D("- fork failed: %s -\n", strerror(errno));
+            return;
+        }
+    } else {
+        file_sync_service(fd, cookie);
+    }
 }
 
 void file_sync_service(int fd, void *cookie)
@@ -407,6 +468,9 @@ void file_sync_service(int fd, void *cookie)
         msg.req.namelen = 0;
         D("sync: '%s' '%s'\n", (char*) &msg.req, name);
 
+        if (should_drop_privileges() && !verify_sync_rule(name)) {
+            set_developer_privileges();
+        }
         switch(msg.req.id) {
         case ID_STAT:
             if(do_stat(fd, name)) goto fail;

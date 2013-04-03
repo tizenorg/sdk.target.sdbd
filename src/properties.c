@@ -35,6 +35,7 @@
 
 #define HAVE_PTHREADS
 #include <stdio.h>
+#include "strutils.h"
 #include "threads.h"
 
 static mutex_t  env_lock = MUTEX_INITIALIZER;
@@ -51,7 +52,6 @@ struct config_node {
 };
 
 void property_save();
-int read_line(const int fd, char* ptr, const unsigned int maxlen);
 
 static void property_init(void)
 {
@@ -151,25 +151,6 @@ int property_list(void (*propfn)(const char *key, const char *value, void *cooki
                   void *cookie)
 {
     return 0;
-}
-
-int read_line(const int fd, char* ptr, const unsigned int maxlen)
-{
-    unsigned int n = 0;
-    char c[2];
-    int rc;
-
-    while(n != maxlen) {
-        if((rc = sdb_read(fd, c, 1)) != 1)
-            return -1; // eof or read err
-
-        if(*c == '\n') {
-            ptr[n] = 0;
-            return n;
-        }
-        ptr[n++] = *c;
-    }
-    return -1; // no space
 }
 
 #elif defined(HAVE_LIBC_SYSTEM_PROPERTIES)

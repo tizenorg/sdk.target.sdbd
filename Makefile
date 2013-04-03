@@ -82,11 +82,16 @@ SDBD_SRC_FILES := \
 	src/socket_loopback_server.c \
 	src/socket_network_client.c \
 	src/properties.c \
-	src/android_reboot.c
+	src/android_reboot.c \
+	src/sdktools.c \
+	src/strutils.c \
+	src/libsmack.c \
+	src/init.c \
+	src/fileutils.c
 
 SDBD_CFLAGS := -O2 -g -DSDB_HOST=0 -Wall -Wno-unused-parameter
 SDBD_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
-SDBD_CFLAGS += -DHAVE_FORKEXEC -fPIE -DALLOW_SDBD_ROOT
+SDBD_CFLAGS += -DHAVE_FORKEXEC -fPIE -D_DROP_PRIVILEGE
 
 IFLAGS := -Iinclude -Isrc
 OBJDIR := bin
