@@ -25,6 +25,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <grp.h>
 
 #include "sysdeps.h"
 #include "sdb.h"
@@ -43,7 +44,6 @@ SDB_MUTEX_DEFINE( D_lock );
 #endif
 
 int HOST = 0;
-
 
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
@@ -110,6 +110,7 @@ void  sdb_trace_init(void)
         { "jdwp", TRACE_JDWP },
         { "services", TRACE_SERVICES },
         { "properties", TRACE_PROPERTIES },
+        { "sdktools", TRACE_SDKTOOLS },
         { NULL, 0 }
     };
 
@@ -965,48 +966,74 @@ void build_local_name(char* target_str, size_t target_size, int server_port)
   snprintf(target_str, target_size, "tcp:%d", server_port);
 }
 
-#if 0
 #if !SDB_HOST
-static int should_drop_privileges() {
-#ifndef ALLOW_SDBD_ROOT
+static void init_drop_privileges() {
+#ifdef _DROP_PRIVILEGE
+    rootshell_mode = 0;
+#else
+    rootshell_mode = 1;
+#endif
+}
+
+int should_drop_privileges() {
+    if (rootshell_mode == 1) { // if root, then don't drop
+        return 0;
+    }
     return 1;
-#else /* ALLOW_SDBD_ROOT */
-    int secure = 0;
-    char value[PROPERTY_VALUE_MAX];
+}
 
-   /* run sdbd in secure mode if ro.secure is set and
-    ** we are not in the emulator
-    */
-    property_get("ro.kernel.qemu", value, "");
-    if (strcmp(value, "1") != 0) {
-        property_get("ro.secure", value, "1");
-        if (strcmp(value, "1") == 0) {
-            // don't run as root if ro.secure is set...
-            secure = 1;
+int set_developer_privileges() {
+    gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING };
+    if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
+        fprintf(stderr, "set groups failed (errno: %d, %s)\n", errno, strerror(errno));
+        //exit(1);
+    }
 
-            // ... except we allow running as root in userdebug builds if the
-            // service.sdb.root property has been set by the "sdb root" command
-            property_get("ro.debuggable", value, "");
-            if (strcmp(value, "1") == 0) {
-                property_get("service.sdb.root", value, "");
-                if (strcmp(value, "1") == 0) {
-                    secure = 0;
-                }
-            }
+    // then switch user and group to developer
+    if (setgid(SID_DEVELOPER) != 0) {
+        fprintf(stderr, "set group id failed (errno: %d, %s)\n", errno, strerror(errno));
+        //exit(1);
+        return -1;
+    }
+
+    if (setuid(SID_DEVELOPER) != 0) {
+        fprintf(stderr, "set user id failed (errno: %d, %s)\n", errno, strerror(errno));
+        //exit(1);
+        return -1;
+    }
+
+    if (chdir("/home/developer") < 0) {
+        D("sdbd: unable to change working directory to /home/developer\n");
+    } else {
+        if (chdir("/") < 0) {
+            D("sdbd: unable to change working directory to /\n");
         }
     }
-    return secure;
-#endif /* ALLOW_SDBD_ROOT */
+    return 1;
+}
+#define ONDEMAND_PATH "/home/developer/sdk_tools"
+
+static void init_sdk_requirements() {
+    struct stat st;
+    if (stat(ONDEMAND_PATH, &st) == -1) {
+        return;
+    }
+    if (st.st_uid != SID_DEVELOPER || st.st_gid != SID_DEVELOPER) {
+        char cmd[128];
+        snprintf(cmd, sizeof(cmd), "chown developer:developer %s -R", ONDEMAND_PATH);
+        if (system(cmd) < 0) {
+            D("failed to change ownership to developer to %s\n",ONDEMAND_PATH);
+        }
+    }
 }
 #endif /* !SDB_HOST */
-#endif
 
 int sdb_main(int is_daemon, int server_port)
 {
 #if !SDB_HOST
-    int port;
-    char value[PROPERTY_VALUE_MAX];
 
+    init_drop_privileges();
+    init_sdk_requirements();
     umask(000);
 #endif
 
@@ -1033,41 +1060,31 @@ int sdb_main(int is_daemon, int server_port)
         exit(1);
     }
 #else
-#if 0 /* tizen specific */
     /* don't listen on a port (default 5037) if running in secure mode */
     /* don't run as root if we are running in secure mode */
+
     if (should_drop_privileges()) {
+# if 0
         struct __user_cap_header_struct header;
         struct __user_cap_data_struct cap;
 
         if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) != 0) {
             exit(1);
         }
-
         /* add extra groups:
-        ** AID_SDB to access the USB driver
-        ** AID_LOG to read system logs (sdb logcat)
-        ** AID_INPUT to diagnose input issues (getevent)
-        ** AID_INET to diagnose network issues (netcfg, ping)
-        ** AID_GRAPHICS to access the frame buffer
-        ** AID_NET_BT and AID_NET_BT_ADMIN to diagnose bluetooth (hcidump)
-        ** AID_SDCARD_R to allow reading from the SD card
-        ** AID_SDCARD_RW to allow writing to the SD card
-        ** AID_MOUNT to allow unmounting the SD card before rebooting
-        ** AID_NET_BW_STATS to read out qtaguid statistics
+        ** SID_TTY to access /dev/ptmx
         */
-        gid_t groups[] = { AID_SDB, AID_LOG, AID_INPUT, AID_INET, AID_GRAPHICS,
-                           AID_NET_BT, AID_NET_BT_ADMIN, AID_SDCARD_R, AID_SDCARD_RW,
-                           AID_MOUNT, AID_NET_BW_STATS };
+        gid_t groups[] = { SID_TTY, SID_APP_LOGGING, SID_SYS_LOGGING };
         if (setgroups(sizeof(groups)/sizeof(groups[0]), groups) != 0) {
             exit(1);
         }
-
-        /* then switch user and group to "shell" */
-        if (setgid(AID_SHELL) != 0) {
+        /* then switch user and group to "developer" */
+        if (setgid(SID_DEVELOPER) != 0) {
+            fprintf(stderr, "set group id failed errno: %d\n", errno);
             exit(1);
         }
-        if (setuid(AID_SHELL) != 0) {
+        if (setuid(SID_DEVELOPER) != 0) {
+            fprintf(stderr, "set user id failed errno: %d\n", errno);
             exit(1);
         }
 
@@ -1077,34 +1094,21 @@ int sdb_main(int is_daemon, int server_port)
         cap.effective = cap.permitted = (1 << CAP_SYS_BOOT);
         cap.inheritable = 0;
         capset(&header, &cap);
-
+#endif
         D("Local port disabled\n");
     } else {
-#endif
         char local_name[30];
         build_local_name(local_name, sizeof(local_name), server_port);
         if(install_listener(local_name, "*smartsocket*", NULL)) {
             exit(1);
         }
-#if 0 /* tizen specific */
     }
-#endif
-        /* for the device, start the usb transport if the
-        ** android usb device exists and the "service.sdb.tcp.port" and
-        ** "persist.sdb.tcp.port" properties are not set.
-        ** Otherwise start the network transport.
-        */
-    property_get("service.sdb.tcp.port", value, "");
-#if 0 /* tizen specific */
-    if (!value[0])
-        property_get("persist.sdb.tcp.port", value, "");
-#endif
-    if (sscanf(value, "%d", &port) == 1 && port > 0) {
-        // listen on TCP port specified by service.sdb.tcp.port property
-        local_init(port);
-    } else if (access("/dev/samsung_sdb", F_OK) == 0) {
+
+    if (access("/dev/samsung_sdb", F_OK) == 0) {
         // listen on USB
         usb_init();
+        // listen on tcp
+        local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
     } else {
         // listen on default port
         local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);

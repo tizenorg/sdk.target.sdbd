@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <grp.h>
 
 #include "sysdeps.h"
 
@@ -35,6 +36,7 @@
 #else
 #   include "android_reboot.h"
 #   include <sys/inotify.h>
+#   include "sdktools.h"
 #endif
 
 typedef struct stinfo stinfo;
@@ -153,6 +155,39 @@ void restart_tcp_service(int fd, void *cookie)
     property_set("service.sdb.tcp.port", value);
     snprintf(buf, sizeof(buf), "restarting in TCP mode port: %d\n", port);
     writex(fd, buf, strlen(buf));
+    sdb_close(fd);
+}
+
+void rootshell_service(int fd, void *cookie)
+{
+    char buf[100];
+    char *mode = (char*) cookie;
+
+    if (!strcmp(mode, "on")) {
+        if (rootshell_mode == 1) {
+            //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
+            // do not show message
+        } else {
+            if (access("/bin/su", F_OK) == 0) {
+                rootshell_mode = 1;
+                //allows a permitted user to execute a command as the superuser
+                snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
+            } else {
+                snprintf(buf, sizeof(buf), "Permission denied\n");
+            }
+            writex(fd, buf, strlen(buf));
+        }
+    } else if (!strcmp(mode, "off")) {
+        if (rootshell_mode == 1) {
+            rootshell_mode = 0;
+            snprintf(buf, sizeof(buf), "Switched to 'developer' account mode\n");
+            writex(fd, buf, strlen(buf));
+        }
+    } else {
+        snprintf(buf, sizeof(buf), "Unknown command option\n");
+        writex(fd, buf, strlen(buf));
+    }
+    D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : "developer");
     sdb_close(fd);
 }
 
@@ -297,7 +332,7 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
     int s[2];
 
     if(sdb_socketpair(s)) {
-        printf("cannot create service socket pair\n");
+        D("cannot create service socket pair\n");
         return -1;
     }
 
@@ -311,7 +346,7 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
         free(sti);
         sdb_close(s[0]);
         sdb_close(s[1]);
-        printf("cannot create service thread\n");
+        D("cannot create service thread\n");
         return -1;
     }
 
@@ -320,6 +355,7 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
 }
 
 #if !SDB_HOST
+
 static int create_subprocess(const char *cmd, const char *arg0, const char *arg1, pid_t *pid)
 {
 #ifdef HAVE_WIN32_PROC
@@ -332,23 +368,23 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
 
     ptm = unix_open("/dev/ptmx", O_RDWR); // | O_NOCTTY);
     if(ptm < 0){
-        printf("[ cannot open /dev/ptmx - %s ]\n",strerror(errno));
+        D("[ cannot open /dev/ptmx - %s ]\n",strerror(errno));
         return -1;
     }
     if (fcntl(ptm, F_SETFD, FD_CLOEXEC) < 0) {
-        printf("[ cannot set cloexec to /dev/ptmx - %s ]\n",strerror(errno));
+        D("[ cannot set cloexec to /dev/ptmx - %s ]\n",strerror(errno));
     }
 
     if(grantpt(ptm) || unlockpt(ptm) ||
        ((devname = (char*) ptsname(ptm)) == 0)){
-        printf("[ trouble with /dev/ptmx - %s ]\n", strerror(errno));
+        D("[ trouble with /dev/ptmx - %s ]\n", strerror(errno));
         sdb_close(ptm);
         return -1;
     }
 
     *pid = fork();
     if(*pid < 0) {
-        printf("- fork failed: %s -\n", strerror(errno));
+        D("- fork failed: %s -\n", strerror(errno));
         sdb_close(ptm);
         return -1;
     }
@@ -372,15 +408,21 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
         sdb_close(ptm);
 
         // set OOM adjustment to zero
-        char text[64];
-        snprintf(text, sizeof text, "/proc/%d/oom_adj", getpid());
-        int fd = sdb_open(text, O_WRONLY);
-        if (fd >= 0) {
-            sdb_write(fd, "0", 1);
-            sdb_close(fd);
-        } else {
-           D("sdb: unable to open %s\n", text);
+        {
+            char text[64];
+            snprintf(text, sizeof text, "/proc/%d/oom_adj", getpid());
+            int fd = sdb_open(text, O_WRONLY);
+            if (fd >= 0) {
+                sdb_write(fd, "0", 1);
+                sdb_close(fd);
+            } else {
+               // FIXME: not supposed to be here
+               D("sdb: unable to open %s due to %s\n", text, strerror(errno));
+            }
         }
+
+        verify_commands(arg1);
+
         execl(cmd, cmd, arg0, arg1, NULL);
         fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
                 cmd, strerror(errno), errno);
@@ -528,7 +570,7 @@ int service_to_fd(const char *name)
             ret = create_subproc_thread(0);
         }
     } else if(!strncmp(name, "sync:", 5)) {
-        ret = create_service_thread(file_sync_service, NULL);
+        ret = create_service_thread(file_sync_subproc, NULL);
     }/*  else if(!strncmp(name, "remount:", 8)) {
         ret = create_service_thread(remount_service, NULL);
     } else if(!strncmp(name, "reboot:", 7)) {
@@ -543,7 +585,9 @@ int service_to_fd(const char *name)
         ret = backup_service(BACKUP, arg);
     } else if(!strncmp(name, "restore:", 8)) {
         ret = backup_service(RESTORE, NULL);
-    }*/ else if(!strncmp(name, "tcpip:", 6)) {
+    }*/ else if(!strncmp(name, "root:", 5)) {
+        ret = create_service_thread(rootshell_service, (void *)(name+5));
+    } else if(!strncmp(name, "tcpip:", 6)) {
         int port;
         /*if (sscanf(name + 6, "%d", &port) == 0) {
             port = 0;
