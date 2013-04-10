@@ -511,6 +511,67 @@ static int create_subproc_thread(const char *name)
     D("service thread started, fd=%d pid=%d\n",ret_fd, pid);
     return ret_fd;
 }
+
+static int create_sync_subprocess(void (*func)(int, void *), void* cookie) {
+    stinfo *sti;
+    sdb_thread_t t;
+    int s[2];
+
+    if(sdb_socketpair(s)) {
+        D("cannot create service socket pair\n");
+        return -1;
+    }
+
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        sdb_close(s[0]);
+        func(s[1], cookie);
+        exit(-1);
+    } else if (pid > 0) {
+        sdb_close(s[1]);
+        // FIXME: do not wait child process hear
+        //waitpid(pid, &ret, 0);
+    }
+    if (pid < 0) {
+        D("- fork failed: %s -\n", strerror(errno));
+        sdb_close(s[0]);
+        sdb_close(s[1]);
+        D("cannot create sync service sub process\n");
+        return -1;
+    }
+
+    sti = malloc(sizeof(stinfo));
+    if(sti == 0) fatal("cannot allocate stinfo");
+    sti->func = subproc_waiter_service;
+    sti->cookie = (void*)pid;
+    sti->fd = s[0];
+
+    if(sdb_thread_create( &t, service_bootstrap_func, sti)){
+        free(sti);
+        sdb_close(s[0]);
+        sdb_close(s[1]);
+        printf("cannot create service monitor thread\n");
+        return -1;
+    }
+
+    D("service process started, fd=%d pid=%d\n",s[0], pid);
+    return s[0];
+}
+
+static int create_syncproc_thread()
+{
+    int ret_fd;
+
+    if (should_drop_privileges()) {
+        ret_fd = create_sync_subprocess(file_sync_service, NULL);
+    } else {
+        ret_fd = create_service_thread(file_sync_service, NULL);
+    }
+
+    return ret_fd;
+}
+
 #endif
 
 int service_to_fd(const char *name)
@@ -570,7 +631,8 @@ int service_to_fd(const char *name)
             ret = create_subproc_thread(0);
         }
     } else if(!strncmp(name, "sync:", 5)) {
-        ret = create_service_thread(file_sync_subproc, NULL);
+        //ret = create_service_thread(file_sync_service, NULL);
+        ret = create_syncproc_thread();
     }/*  else if(!strncmp(name, "remount:", 8)) {
         ret = create_service_thread(remount_service, NULL);
     } else if(!strncmp(name, "reboot:", 7)) {
