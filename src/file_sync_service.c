@@ -24,12 +24,15 @@
 #include <utime.h>
 #include <regex.h>
 #include <errno.h>
-
+#include <sys/socket.h>
+#include <sys/select.h>
 #include "sysdeps.h"
 
 #define TRACE_TAG  TRACE_SYNC
 #include "sdb.h"
 #include "file_sync_service.h"
+
+#define SYNC_TIMEOUT 10
 
 struct sync_permit_rule
 {
@@ -41,7 +44,7 @@ struct sync_permit_rule
 struct sync_permit_rule sdk_sync_permit_rule[] = {
 //    /* 0 */ {"rds", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/info/\\.sdk_delta\\.info$", 1},
     /* 1 */ {"unitest", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", 1},
-    /* 2 */ {"codecoverage", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/+([a-zA-Z0-9_/])*+[a-zA-Z0-9_\\-]{1,50}\\.gcda$", 1},
+    /* 2 */ {"codecoverage", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/+([a-zA-Z0-9_/\\.])*+[a-zA-Z0-9_\\-\\.]{1,50}\\.gcda$", 1},
     /* end */ {NULL, NULL, 0}
 };
 
@@ -199,8 +202,9 @@ static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
     for(;;) {
         unsigned int len;
 
-        if(readx(s, &msg.data, sizeof(msg.data)))
+        if(readx(s, &msg.data, sizeof(msg.data))) {
             goto fail;
+        }
         if(msg.data.id != ID_DATA) {
             if(msg.data.id == ID_DONE) {
                 timestamp = ltohl(msg.data.size);
@@ -214,11 +218,14 @@ static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
             fail_message(s, "oversize data message");
             goto fail;
         }
-        if(readx(s, buffer, len))
+        if(readx(s, buffer, len)) {
+            D("read failed due to unknown reason\n");
             goto fail;
+        }
 
-        if(fd < 0)
+        if(fd < 0) {
             continue;
+        }
         if(writex(fd, buffer, len)) {
             int saved_errno = errno;
             sdb_close(fd);
@@ -420,35 +427,34 @@ static int verify_sync_rule(const char* path) {
     return 0;
 }
 
-void file_sync_subproc(int fd, void *cookie) {
-    if (should_drop_privileges()) {
-        pid_t pid = fork();
-        int ret = 0;
-        if (pid == 0) {
-            file_sync_service(fd, cookie);
-        } else if (pid > 0) {
-            waitpid(pid, &ret, 0);
-        }
-        if(pid < 0) {
-            D("- fork failed: %s -\n", strerror(errno));
-            return;
-        }
-    } else {
-        file_sync_service(fd, cookie);
-    }
-}
-
 void file_sync_service(int fd, void *cookie)
 {
     syncmsg msg;
     char name[1025];
     unsigned namelen;
-
+    fd_set set;
+    struct timeval timeout;
+    int rv;
     char *buffer = malloc(SYNC_DATA_MAX);
     if(buffer == 0) goto fail;
 
+    FD_ZERO(&set); /* clear the set */
+    FD_SET(fd, &set); /* add our file descriptor to the set */
+
+    timeout.tv_sec = SYNC_TIMEOUT;
+    timeout.tv_usec = 0;
+
     for(;;) {
-        D("sync: waiting for command\n");
+        D("sync: waiting for command for %d sec\n", SYNC_TIMEOUT);
+
+        rv = select(fd + 1, &set, NULL, NULL, &timeout);
+        if (rv == -1) {
+            D("sync file descriptor select failed\n");
+        } else if (rv == 0) {
+            D("sync file descriptor timeout: (took %d sec over)\n", SYNC_TIMEOUT);
+            fail_message(fd, "sync timeout");
+            goto fail;
+        }
 
         if(readx(fd, &msg.req, sizeof(msg.req))) {
             fail_message(fd, "command read failure");
@@ -471,6 +477,7 @@ void file_sync_service(int fd, void *cookie)
         if (should_drop_privileges() && !verify_sync_rule(name)) {
             set_developer_privileges();
         }
+
         switch(msg.req.id) {
         case ID_STAT:
             if(do_stat(fd, name)) goto fail;

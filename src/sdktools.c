@@ -230,7 +230,7 @@ int exec_app_standalone(const char* path) {
                     if (pid) {
                         snprintf(cmdline, sizeof(cmdline), "/proc/%d/cmdline", pid);
                         int fd = unix_open(cmdline, O_RDONLY);
-                        if (fd) {
+                        if (fd > 0) {
                             if(read_line(fd, cmdline, sizeof(cmdline))) {
                                 if (set_smack_rules_for_gdbserver(cmdline, 1)) {
                                     ret = 1;
@@ -291,8 +291,12 @@ char* clone_gdbserver_label_from_app(const char* app_path) {
 
     int rc = smack_lgetlabel(app_path, &buffer, SMACK_LABEL_ACCESS);
 
-    if (rc == 0 && buffer != NULL && strlen(buffer) == APPID_MAX_LENGTH) {
-        strcpy(appid, buffer);
+    if (rc == 0 && buffer != NULL) {
+        if (strlen(buffer) == APPID_MAX_LENGTH) {
+            strcpy(appid, buffer);
+        } else {
+            strcpy(appid, "_");
+        }
         free(buffer);
     } else {
         strcpy(appid, "_");
@@ -394,10 +398,12 @@ void set_appuser_groups(void) {
     }
     if (cnt > 0) {
         if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
+            sdb_close(fd);
            fprintf(stderr, "set groups failed errno: %d\n", errno);
            exit(1);
         }
     }
+    sdb_close(fd);
 }
 
 int is_root_commands(const char *command) {

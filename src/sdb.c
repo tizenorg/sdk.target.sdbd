@@ -50,6 +50,8 @@ void handle_sig_term(int sig) {
     if (access(SDB_PIDPATH, F_OK) == 0)
         sdb_unlink(SDB_PIDPATH);
 #endif
+    //kill(getpgid(getpid()),SIGTERM);
+    //killpg(getpgid(getpid()),SIGTERM);
     if (access("/dev/samsung_sdb", F_OK) == 0) {
         exit(0);
     } else {
@@ -1011,18 +1013,18 @@ int set_developer_privileges() {
     }
     return 1;
 }
-#define ONDEMAND_PATH "/home/developer/sdk_tools"
+#define ONDEMAND_ROOT_PATH "/home/developer"
 
 static void init_sdk_requirements() {
     struct stat st;
-    if (stat(ONDEMAND_PATH, &st) == -1) {
+    if (stat(ONDEMAND_ROOT_PATH, &st) == -1) {
         return;
     }
     if (st.st_uid != SID_DEVELOPER || st.st_gid != SID_DEVELOPER) {
         char cmd[128];
-        snprintf(cmd, sizeof(cmd), "chown developer:developer %s -R", ONDEMAND_PATH);
+        snprintf(cmd, sizeof(cmd), "chown developer:developer %s -R", ONDEMAND_ROOT_PATH);
         if (system(cmd) < 0) {
-            D("failed to change ownership to developer to %s\n",ONDEMAND_PATH);
+            D("failed to change ownership to developer to %s\n", ONDEMAND_ROOT_PATH);
         }
     }
 }
@@ -1108,7 +1110,7 @@ int sdb_main(int is_daemon, int server_port)
         // listen on USB
         usb_init();
         // listen on tcp
-        local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
+        //local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
     } else {
         // listen on default port
         local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);

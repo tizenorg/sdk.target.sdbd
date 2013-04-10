@@ -45,6 +45,7 @@ int find_sync_dirs(const char *srcarg,
 int install_app(transport_type transport, char* serial, int argc, char** argv);
 int uninstall_app_sdb(const char *app_id);
 int install_app_sdb(const char *srcpath);
+int launch_app(transport_type transport, char* serial, int argc, char** argv);
 int uninstall_app(transport_type transport, char* serial, int argc, char** argv);
 int sdb_command2(const char* cmd);
 void version_sdbd(transport_type ttype, char* serial);
@@ -1239,6 +1240,11 @@ top:
         return uninstall_app(ttype, serial, argc, argv);
     }
 
+    if(!strcmp(argv[0], "launch")) {
+        //if (argc < 2) return usage();
+        return launch_app(ttype, serial, argc, argv);
+    }
+
     if(!strcmp(argv[0], "sync")) {
         char *srcarg, *android_srcpath, *data_srcpath;
         int listonly = 0;
@@ -1671,6 +1677,40 @@ cleanup_apk:
 
     return err;
 }
+
+int launch_app(transport_type transport, char* serial, int argc, char** argv)
+{
+    static const char *const SHELL_LAUNCH_CMD = "shell:/usr/bin/sdk_launch_app ";
+    char full_cmd[PATH_MAX];
+    int i;
+    int result = 0;
+
+    snprintf(full_cmd, sizeof full_cmd, "%s", SHELL_LAUNCH_CMD);
+
+    //TODO: check argument validation
+
+    for (i=1 ; i<argc ; i++) {
+        strncat(full_cmd, " ", sizeof(full_cmd)-strlen(" ")-1);
+        strncat(full_cmd, argv[i], sizeof(full_cmd)-strlen(argv[i])-1);
+    }
+
+    D("launch command: %s\n", full_cmd);
+    result = sdb_command2(full_cmd);
+
+    if(result < 0) {
+        fprintf(stderr, "error: %s\n", sdb_error());
+        return result;
+    }
+
+    if(result < 0) {
+        fprintf(stderr, "error: %s\n", sdb_error());
+        return result;
+    }
+    sdb_close(result);
+    return 0;
+
+}
+
 
 void version_sdbd(transport_type ttype, char* serial) {
     char* VERSION_QUERY ="shell:rpm -qa | grep sdbd";
