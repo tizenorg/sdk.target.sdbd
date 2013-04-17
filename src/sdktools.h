@@ -26,10 +26,11 @@ struct arg_permit_rule
 #define APP_INSTALL_PATH_PREFIX1                "/opt/apps"
 #define APP_INSTALL_PATH_PREFIX2                "/opt/usr/apps"
 #define GDBSERVER_PATH                          "/home/developer/sdk_tools/gdbserver/gdbserver"
+#define GDBSERVER_PLATFORM_PATH        "/home/developer/sdk_tools/gdbserver-platform/gdbserver"
 #define SMACK_LEBEL_SUBJECT_PATH                "/proc/self/attr/current"
 #define APP_GROUPS_MAX                          100
 #define APP_GROUP_LIST                          "/usr/share/privilege-control/app_group_list"
-#define APPID_MAX_LENGTH                        10
+#define APPID_MAX_LENGTH                        50
 
 int verify_commands(const char *arg1);
 int verify_root_commands(const char *arg1);

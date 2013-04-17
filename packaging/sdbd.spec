@@ -1,6 +1,6 @@
 Name:       sdbd
 Summary:    SDB daemon
-Version:    2.1.1
+Version:    2.1.2
 Release:    0
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
@@ -32,6 +32,8 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Wed Apr 04 2013 Ho Namkoong <ho.namkoong@samsung.com>
+ - supports platform gdbserver
 * Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
  - supports cs report service using inotify
 * Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
