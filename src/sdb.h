@@ -330,6 +330,7 @@ int rootshell_mode;// 0: developer, 1: root
 #define SID_DEVELOPER   5100 /* developer with SDK */
 #define SID_APP_LOGGING 6509
 #define SID_SYS_LOGGING 6527
+#define SID_INPUT       1004
 
 #endif
 
