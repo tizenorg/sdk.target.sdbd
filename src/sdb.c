@@ -1017,6 +1017,11 @@ int set_developer_privileges() {
 
 static void init_sdk_requirements() {
     struct stat st;
+
+    if (!getenv("TERM")) {
+        putenv("TERM=linux");
+    }
+
     if (stat(ONDEMAND_ROOT_PATH, &st) == -1) {
         return;
     }
