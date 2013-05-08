@@ -6,6 +6,7 @@ Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
 Requires: pkgmgr
+Requires: pkgmgr-server
 Requires: wrt
 Requires: aul
 Requires: default-files-tizen
