@@ -27,7 +27,7 @@ rm -rf %{buildroot}
 %make_install
 
 %post
-chsmack -a sdbd:home /home/developer
+chsmack -a sdbd::home /home/developer
 chsmack -t /home/developer
 
 %files
