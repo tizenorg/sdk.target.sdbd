@@ -30,6 +30,8 @@ struct arg_permit_rule
 #define APP_GROUPS_MAX                          100
 #define APP_GROUP_LIST                          "/usr/share/privilege-control/app_group_list"
 #define APPID_MAX_LENGTH                        10
+#define SDBD_LABEL_NAME                          "sdbd"
+#define SDK_HOME_LABEL_NAME                      "sdbd::home"
 
 int verify_commands(const char *arg1);
 int verify_root_commands(const char *arg1);
@@ -41,6 +43,7 @@ int set_smack_rules_for_gdbserver(const char* apppath, int mode);
 void apply_app_process();
 void set_appuser_groups(void);
 int is_root_commands(const char *command);
+int apply_sdb_rules(const char* subject, const char* object, const char* access_type);
 
 #ifdef __cplusplus
 }

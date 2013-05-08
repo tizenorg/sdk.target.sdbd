@@ -20,14 +20,14 @@
 
 struct sudo_command root_commands[] = {
     /* 0 */ {"killall", "/usr/bin/killall"},
-    /* 1 */ {"pkgcmd", "/usr/bin/pkgcmd"},
-    /* 2 */ {"launch_app", "/usr/bin/launch_app"},
-    /* 3 */ {"dlogutil", "/usr/bin/dlogutil"},
+    /* 1 */ //{"pkgcmd", "/usr/bin/pkgcmd"},
+    /* 2 */ //{"launch_app", "/usr/bin/launch_app"},
+    /* 3 */ //{"dlogutil", "/usr/bin/dlogutil"},
     /* 4 */ {"zypper", "/usr/bin/zypper"},
-    /* 5 */ {"pkginfo", "/usr/bin/pkginfo"},
+    /* 5 */ //{"pkginfo", "/usr/bin/pkginfo"},
     /* 6 */ {"da_command", "/usr/bin/da_command"},
     /* 7 */ {"oprofile", "/usr/bin/oprofile_command"},
-    /* 8 */ {"wrt-launcher", "/usr/bin/wrt-launcher"},
+    /* 8 */ //{"wrt-launcher", "/usr/bin/wrt-launcher"},
     /* end */ {NULL, NULL}
 };
 
@@ -254,6 +254,9 @@ int exec_app_standalone(const char* path) {
                 char *appid = NULL;
                 int rc = smack_lgetlabel(path, &appid, SMACK_LABEL_ACCESS);
                 if (rc == 0 && appid != NULL) {
+                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rx") < 0) {
+                        D("unable to set sdbd rules to %s\n", appid);
+                    }
                     if (smack_set_label_for_self(appid) != -1) {
                         D("set smack lebel [%s] appid to %s\n", appid, SMACK_LEBEL_SUBJECT_PATH);
                         apply_app_process();
@@ -332,6 +335,12 @@ int set_smack_rules_for_gdbserver(const char* apppath, int mode) {
     // in case of debug as mode
     char *new_appid = clone_gdbserver_label_from_app(apppath);
     if (new_appid != NULL) {
+        if (apply_sdb_rules(SDBD_LABEL_NAME, new_appid, "w") < 0) {
+            D("unable to set sdbd rules\n");
+        }
+        if (apply_sdb_rules(new_appid, SDK_HOME_LABEL_NAME, "rx") < 0) {
+            D("unable to set sdbd home rules\n");
+        }
         if (smack_set_label_for_self(new_appid) != -1) {
             D("set smack lebel [%s] appid to %s\n", new_appid, SMACK_LEBEL_SUBJECT_PATH);
             // apply app precess only if not attach mode
@@ -348,16 +357,34 @@ int set_smack_rules_for_gdbserver(const char* apppath, int mode) {
     return 0;
 }
 
+int apply_sdb_rules(const char* subject, const char* object, const char* access_type) {
+    struct smack_accesses *rules = NULL;
+    int ret = 0;
+
+    if (smack_accesses_new(&rules))
+        return -1;
+
+    if (smack_accesses_add(rules, subject, object, access_type)) {
+        smack_accesses_free(rules);
+        return -1;
+    }
+
+    ret = smack_accesses_apply(rules);
+    smack_accesses_free(rules);
+
+    return ret;
+}
+
 void apply_app_process() {
     set_appuser_groups();
 
     if (setgid(SID_APP) != 0) {
-        fprintf(stderr, "set group id failed errno: %d\n", errno);
+        //fprintf(stderr, "set group id failed errno: %d\n", errno);
         exit(1);
     }
 
     if (setuid(SID_APP) != 0) {
-        fprintf(stderr, "set user id failed errno: %d\n", errno);
+        //fprintf(stderr, "set user id failed errno: %d\n", errno);
         exit(1);
     }
 }
