@@ -5,9 +5,10 @@ Release:    2
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
-BuildRequires: pkgmgr
-BuildRequires: wrt
-BuildRequires: aul
+Requires: pkgmgr
+Requires: wrt
+Requires: aul
+Requires: default-files-tizen
 
 %description
 Description: SDB daemon
@@ -23,6 +24,10 @@ make %{?jobs:-j%jobs}
 %install
 rm -rf %{buildroot}
 %make_install
+
+%post
+chsmack -a sdbd:home /home/developer
+chsmack -t /home/developer
 
 %files
 %manifest sdbd.manifest
