@@ -20,14 +20,14 @@
 
 struct sudo_command root_commands[] = {
     /* 0 */ {"killall", "/usr/bin/killall"},
-    /* 1 */ {"pkgcmd", "/usr/bin/pkgcmd"},
-    /* 2 */ {"launch_app", "/usr/bin/launch_app"},
-    /* 3 */ {"dlogutil", "/usr/bin/dlogutil"},
+    /* 1 */ //{"pkgcmd", "/usr/bin/pkgcmd"},
+    /* 2 */ //{"launch_app", "/usr/bin/launch_app"},
+    /* 3 */ //{"dlogutil", "/usr/bin/dlogutil"},
     /* 4 */ {"zypper", "/usr/bin/zypper"},
-    /* 5 */ {"pkginfo", "/usr/bin/pkginfo"},
+    /* 5 */ //{"pkginfo", "/usr/bin/pkginfo"},
     /* 6 */ {"da_command", "/usr/bin/da_command"},
     /* 7 */ {"oprofile", "/usr/bin/oprofile_command"},
-    /* 8 */ {"wrt-launcher", "/usr/bin/wrt-launcher"},
+    /* 8 */ //{"wrt-launcher", "/usr/bin/wrt-launcher"},
     /* end */ {NULL, NULL}
 };
 
@@ -139,12 +139,10 @@ int verify_root_commands(const char *arg1) {
 }
 
 int verify_app_path(const char* path) {
-
     char buf[PATH_MAX];
-    snprintf(buf, sizeof buf, "^((%s)|(%s))/[a-zA-Z0-9]{%d}/bin/[a-zA-Z0-9_\\-]{1,}(\\.exe)?$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2, 10);
-    int reg_cmp = regcmp(buf, path);
 
-    return reg_cmp;
+    snprintf(buf, sizeof buf, "^((%s)|(%s))/[a-zA-Z0-9]{%d}/bin/[a-zA-Z0-9_\\-]{1,}(\\.exe)?$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2, APPID_MAX_LENGTH);
+    return regcmp(buf, path);
 }
 
 int regcmp(const char* pattern, const char* str) {
@@ -218,7 +216,7 @@ int exec_app_standalone(const char* path) {
             // TODO: check evn setting
         }
         // TODO: i length check
-        if (!strcmp(tokens[i], GDBSERVER_PATH) || !strcmp(tokens[i], GDBSERVER_PLATFORM_PATH)) { //gdbserver :11 --attach 2332 (cnt=4,)
+        if (!strcmp(tokens[i], GDBSERVER_PATH)) { //gdbserver :11 --attach 2332 (cnt=4,)
             char *gdb_attach_arg_pattern = "^:[1-9][0-9]{2,5} \\-\\-attach [1-9][0-9]{2,5}$";
             int argcnt = cnt-i-1;
             if (argcnt == 3 && !strcmp("--attach", tokens[i+2])) {
@@ -243,12 +241,10 @@ int exec_app_standalone(const char* path) {
                     }
                 }
             }
-            else if (argcnt >= 2) {
-                if(should_drop_privileges() == 0 || verify_app_path(tokens[i+2])) {
-                    D("parsing.... debug run as mode\n");
-                    if (set_smack_rules_for_gdbserver(tokens[i+2], 0)) {
-                        ret = 1;
-                    }
+            if (argcnt >= 2 && verify_app_path(tokens[i+2])) {
+                D("parsing.... debug run as mode\n");
+                if (set_smack_rules_for_gdbserver(tokens[i+2], 0)) {
+                    ret = 1;
                 }
             }
             D("finished debug launch mode\n");
@@ -258,6 +254,9 @@ int exec_app_standalone(const char* path) {
                 char *appid = NULL;
                 int rc = smack_lgetlabel(path, &appid, SMACK_LABEL_ACCESS);
                 if (rc == 0 && appid != NULL) {
+                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rx") < 0) {
+                        D("unable to set sdbd rules to %s\n", appid);
+                    }
                     if (smack_set_label_for_self(appid) != -1) {
                         D("set smack lebel [%s] appid to %s\n", appid, SMACK_LEBEL_SUBJECT_PATH);
                         apply_app_process();
@@ -288,17 +287,19 @@ char* clone_gdbserver_label_from_app(const char* app_path) {
     char appid[APPID_MAX_LENGTH+1];
     char *buffer = NULL;
 
-#if 0
     if (!verify_app_path(app_path)) {
         D("not be able to access %s\n", app_path);
         return NULL;
     }
-#endif
 
     int rc = smack_lgetlabel(app_path, &buffer, SMACK_LABEL_ACCESS);
 
     if (rc == 0 && buffer != NULL) {
-        strcpy(appid, buffer);
+        if (strlen(buffer) == APPID_MAX_LENGTH) {
+            strcpy(appid, buffer);
+        } else {
+            strcpy(appid, "_");
+        }
         free(buffer);
     } else {
         strcpy(appid, "_");
@@ -334,6 +335,12 @@ int set_smack_rules_for_gdbserver(const char* apppath, int mode) {
     // in case of debug as mode
     char *new_appid = clone_gdbserver_label_from_app(apppath);
     if (new_appid != NULL) {
+        if (apply_sdb_rules(SDBD_LABEL_NAME, new_appid, "w") < 0) {
+            D("unable to set sdbd rules\n");
+        }
+        if (apply_sdb_rules(new_appid, SDK_HOME_LABEL_NAME, "rx") < 0) {
+            D("unable to set sdbd home rules\n");
+        }
         if (smack_set_label_for_self(new_appid) != -1) {
             D("set smack lebel [%s] appid to %s\n", new_appid, SMACK_LEBEL_SUBJECT_PATH);
             // apply app precess only if not attach mode
@@ -350,16 +357,34 @@ int set_smack_rules_for_gdbserver(const char* apppath, int mode) {
     return 0;
 }
 
+int apply_sdb_rules(const char* subject, const char* object, const char* access_type) {
+    struct smack_accesses *rules = NULL;
+    int ret = 0;
+
+    if (smack_accesses_new(&rules))
+        return -1;
+
+    if (smack_accesses_add(rules, subject, object, access_type)) {
+        smack_accesses_free(rules);
+        return -1;
+    }
+
+    ret = smack_accesses_apply(rules);
+    smack_accesses_free(rules);
+
+    return ret;
+}
+
 void apply_app_process() {
     set_appuser_groups();
 
     if (setgid(SID_APP) != 0) {
-        fprintf(stderr, "set group id failed errno: %d\n", errno);
+        //fprintf(stderr, "set group id failed errno: %d\n", errno);
         exit(1);
     }
 
     if (setuid(SID_APP) != 0) {
-        fprintf(stderr, "set user id failed errno: %d\n", errno);
+        //fprintf(stderr, "set user id failed errno: %d\n", errno);
         exit(1);
     }
 }

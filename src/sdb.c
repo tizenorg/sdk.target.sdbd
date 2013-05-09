@@ -985,7 +985,7 @@ int should_drop_privileges() {
 }
 
 int set_developer_privileges() {
-    gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING };
+    gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
     if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
         fprintf(stderr, "set groups failed (errno: %d, %s)\n", errno, strerror(errno));
         //exit(1);
