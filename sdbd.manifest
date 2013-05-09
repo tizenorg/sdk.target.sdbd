@@ -15,6 +15,10 @@
             <smack request="system::media" type="rwxat" />
             <smack request="sdbd::home" type="rwxat" />
         </request>
+        <permit>
+            <smack permit="system::use_internet" type="w" />
+            <smack permit="aul" type="rx" />
+        </permit>
     </define>
     <request>
         <domain name="sdbd" />
