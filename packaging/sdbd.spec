@@ -9,7 +9,7 @@ Requires(post) : pkgmgr
 Requires(post) : pkgmgr-server
 Requires(post) : wrt
 Requires(post) : aul
-Requires(post) : default-files-tizen
+Requires : default-files-tizen
 
 %description
 Description: SDB daemon
