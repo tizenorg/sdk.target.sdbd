@@ -1,10 +1,15 @@
 Name:       sdbd
 Summary:    SDB daemon
 Version:    2.1.2
-Release:    2
+Release:    3
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
+Requires(post) : pkgmgr
+Requires(post) : pkgmgr-server
+Requires(post) : wrt
+Requires(post) : aul
+Requires(post) : default-files-tizen
 
 %description
 Description: SDB daemon
@@ -20,6 +25,10 @@ make %{?jobs:-j%jobs}
 %install
 rm -rf %{buildroot}
 %make_install
+
+%post
+chsmack -a sdbd::home /home/developer
+chsmack -t /home/developer
 
 %files
 %manifest sdbd.manifest
