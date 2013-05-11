@@ -5,6 +5,7 @@ Release:    2
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
+Requires(post) : pkgmgr-server
 
 %description
 Description: SDB daemon
