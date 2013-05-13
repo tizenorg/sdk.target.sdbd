@@ -18,6 +18,7 @@
         <permit>
             <smack permit="system::use_internet" type="w" />
             <smack permit="aul" type="rx" />
+            <smack permit="wrt::wrt-launcher" type="rw" />
         </permit>
     </define>
     <request>
