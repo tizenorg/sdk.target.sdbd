@@ -20,14 +20,9 @@
 
 struct sudo_command root_commands[] = {
     /* 0 */ {"killall", "/usr/bin/killall"},
-    /* 1 */ //{"pkgcmd", "/usr/bin/pkgcmd"},
-    /* 2 */ //{"launch_app", "/usr/bin/launch_app"},
-    /* 3 */ //{"dlogutil", "/usr/bin/dlogutil"},
-    /* 4 */ {"zypper", "/usr/bin/zypper"},
-    /* 5 */ //{"pkginfo", "/usr/bin/pkginfo"},
-    /* 6 */ {"da_command", "/usr/bin/da_command"},
-    /* 7 */ {"oprofile", "/usr/bin/oprofile_command"},
-    /* 8 */ //{"wrt-launcher", "/usr/bin/wrt-launcher"},
+    /* 1 */ {"zypper", "/usr/bin/zypper"},
+    /* 2 */ {"da_command", "/usr/bin/da_command"},
+    /* 3 */ {"oprofile", "/usr/bin/oprofile_command"},
     /* end */ {NULL, NULL}
 };
 
@@ -101,26 +96,24 @@ int verify_root_commands(const char *arg1) {
         break;
     }
     case 3: {
-        ret = 1;
-        break;
-    }
-    case 4: {
-        ret = 1;
-        break;
-    }
-    case 5: {
-        ret = 1;
-        break;
-    }
-    case 6: {
-        ret = 1;
-        break;
-    }
-    case 7: {
-        ret = 1;
-        break;
-    }
-    case 8: {
+        if (cnt == 3) {
+            if (!strcmp(tokens[1], "valgrind")) {
+                char *appid = NULL;
+                int rc = smack_lgetlabel(tokens[2], &appid, SMACK_LABEL_ACCESS);
+                if (rc == 0 && appid != NULL) {
+                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rwax") < 0) {
+                        D("unable to set %s %s rules\n", SDBD_LABEL_NAME, appid);
+                    }
+                    if (apply_sdb_rules(appid, SDBD_LABEL_NAME, "rwax") < 0) {
+                        D("unable to set %s %s rules\n", appid, SDBD_LABEL_NAME);
+                    }
+                    //apply_app_process();
+                    free(appid);
+                }
+                D("standalone launch for valgrind\n");
+            }
+        }
+
         ret = 1;
         break;
     }
@@ -258,7 +251,7 @@ int exec_app_standalone(const char* path) {
                 char *appid = NULL;
                 int rc = smack_lgetlabel(path, &appid, SMACK_LABEL_ACCESS);
                 if (rc == 0 && appid != NULL) {
-                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rx") < 0) {
+                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rxax") < 0) {
                         D("unable to set sdbd rules to %s\n", appid);
                     }
                     if (smack_set_label_for_self(appid) != -1) {
