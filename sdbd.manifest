@@ -9,6 +9,8 @@
             <smack request="device::app_logging" type="rwxat" />
             <smack request="device::sys_logging" type="rwxat" />
             <smack request="pkgmgr" type="rx" />
+            <smack request="pkgmgr::svc" type="rx" />
+            <smack request="pkgmgr::info" type="r" />
             <smack request="pkgmgr-server" type="r" />
             <smack request="aul" type="rx" />
             <smack request="wrt::wrt-launcher" type="rx" />
