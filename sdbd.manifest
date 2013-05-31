@@ -12,6 +12,7 @@
             <smack request="pkgmgr::svc" type="rx" />
             <smack request="pkgmgr::info" type="r" />
             <smack request="pkgmgr-server" type="r" />
+            <smack request="pkgmgr-client" type="r" />
             <smack request="aul" type="rx" />
             <smack request="wrt::wrt-launcher" type="rx" />
             <smack request="system::media" type="rwxat" />
