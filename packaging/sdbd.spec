@@ -9,6 +9,7 @@ Requires: pkgmgr
 Requires: pkgmgr-server
 Requires: wrt
 Requires: aul
+Requires: debug-launchpad
 Requires: default-files-tizen
 
 %description
