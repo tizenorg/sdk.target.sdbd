@@ -1,16 +1,17 @@
 Name:       sdbd
 Summary:    SDB daemon
-Version:    2.1.2
+Version:    2.1.3
 Release:    4
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
-Requires(post) : pkgmgr
-Requires(post) : pkgmgr-server
-Requires(post) : wrt
-Requires(post) : aul
-Requires : default-files-tizen
+Requires(post): pkgmgr
+Requires(post): pkgmgr-server
+Requires(post): wrt
+Requires(post): aul
+Requires: default-files-tizen
 Requires: sys-assert
+Requires: debug-launchpad
 
 %description
 Description: SDB daemon

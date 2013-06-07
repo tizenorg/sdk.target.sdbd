@@ -96,22 +96,25 @@ int verify_root_commands(const char *arg1) {
         break;
     }
     case 3: {
-        if (cnt == 3) {
-            if (!strcmp(tokens[1], "valgrind")) {
-                char *appid = NULL;
-                int rc = smack_lgetlabel(tokens[2], &appid, SMACK_LABEL_ACCESS);
-                if (rc == 0 && appid != NULL) {
-                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rwax") < 0) {
-                        D("unable to set %s %s rules\n", SDBD_LABEL_NAME, appid);
-                    }
-                    if (apply_sdb_rules(appid, SDBD_LABEL_NAME, "rwax") < 0) {
-                        D("unable to set %s %s rules\n", appid, SDBD_LABEL_NAME);
-                    }
-                    //apply_app_process();
-                    free(appid);
+        if (!strcmp(tokens[1], "valgrind")) {
+            char *appid = NULL;
+            int rc = smack_lgetlabel(tokens[cnt-1], &appid, SMACK_LABEL_ACCESS);
+            if (rc == 0 && appid != NULL) {
+                if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rwax") < 0) {
+                    D("unable to set %s %s rules\n", SDBD_LABEL_NAME, appid);
+                } else {
+                    D("apply rule to '%s %s rwax' rules\n", SDBD_LABEL_NAME, appid);
                 }
-                D("standalone launch for valgrind\n");
+                if (apply_sdb_rules(appid, SDBD_LABEL_NAME, "rwax") < 0) {
+                    D("unable to set %s %s rules\n", appid, SDBD_LABEL_NAME);
+                } else {
+                    D("apply rule to '%s %s rwax' rules\n", appid, SDBD_LABEL_NAME);
+                }
+                //apply_app_process();
+
+                free(appid);
             }
+            D("standalone launch for valgrind\n");
         }
 
         ret = 1;
@@ -251,8 +254,15 @@ int exec_app_standalone(const char* path) {
                 char *appid = NULL;
                 int rc = smack_lgetlabel(path, &appid, SMACK_LABEL_ACCESS);
                 if (rc == 0 && appid != NULL) {
-                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rxax") < 0) {
-                        D("unable to set sdbd rules to %s\n", appid);
+                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rwax") < 0) {
+                        D("unable to set sdbd rules to %s %s rwax\n", SDBD_LABEL_NAME, appid);
+                    } else {
+                        D("set sdbd rules to %s %s rwax\n", SDBD_LABEL_NAME, appid);
+                    }
+                    if (apply_sdb_rules(appid, SDBD_LABEL_NAME, "rwax") < 0) {
+                        D("unable to set sdbd rules to %s %s rwax\n", appid, SDBD_LABEL_NAME);
+                    } else {
+                        D("set sdbd rules to %s %s rwax\n", appid, SDBD_LABEL_NAME);
                     }
                     if (smack_set_label_for_self(appid) != -1) {
                         D("set smack lebel [%s] appid to %s\n", appid, SMACK_LEBEL_SUBJECT_PATH);
