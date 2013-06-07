@@ -32,7 +32,7 @@
 #include "sdb.h"
 #include "file_sync_service.h"
 
-#define SYNC_TIMEOUT 10
+#define SYNC_TIMEOUT 15
 
 struct sync_permit_rule
 {
