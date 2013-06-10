@@ -538,7 +538,7 @@ remote_error:
 static void do_sync_ls_cb(unsigned mode, unsigned size, unsigned time,
                           const char *name, void *cookie)
 {
-    printf("%08x %08x %08x %s\n", mode, size, time, name);
+//    printf("%08x %08x %08x %s\n", mode, size, time, name);
 }
 
 int do_sync_ls(const char *path)
@@ -650,7 +650,7 @@ static int local_build_list(copyinfo **filelist,
                 return -1;
             }
             if(!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode)) {
-                fprintf(stderr, "skipping special file '%s'\n", ci->src);
+                fprintf(stderr, "skipping special file\n");
                 free(ci);
             } else {
                 ci->time = st.st_mtime;
@@ -856,7 +856,7 @@ sync_ls_build_list_cb(unsigned mode, unsigned size, unsigned time,
         ci->next = *filelist;
         *filelist = ci;
     } else {
-        fprintf(stderr, "skipping special file '%s'\n", name);
+        fprintf(stderr, "skipping special file\n");
     }
 }
 
