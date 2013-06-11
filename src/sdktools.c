@@ -20,14 +20,9 @@
 
 struct sudo_command root_commands[] = {
     /* 0 */ {"killall", "/usr/bin/killall"},
-    /* 1 */ //{"pkgcmd", "/usr/bin/pkgcmd"},
-    /* 2 */ //{"launch_app", "/usr/bin/launch_app"},
-    /* 3 */ //{"dlogutil", "/usr/bin/dlogutil"},
-    /* 4 */ {"zypper", "/usr/bin/zypper"},
-    /* 5 */ //{"pkginfo", "/usr/bin/pkginfo"},
-    /* 6 */ {"da_command", "/usr/bin/da_command"},
-    /* 7 */ {"oprofile", "/usr/bin/oprofile_command"},
-    /* 8 */ //{"wrt-launcher", "/usr/bin/wrt-launcher"},
+    /* 1 */ {"zypper", "/usr/bin/zypper"},
+    /* 2 */ {"da_command", "/usr/bin/da_command"},
+    /* 3 */ {"oprofile", "/usr/bin/oprofile_command"},
     /* end */ {NULL, NULL}
 };
 
@@ -101,26 +96,27 @@ int verify_root_commands(const char *arg1) {
         break;
     }
     case 3: {
-        ret = 1;
-        break;
-    }
-    case 4: {
-        ret = 1;
-        break;
-    }
-    case 5: {
-        ret = 1;
-        break;
-    }
-    case 6: {
-        ret = 1;
-        break;
-    }
-    case 7: {
-        ret = 1;
-        break;
-    }
-    case 8: {
+        if (!strcmp(tokens[1], "valgrind")) {
+            char *appid = NULL;
+            int rc = smack_lgetlabel(tokens[cnt-1], &appid, SMACK_LABEL_ACCESS);
+            if (rc == 0 && appid != NULL) {
+                if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rwax") < 0) {
+                    D("unable to set %s %s rules\n", SDBD_LABEL_NAME, appid);
+                } else {
+                    D("apply rule to '%s %s rwax' rules\n", SDBD_LABEL_NAME, appid);
+                }
+                if (apply_sdb_rules(appid, SDBD_LABEL_NAME, "rwax") < 0) {
+                    D("unable to set %s %s rules\n", appid, SDBD_LABEL_NAME);
+                } else {
+                    D("apply rule to '%s %s rwax' rules\n", appid, SDBD_LABEL_NAME);
+                }
+                //apply_app_process();
+
+                free(appid);
+            }
+            D("standalone launch for valgrind\n");
+        }
+
         ret = 1;
         break;
     }
@@ -141,8 +137,10 @@ int verify_root_commands(const char *arg1) {
 int verify_app_path(const char* path) {
     char buf[PATH_MAX];
 
-    snprintf(buf, sizeof buf, "^((%s)|(%s))/[a-zA-Z0-9]{%d}/bin/[a-zA-Z0-9_\\-]{1,}(\\.exe)?$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2, APPID_MAX_LENGTH);
-    return regcmp(buf, path);
+    snprintf(buf, sizeof buf, "^((%s)|(%s))/[a-zA-Z0-9]{%d}/bin/[a-zA-Z0-9_\\-]{1,}(\\.exe)?$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2, 10);
+    int reg_cmp = regcmp(buf, path);
+
+    return reg_cmp;
 }
 
 int regcmp(const char* pattern, const char* str) {
@@ -216,7 +214,7 @@ int exec_app_standalone(const char* path) {
             // TODO: check evn setting
         }
         // TODO: i length check
-        if (!strcmp(tokens[i], GDBSERVER_PATH)) { //gdbserver :11 --attach 2332 (cnt=4,)
+        if (!strcmp(tokens[i], GDBSERVER_PATH) || !strcmp(tokens[i], GDBSERVER_PLATFORM_PATH)) { //gdbserver :11 --attach 2332 (cnt=4,)
             char *gdb_attach_arg_pattern = "^:[1-9][0-9]{2,5} \\-\\-attach [1-9][0-9]{2,5}$";
             int argcnt = cnt-i-1;
             if (argcnt == 3 && !strcmp("--attach", tokens[i+2])) {
@@ -241,10 +239,12 @@ int exec_app_standalone(const char* path) {
                     }
                 }
             }
-            if (argcnt >= 2 && verify_app_path(tokens[i+2])) {
-                D("parsing.... debug run as mode\n");
-                if (set_smack_rules_for_gdbserver(tokens[i+2], 0)) {
-                    ret = 1;
+            else if (argcnt >= 2) {
+                if(should_drop_privileges() == 0 || verify_app_path(tokens[i+2])) {
+                    D("parsing.... debug run as mode\n");
+                    if (set_smack_rules_for_gdbserver(tokens[i+2], 0)) {
+                        ret = 1;
+                    }
                 }
             }
             D("finished debug launch mode\n");
@@ -254,8 +254,15 @@ int exec_app_standalone(const char* path) {
                 char *appid = NULL;
                 int rc = smack_lgetlabel(path, &appid, SMACK_LABEL_ACCESS);
                 if (rc == 0 && appid != NULL) {
-                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rx") < 0) {
-                        D("unable to set sdbd rules to %s\n", appid);
+                    if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rwax") < 0) {
+                        D("unable to set sdbd rules to %s %s rwax\n", SDBD_LABEL_NAME, appid);
+                    } else {
+                        D("set sdbd rules to %s %s rwax\n", SDBD_LABEL_NAME, appid);
+                    }
+                    if (apply_sdb_rules(appid, SDBD_LABEL_NAME, "rwax") < 0) {
+                        D("unable to set sdbd rules to %s %s rwax\n", appid, SDBD_LABEL_NAME);
+                    } else {
+                        D("set sdbd rules to %s %s rwax\n", appid, SDBD_LABEL_NAME);
                     }
                     if (smack_set_label_for_self(appid) != -1) {
                         D("set smack lebel [%s] appid to %s\n", appid, SMACK_LEBEL_SUBJECT_PATH);
@@ -287,19 +294,17 @@ char* clone_gdbserver_label_from_app(const char* app_path) {
     char appid[APPID_MAX_LENGTH+1];
     char *buffer = NULL;
 
+#if 0
     if (!verify_app_path(app_path)) {
         D("not be able to access %s\n", app_path);
         return NULL;
     }
+#endif
 
     int rc = smack_lgetlabel(app_path, &buffer, SMACK_LABEL_ACCESS);
 
     if (rc == 0 && buffer != NULL) {
-        if (strlen(buffer) == APPID_MAX_LENGTH) {
-            strcpy(appid, buffer);
-        } else {
-            strcpy(appid, "_");
-        }
+        strcpy(appid, buffer);
         free(buffer);
     } else {
         strcpy(appid, "_");
