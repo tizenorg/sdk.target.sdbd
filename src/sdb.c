@@ -45,6 +45,8 @@ SDB_MUTEX_DEFINE( D_lock );
 
 int HOST = 0;
 
+static pid_t required_pid = 0;
+
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
     if (access(SDB_PIDPATH, F_OK) == 0)
@@ -692,6 +694,9 @@ static BOOL WINAPI ctrlc_handler(DWORD type)
 static void sdb_cleanup(void)
 {
     usb_cleanup();
+    if(required_pid > 0) {
+        kill(required_pid, SIGKILL);
+    }
 }
 
 void start_logging(void)
@@ -1015,6 +1020,48 @@ int set_developer_privileges() {
 }
 #define ONDEMAND_ROOT_PATH "/home/developer"
 
+static void execute_required_process() {
+
+    FILE *pre_proc_file = popen("pidof debug_launchpad_preloading_preinitializing_daemon", "r");
+
+    int result = 0;
+    while(!feof(pre_proc_file)) {
+        int pid = 0;
+        result += fscanf(pre_proc_file, "%d", &pid);
+        if(pid > 0) {
+            kill(pid, SIGKILL);
+        }
+    }
+    D("Kill %d debug launchpad daemon", result);
+
+    pclose(pre_proc_file);
+
+    pid_t pid = fork();
+
+    switch (pid) {
+        case -1:
+            D("fork failed\n");
+            break;
+        case 0:
+            if(setsid() == -1) {
+                D("Fail to set session id of debug launchpad daemon\n");
+                exit(1);
+            }
+            if(chdir("/") < 0) {
+                D("Fail debug launchpad daemon to chdir\n");
+                exit(1);
+            }
+            execl("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", "debug_launchpad_preloading_preinitializing_daemon", NULL);
+            D("exec failed\n");
+            exit(1);
+            break;
+        default:
+            required_pid = pid;
+            break;
+    }
+
+}
+
 static void init_sdk_requirements() {
     struct stat st;
 
@@ -1032,13 +1079,14 @@ static void init_sdk_requirements() {
             D("failed to change ownership to developer to %s\n", ONDEMAND_ROOT_PATH);
         }
     }
+
+    execute_required_process();
 }
 #endif /* !SDB_HOST */
 
 int sdb_main(int is_daemon, int server_port)
 {
 #if !SDB_HOST
-
     init_drop_privileges();
     init_sdk_requirements();
     umask(000);
