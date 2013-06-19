@@ -12,6 +12,7 @@ Requires(post): aul
 Requires: default-files-tizen
 Requires: sys-assert
 Requires: debug-launchpad
+Requires: dbus
 
 %description
 Description: SDB daemon
