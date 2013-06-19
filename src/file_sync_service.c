@@ -43,7 +43,7 @@ struct sync_permit_rule
 
 struct sync_permit_rule sdk_sync_permit_rule[] = {
 //    /* 0 */ {"rds", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/info/\\.sdk_delta\\.info$", 1},
-    /* 1 */ {"unitest", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", 1},
+    /* 1 */ {"unitest", "^((/tmp)|(/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", 1},
     /* 2 */ {"codecoverage", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/+([a-zA-Z0-9_/\\.])*+[a-zA-Z0-9_\\-\\.]{1,50}\\.gcda$", 1},
     /* 3 */ {"da", "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$", 1},
     /* end */ {NULL, NULL, 0}
