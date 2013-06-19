@@ -95,6 +95,7 @@ OBJDIR := bin
 INSTALLDIR := usr/sbin
 INITSCRIPTDIR := etc/init.d
 RCSCRIPTDIR := etc/rc.d/rc3.d
+LAUNCH_SCRIPT := sdk_launch
 
 UNAME := $(shell uname -sm)
 ifneq (,$(findstring 86,$(UNAME)))
@@ -130,6 +131,7 @@ sdbd : $(SDBD_SRC_FILES)
 install :
 	mkdir -p $(DESTDIR)/$(INSTALLDIR)
 	install $(OBJDIR)/$(MODULE) $(DESTDIR)/$(INSTALLDIR)/$(MODULE)
+	install $(LAUNCH_SCRIPT) $(DESTDIR)/$(INSTALLDIR)/$(LAUNCH_SCRIPT)
 ifeq ($(MODULE),sdbd)
 	mkdir -p $(DESTDIR)/$(INITSCRIPTDIR)
 	install script/sdbd $(DESTDIR)/$(INITSCRIPTDIR)/sdbd

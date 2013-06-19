@@ -37,6 +37,7 @@ chsmack -t /home/developer
 %manifest sdbd.manifest
 %defattr(-,root,root,-) 
 %{_prefix}/sbin/sdbd
+%{_prefix}/sbin/sdk_launch
 %{_sysconfdir}/init.d/sdbd
 
 %ifarch %{ix86}
