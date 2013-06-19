@@ -17,6 +17,7 @@
             <smack request="wrt::wrt-launcher" type="rx" />
             <smack request="system::media" type="rwxat" />
             <smack request="sdbd::home" type="rwxat" />
+            <smack request="dbus" type="rwx" />
         </request>
         <permit>
             <smack permit="system::use_internet" type="w" />
