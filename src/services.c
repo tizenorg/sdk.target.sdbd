@@ -34,7 +34,6 @@
 #    include <sys/ioctl.h>
 #  endif
 #else
-#   include "android_reboot.h"
 #   include <sys/inotify.h>
 #   include "sdktools.h"
 #endif
