@@ -1,7 +1,7 @@
 Name:       sdbd
 Summary:    SDB daemon
-Version:    2.2.0
-Release:    2
+Version:    2.2.1
+Release:    0
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
