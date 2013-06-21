@@ -71,8 +71,6 @@ SDBD_SRC_FILES := \
 	src/sockets.c \
 	src/services.c \
 	src/file_sync_service.c \
-	src/framebuffer_service.c \
-	src/remount_service.c \
 	src/usb_linux_client.c \
 	src/utils.c \
 	src/socket_inaddr_any_server.c \
@@ -82,7 +80,6 @@ SDBD_SRC_FILES := \
 	src/socket_loopback_server.c \
 	src/socket_network_client.c \
 	src/properties.c \
-	src/android_reboot.c \
 	src/sdktools.c \
 	src/strutils.c \
 	src/libsmack.c \
