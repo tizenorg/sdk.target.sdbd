@@ -694,9 +694,9 @@ static BOOL WINAPI ctrlc_handler(DWORD type)
 static void sdb_cleanup(void)
 {
     usb_cleanup();
-    if(required_pid > 0) {
-        kill(required_pid, SIGKILL);
-    }
+//    if(required_pid > 0) {
+//        kill(required_pid, SIGKILL);
+//    }
 }
 
 void start_logging(void)
@@ -1036,29 +1036,31 @@ static void execute_required_process() {
 
     pclose(pre_proc_file);
 
-    pid_t pid = fork();
+    system("/usr/bin/debug_launchpad_preloading_preinitializing_daemon &");
 
-    switch (pid) {
-        case -1:
-            D("fork failed\n");
-            break;
-        case 0:
-            if(setsid() == -1) {
-                D("Fail to set session id of debug launchpad daemon\n");
-                exit(1);
-            }
-            if(chdir("/") < 0) {
-                D("Fail debug launchpad daemon to chdir\n");
-                exit(1);
-            }
-            execl("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", "debug_launchpad_preloading_preinitializing_daemon", NULL);
-            D("exec failed\n");
-            exit(1);
-            break;
-        default:
-            required_pid = pid;
-            break;
-    }
+//    pid_t pid = fork();
+//
+//    switch (pid) {
+//        case -1:
+//            D("fork failed\n");
+//            break;
+//        case 0:
+//            if(setsid() == -1) {
+//                D("Fail to set session id of debug launchpad daemon\n");
+//                exit(1);
+//            }
+//            if(chdir("/") < 0) {
+//                D("Fail debug launchpad daemon to chdir\n");
+//                exit(1);
+//            }
+//            execl("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", "debug_launchpad_preloading_preinitializing_daemon", NULL);
+//            D("exec failed\n");
+//            exit(1);
+//            break;
+//        default:
+//            required_pid = pid;
+//            break;
+//    }
 
 }
 

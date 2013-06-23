@@ -115,7 +115,7 @@ then
     if [ "" != "$attach_id" ]
     #debug attach
     then
-        cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port --attach $attach_id $launch_app_mode"
+        cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port --attach $attach_id"
     #debug
     else
         if [ "" != "$result_mode" ]
@@ -124,7 +124,7 @@ then
         else
             result_mode="DEBUG"
         fi
-        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $args $launch_app_mode"
+        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode $args"
 #       cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port /opt/apps/$pkgid/bin/$exe"
     fi
 else
@@ -132,9 +132,9 @@ else
     then
         if [ "" != "$result_mode" ]
         then
-            cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode $args $launch_app_mode"
+            cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode $launch_app_mode $args"
         else
-            cmd="/usr/bin/launch_app $pkgid.$exe $launch_app_mode"
+            cmd="/usr/bin/launch_app $pkgid.$exe"
         fi
     else
         if [ "$mode" = "da" ]
@@ -153,7 +153,7 @@ else
                 result_mode="OPROFILE"
             fi
         fi
-        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode $args $launch_app_mode"
+        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode"
     fi
 fi
 
