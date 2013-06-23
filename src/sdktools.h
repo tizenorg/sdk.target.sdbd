@@ -23,6 +23,7 @@ struct arg_permit_rule
 };
 
 
+#define SDK_LAUNCH_PATH                 "/usr/sbin/sdk_launch"
 #define APP_INSTALL_PATH_PREFIX1                "/opt/apps"
 #define APP_INSTALL_PATH_PREFIX2                "/opt/usr/apps"
 #define GDBSERVER_PATH                          "/home/developer/sdk_tools/gdbserver/gdbserver"

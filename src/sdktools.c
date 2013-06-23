@@ -213,8 +213,53 @@ int exec_app_standalone(const char* path) {
         if (flag == 0) {
             // TODO: check evn setting
         }
+
+        if(!strcmp(tokens[i], SDK_LAUNCH_PATH)) {
+            int debug = 0;
+            int pid = 0;
+            char* pkg_id = NULL;
+            char* executable = NULL;
+            ++i;
+            while( i < cnt ) {
+                if(!strcmp(tokens[i], "-attach")) {
+                    if(++i < cnt) {
+                        char* pid_pattern = "[1-9][0-9]{2,5}";
+                        if (regcmp(pid_pattern, tokens[i])) {
+                            pid = atoi(tokens[i]);
+                        }
+                    }
+                }
+                else if(!strcmp(tokens[i], "-p")) {
+                    if(++i < cnt) {
+                        pkg_id = tokens[i];
+                    }
+                }
+                else if(!strcmp(tokens[i], "-e")) {
+                    if(++i < cnt) {
+                        executable = tokens[i];
+                    }
+                }
+                i++;
+            }
+            if(pid > 0) {
+                char cmdline[128];
+                if (pid) {
+                    snprintf(cmdline, sizeof(cmdline), "/proc/%d/cmdline", pid);
+                    int fd = unix_open(cmdline, O_RDONLY);
+                    if (fd > 0) {
+                        if(read_line(fd, cmdline, sizeof(cmdline))) {
+                            if (set_smack_rules_for_gdbserver(cmdline, 1)) {
+                                ret = 1;
+                            }
+                        }
+                        sdb_close(fd);
+                    }
+                }
+            }
+            break;
+        }
         // TODO: i length check
-        if (!strcmp(tokens[i], GDBSERVER_PATH) || !strcmp(tokens[i], GDBSERVER_PLATFORM_PATH)) { //gdbserver :11 --attach 2332 (cnt=4,)
+        else if (!strcmp(tokens[i], GDBSERVER_PATH) || !strcmp(tokens[i], GDBSERVER_PLATFORM_PATH)) { //gdbserver :11 --attach 2332 (cnt=4,)
             char *gdb_attach_arg_pattern = "^:[1-9][0-9]{2,5} \\-\\-attach [1-9][0-9]{2,5}$";
             int argcnt = cnt-i-1;
             if (argcnt == 3 && !strcmp("--attach", tokens[i+2])) {
