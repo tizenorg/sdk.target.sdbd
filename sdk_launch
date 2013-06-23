@@ -158,5 +158,4 @@ else
 fi
 
 # execute command
-echo $cmd
 $cmd $args
