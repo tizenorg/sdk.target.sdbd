@@ -31,8 +31,6 @@
 #include "sdb.h"
 
 #if !SDB_HOST
-//#include <private/android_filesystem_config.h> eric
-#include <linux/capability.h>
 #include <linux/prctl.h>
 #define SDB_PIDPATH "/tmp/.sdbd.pid"
 #else
@@ -1016,6 +1014,9 @@ int set_developer_privileges() {
             D("sdbd: unable to change working directory to /\n");
         }
     }
+    // TODO: use pam later
+    putenv("HOME=/home/developer");
+
     return 1;
 }
 #define ONDEMAND_ROOT_PATH "/home/developer"
@@ -1042,8 +1043,14 @@ static void execute_required_process() {
 static void init_sdk_requirements() {
     struct stat st;
 
+    // set env variable for temporary
+    // TODO: should use pam instead later!!
     if (!getenv("TERM")) {
         putenv("TERM=linux");
+    }
+
+    if (!getenv("HOME")) {
+        putenv("HOME=/root");
     }
 
     if (stat(ONDEMAND_ROOT_PATH, &st) == -1) {
