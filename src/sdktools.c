@@ -96,9 +96,10 @@ int verify_root_commands(const char *arg1) {
         break;
     }
     case 3: {
-        if (!strcmp(tokens[1], "valgrind")) {
+        if (!strcmp(tokens[1], "valgrind") && cnt >= 3) {
             char *appid = NULL;
-            int rc = smack_lgetlabel(tokens[cnt-1], &appid, SMACK_LABEL_ACCESS);
+	    // the tokens[2] should be apppath
+            int rc = smack_lgetlabel(tokens[2], &appid, SMACK_LABEL_ACCESS);
             if (rc == 0 && appid != NULL) {
                 if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rwax") < 0) {
                     D("unable to set %s %s rules\n", SDBD_LABEL_NAME, appid);
