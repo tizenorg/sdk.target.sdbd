@@ -1025,6 +1025,11 @@ static void execute_required_process() {
 
     FILE *pre_proc_file = popen("pidof debug_launchpad_preloading_preinitializing_daemon", "r");
 
+    if(pre_proc_file == NULL) {
+        D("fail to get the pidof debug_launchpad_preloading_preinitializing_daemon");
+        return;
+    }
+
     int result = 0;
     while(!feof(pre_proc_file)) {
         int pid = 0;
