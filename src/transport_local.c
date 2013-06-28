@@ -477,7 +477,7 @@ static void notify_sdbd_startup() {
             return;
         }
         int base_port = strtol(port, NULL, 10);
-        snprintf(request, sizeof request, "host:emulatoR:%d:%s",base_port + 1, vm_name);
+        snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
 
         len = snprintf( buffer, sizeof buffer, "%04x%s", strlen(request), request );
         D("[%s]\n", buffer);
