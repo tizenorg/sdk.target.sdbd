@@ -43,8 +43,6 @@ SDB_MUTEX_DEFINE( D_lock );
 
 int HOST = 0;
 
-static pid_t required_pid = 0;
-
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
     if (access(SDB_PIDPATH, F_OK) == 0)
@@ -990,20 +988,17 @@ int should_drop_privileges() {
 int set_developer_privileges() {
     gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
     if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
-        fprintf(stderr, "set groups failed (errno: %d, %s)\n", errno, strerror(errno));
-        //exit(1);
+        D("set groups failed (errno: %d, %s)\n", errno, strerror(errno));
     }
 
     // then switch user and group to developer
     if (setgid(SID_DEVELOPER) != 0) {
-        fprintf(stderr, "set group id failed (errno: %d, %s)\n", errno, strerror(errno));
-        //exit(1);
+        D("set group id failed (errno: %d, %s)\n", errno, strerror(errno));
         return -1;
     }
 
     if (setuid(SID_DEVELOPER) != 0) {
-        fprintf(stderr, "set user id failed (errno: %d, %s)\n", errno, strerror(errno));
-        //exit(1);
+        D("set user id failed (errno: %d, %s)\n", errno, strerror(errno));
         return -1;
     }
 
@@ -1176,6 +1171,7 @@ int sdb_main(int is_daemon, int server_port)
 #endif
         start_logging();
     }
+
     D("Event loop starting\n");
 
     fdevent_loop();
