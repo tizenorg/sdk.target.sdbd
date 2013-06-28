@@ -438,6 +438,8 @@ void sdb_qemu_trace(const char* fmt, ...);
 #  define DEFAULT_SDB_PORT 26099 /* tizen specific */
 #endif
 
+#  define QEMU_FORWARD_IP "10.0.2.2"
+
 #define DEFAULT_SDB_LOCAL_TRANSPORT_PORT 26101 /* tizen specific */
 
 #define SDB_CLASS              0xff

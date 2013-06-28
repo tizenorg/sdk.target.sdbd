@@ -62,3 +62,24 @@ int read_line(const int fd, char* ptr, const unsigned int maxlen)
     }
     return -1; // no space
 }
+
+/**
+ * The standard strncpy() function does not guarantee that the resulting string is null terminated.
+ * char ntbs[NTBS_SIZE];
+ * strncpy(ntbs, source, sizeof(ntbs)-1);
+ * ntbs[sizeof(ntbs)-1] = '\0'
+ */
+char *s_strncpy(char *dest, const char *source, size_t n) {
+    char *start = dest;
+
+    while (n && (*dest++ = *source++)) {
+        n--;
+    }
+    if (n) {
+        while (--n) {
+            *dest++ = '\0';
+        }
+    }
+    return start;
+}
+

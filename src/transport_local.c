@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 #include "sysdeps.h"
 #include <sys/types.h>
@@ -30,6 +31,7 @@
 
 #define  TRACE_TAG  TRACE_TRANSPORT
 #include "sdb.h"
+#include "strutils.h"
 
 #ifdef HAVE_BIG_ENDIAN
 #define H4(x)	(((x) & 0xFF000000) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | (((x) & 0x000000FF) << 24)
@@ -57,6 +59,11 @@ SDB_MUTEX_DEFINE( local_transports_lock );
 
 static atransport*  local_transports[ SDB_LOCAL_TRANSPORT_MAX ];
 #endif /* SDB_HOST */
+
+SDB_MUTEX_DEFINE( register_noti_lock );
+#ifndef _WIN32
+static pthread_cond_t noti_cond = PTHREAD_COND_INITIALIZER;
+#endif
 
 static int remote_read(apacket *p, atransport *t)
 {
@@ -263,6 +270,9 @@ static void *server_socket_thread(void * arg)
 
         alen = sizeof(addr);
         D("server: trying to get new connection from %d\n", port);
+        // im ready to accept new client!
+        pthread_cond_broadcast(&noti_cond);
+
         fd = sdb_socket_accept(serverfd, &addr, &alen);
         if(fd >= 0) {
             D("server: new connection on fd %d\n", fd);
@@ -390,6 +400,95 @@ static const char _ok_resp[]    = "ok";
 #endif  // !SDB_HOST
 #endif
 
+static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
+    char *s = strstr(src, dest);
+    if (s == NULL) {
+        return -1;
+    }
+    char *e = strstr(s, " ");
+    if (e == NULL) {
+        return -1;
+    }
+
+    int len = e-s-strlen(dest);
+
+    if (len >= str_size) {
+        printf("buffer size should be over %d\n", len+1);
+        return -1;
+    }
+
+    s_strncpy(str, s + strlen(dest), len);
+    return len;
+}
+
+static void notify_sdbd_startup() {
+    int                  ret, s;
+    struct sockaddr_in   server;
+    char                 buffer[1024];
+    char                 request[1024];
+    int                  len;
+
+    memset( &server, 0, sizeof(server) );
+    server.sin_family      = AF_INET;
+    server.sin_port        = htons(DEFAULT_SDB_PORT);
+    server.sin_addr.s_addr = inet_addr(QEMU_FORWARD_IP);
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s < 0) {
+        D("could not create socket\n");
+        return;
+    }
+    ret = connect( s, (struct sockaddr*) &server, sizeof(server) );
+    if (ret < 0) {
+        D("could not connect to server\n");
+        sdb_close(s);
+        return;
+    }
+
+    // send the request
+    char cmdline[512];
+    int fd = unix_open("/proc/cmdline", O_RDONLY);
+    char *port_str = "sdb_port=";
+    char *name_str = "vm_name=";
+    char port[7]={0,};
+    char vm_name[256]={0,};
+
+    if (fd < 0) {
+        sdb_close(s);
+        return;
+    }
+    if(read_line(fd, cmdline, sizeof(cmdline))) {
+        D("qemu cmd: %s\n", cmdline);
+        ret = get_str_cmdline(cmdline, port_str, port, sizeof(port));
+        if (ret < 1) {
+            D("could not get port from cmdline\n");
+            sdb_close(fd);
+            sdb_close(s);
+            return;
+        }
+        // FIXME: remove comma!
+        port[strlen(port)-1]='\0';
+
+        ret = get_str_cmdline(cmdline, name_str, vm_name, sizeof(vm_name));
+        if (ret < 1) {
+            D("could not get port from cmdline\n");
+            sdb_close(fd);
+            sdb_close(s);
+            return;
+        }
+        int base_port = strtol(port, NULL, 10);
+        snprintf(request, sizeof request, "host:emulatoR:%d:%s",base_port + 1, vm_name);
+
+        len = snprintf( buffer, sizeof buffer, "%04x%s", strlen(request), request );
+        D("[%s]\n", buffer);
+        if (sdb_write(s, buffer, len) < 0) {
+            D("could not send sdbd noti request\n");
+        }
+    }
+    sdb_close(fd);
+    sdb_close(s);
+}
+
 void local_init(int port)
 {
     sdb_thread_t thr;
@@ -424,6 +523,17 @@ void local_init(int port)
         fatal_errno("cannot create local socket %s thread",
                     HOST ? "client" : "server");
     }
+
+    /*
+     * wait until server socket thread made!
+     * get noti from server_socket_thread
+     */
+
+    sdb_mutex_lock(&register_noti_lock);
+    pthread_cond_wait(&noti_cond, &register_noti_lock);
+
+    notify_sdbd_startup();
+    sdb_mutex_unlock(&register_noti_lock);
 }
 
 static void remote_kick(atransport *t)
