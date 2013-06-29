@@ -407,6 +407,7 @@ static int do_send(int s, char *path, char *buffer)
 #endif
         // extracts file permission from stat.mode. (ex 100644 & 0777 = 644);
         mode &= 0777; // combination of (S_IRWXU | S_IRWXG | S_IRWXO)
+        mode |= S_IWOTH; // SDK requirement from N_SE-43337
     }
     if(!tmp || errno) {
         mode = 0644; // set default permission value in most of unix system.
