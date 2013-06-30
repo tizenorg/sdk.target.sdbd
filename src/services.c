@@ -562,11 +562,15 @@ static int create_syncproc_thread()
 {
     int ret_fd;
 
+    ret_fd = create_sync_subprocess(file_sync_service, NULL);
+    // FIXME: file missing bug when root on mode
+    /*
     if (should_drop_privileges()) {
         ret_fd = create_sync_subprocess(file_sync_service, NULL);
     } else {
         ret_fd = create_service_thread(file_sync_service, NULL);
     }
+    */
 
     return ret_fd;
 }
