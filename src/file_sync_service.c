@@ -178,80 +178,6 @@ static int fail_message(int s, const char *reason)
     }
 }
 
-static void set_syncfile_smack_label(char *src) {
-    char *label = NULL;
-    char *src_chr = strrchr(src, '/');
-    int pos = src_chr - src + 1;
-    char dirname[512];
-
-    snprintf(dirname, pos, "%s", src);
-
-    if (getuid() != 0) {
-        D("need root permission to set smack label: %d\n", getuid());
-        return;
-    }
-    D("src:[%s], dirname:[%s]\n", src, dirname);
-    int rc = smack_getlabel(dirname, &label, SMACK_LABEL_TRANSMUTE);
-
-    if (rc == 0 && label != NULL) {
-        if (!strcmp("TRUE", label)) {
-            free(label);
-            rc = smack_getlabel(dirname, &label, SMACK_LABEL_ACCESS);
-            if (rc == 0 && label != NULL) {
-                if (smack_setlabel(src, label, SMACK_LABEL_ACCESS) != -1) {
-                    D("set sync file smack label [%s]\n", label);
-                } else {
-                    D("unable to set sync file smack label %s due to %s\n", label, strerror(errno));
-                }
-                free(label);
-            }
-        } else{
-            D("fail to set label, is it transmuted?:%s\n", label);
-        }
-    } else {
-        free(label);
-        if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) != -1) {
-            D("set sync file smack label [%s]\n", SMACK_SYNC_FILE_LABEL);
-        } else {
-            D("unable to set sync file smack label %s due to %s\n", SMACK_SYNC_FILE_LABEL, strerror(errno));
-        }
-    }
-}
-
-static int sync_send_label_notify(int s, const char *path, int success)
-{
-    char buffer[512] = {0,};
-    snprintf(buffer, sizeof(buffer), "%d:%s", success, path);
-
-    int len = sdb_write(s, buffer, sizeof(buffer));
-    D("sync notify done:%d\n", len);
-    return len;
-}
-
-static int sync_read_label_notify(int s)
-{
-    char buffer[512] = {0,};
-
-    int len = sdb_read(s, buffer, sizeof(buffer));
-    if (len < 0) {
-        D("sync notify read error:%s\n", strerror(errno));
-        return -1;
-    }
-
-    D("sync notify read:%s\n", buffer);
-
-    if (buffer[0] == '0') {
-        D("sync notify failed!\n");
-        exit(-1);
-    }
-    char *path = buffer;
-    path++;
-    path++;
-    set_syncfile_smack_label(path);
-    return len;
-}
-
-
 static int fail_errno(int s)
 {
     return fail_message(s, strerror(errno));
@@ -513,7 +439,6 @@ void file_sync_service(int fd, void *cookie)
     fd_set set;
     struct timeval timeout;
     int rv;
-    int s[2];
     char *buffer = malloc(SYNC_DATA_MAX);
     if(buffer == 0) goto fail;
 
@@ -522,22 +447,6 @@ void file_sync_service(int fd, void *cookie)
 
     timeout.tv_sec = SYNC_TIMEOUT;
     timeout.tv_usec = 0;
-
-
-    if(sdb_socketpair(s)) {
-        D("cannot create service socket pair\n");
-        exit(-1);
-    }
-
-    pid_t pid = fork();
-
-    if (pid == 0) {
-        sdb_close(s[0]); //close the parent fd
-        sync_read_label_notify(s[1]);
-    } else if (pid > 0) {
-        sdb_close(s[1]);
-        //waitpid(pid, &ret, 0);
-    }
 
     for(;;) {
         D("sync: waiting for command for %d sec\n", SYNC_TIMEOUT);
@@ -582,7 +491,6 @@ void file_sync_service(int fd, void *cookie)
             break;
         case ID_SEND:
             if(do_send(fd, name, buffer)) goto fail;
-            sync_send_label_notify(s[0], name, 1);
             break;
         case ID_RECV:
             if(do_recv(fd, name, buffer)) goto fail;
@@ -596,10 +504,7 @@ void file_sync_service(int fd, void *cookie)
     }
 
 fail:
-    sync_send_label_notify(s[0], name, 0);
     if(buffer != 0) free(buffer);
     D("sync: done\n");
-    sdb_close(s[0]);
-    sdb_close(s[1]);
     sdb_close(fd);
 }
