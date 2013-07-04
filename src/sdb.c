@@ -43,6 +43,14 @@ SDB_MUTEX_DEFINE( D_lock );
 
 int HOST = 0;
 
+int is_emulator(void) {
+    if (access(USB_NODE_FILE, F_OK) == 0) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
     if (access(SDB_PIDPATH, F_OK) == 0)
@@ -50,7 +58,7 @@ void handle_sig_term(int sig) {
 #endif
     //kill(getpgid(getpid()),SIGTERM);
     //killpg(getpgid(getpid()),SIGTERM);
-    if (access("/dev/samsung_sdb", F_OK) == 0) {
+    if (!is_emulator()) {
         exit(0);
     } else {
     	// do nothing on a emulator
@@ -1143,7 +1151,7 @@ int sdb_main(int is_daemon, int server_port)
         }
     }
 
-    if (access("/dev/samsung_sdb", F_OK) == 0) {
+    if (!is_emulator()) {
         // listen on USB
         usb_init();
         // listen on tcp

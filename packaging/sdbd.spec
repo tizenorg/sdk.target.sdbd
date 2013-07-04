@@ -1,6 +1,6 @@
 Name:       sdbd
 Summary:    SDB daemon
-Version:    2.2.6
+Version:    2.2.7
 Release:    0
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN

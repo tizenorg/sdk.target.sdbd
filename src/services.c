@@ -491,7 +491,7 @@ static int create_subproc_thread(const char *name)
     D("create_subprocess() ret_fd=%d pid=%d\n", ret_fd, pid);
 
     if (ret_fd < 0) {
-        printf("cannot create service thread\n");
+        D("cannot create service thread\n");
         return -1;
     }
     sti = malloc(sizeof(stinfo));
@@ -503,7 +503,7 @@ static int create_subproc_thread(const char *name)
     if(sdb_thread_create( &t, service_bootstrap_func, sti)){
         free(sti);
         sdb_close(ret_fd);
-        printf("cannot create service thread\n");
+        D("cannot create service thread\n");
         return -1;
     }
 

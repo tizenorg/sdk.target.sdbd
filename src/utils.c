@@ -18,6 +18,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+
 #define STRING_MAXLEN 1024
 char*
 buff_addc (char*  buff, char*  buffEnd, int  c)

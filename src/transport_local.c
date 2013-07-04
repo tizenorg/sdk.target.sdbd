@@ -421,31 +421,44 @@ static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
     return len;
 }
 
-static void notify_sdbd_startup() {
+static int send_msg_to_localhost_from_guest(int local_port, char *request, int sock_type) {
     int                  ret, s;
     struct sockaddr_in   server;
-    char                 buffer[1024];
-    char                 request[1024];
-    int                  len;
 
     memset( &server, 0, sizeof(server) );
     server.sin_family      = AF_INET;
-    server.sin_port        = htons(DEFAULT_SDB_PORT);
+    server.sin_port        = htons(local_port);
     server.sin_addr.s_addr = inet_addr(QEMU_FORWARD_IP);
 
-    s = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_type == 0) {
+        s = socket(AF_INET, SOCK_STREAM, 0);
+    } else {
+        s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
     if (s < 0) {
         D("could not create socket\n");
-        return;
+        return -1;
     }
-    ret = connect( s, (struct sockaddr*) &server, sizeof(server) );
+    ret = connect(s, (struct sockaddr*) &server, sizeof(server));
     if (ret < 0) {
         D("could not connect to server\n");
         sdb_close(s);
-        return;
+        return -1;
+    }
+    if (sdb_write(s, request, strlen(request)) < 0) {
+        D("could not send sdbd noti request\n");
     }
 
-    // send the request
+    sdb_close(s);
+    return 0;
+}
+
+static void notify_sdbd_startup() {
+    int                  ret;
+    char                 buffer[512];
+    char                 request[512];
+
+    // send the request to sdbserver
     char cmdline[512];
     int fd = unix_open("/proc/cmdline", O_RDONLY);
     char *port_str = "sdb_port=";
@@ -454,7 +467,7 @@ static void notify_sdbd_startup() {
     char vm_name[256]={0,};
 
     if (fd < 0) {
-        sdb_close(s);
+        D("fail to read /proc/cmdline\n");
         return;
     }
     if(read_line(fd, cmdline, sizeof(cmdline))) {
@@ -463,7 +476,6 @@ static void notify_sdbd_startup() {
         if (ret < 1) {
             D("could not get port from cmdline\n");
             sdb_close(fd);
-            sdb_close(s);
             return;
         }
         // FIXME: remove comma!
@@ -473,20 +485,28 @@ static void notify_sdbd_startup() {
         if (ret < 1) {
             D("could not get port from cmdline\n");
             sdb_close(fd);
-            sdb_close(s);
             return;
         }
         int base_port = strtol(port, NULL, 10);
         snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
 
-        len = snprintf( buffer, sizeof buffer, "%04x%s", strlen(request), request );
+        snprintf( buffer, sizeof buffer, "%04x%s", strlen(request), request );
         D("[%s]\n", buffer);
-        if (sdb_write(s, buffer, len) < 0) {
+        if (send_msg_to_localhost_from_guest(DEFAULT_SDB_PORT, buffer, 0) <0) {
             D("could not send sdbd noti request\n");
+            sdb_close(fd);
+            return;
+        }
+        // send to sensord with udp
+        char sensord_buf[16];
+        snprintf(sensord_buf, sizeof sensord_buf, "2\n");
+        if (send_msg_to_localhost_from_guest(base_port + 3, sensord_buf, 1) < 0) {
+            D("could not send senserd noti request\n");
+            sdb_close(fd);
+            return;
         }
     }
     sdb_close(fd);
-    sdb_close(s);
 }
 
 void local_init(int port)

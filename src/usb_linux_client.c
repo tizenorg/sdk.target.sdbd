@@ -57,11 +57,11 @@ static void *usb_open_thread(void *x)
         D("[ usb_thread - opening device ]\n");
         do {
             /* XXX use inotify? */
-            fd = unix_open("/dev/samsung_sdb", O_RDWR); /* tizen-specific */
+            fd = unix_open(USB_NODE_FILE, O_RDWR); /* tizen-specific */
             if (fd < 0) {
                 // to support older kernels
                 //fd = unix_open("/dev/android", O_RDWR);
-                D("[ opening /dev/samsung_sdb device failed ]\n");
+                D("[ opening %s device failed ]\n", USB_NODE_FILE);
             }
             if (fd < 0) {
                 sdb_sleep_ms(1000);

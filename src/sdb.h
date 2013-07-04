@@ -486,6 +486,8 @@ extern int SHELL_EXIT_NOTIFY_FD;
 int sendfailmsg(int fd, const char *reason);
 int handle_host_request(char *service, transport_type ttype, char* serial, int reply_fd, asocket *s);
 
+int is_emulator(void);
+
 #if SDB_HOST /* tizen-specific */
 #define DEVICEMAP_SEPARATOR ":"
 #define DEVICENAME_MAX 256
@@ -496,3 +498,5 @@ int get_devicename_from_shdmem(int port, char *device_name);
 int read_line(const int fd, char* ptr, const size_t maxlen);
 #endif
 #endif
+
+#define USB_NODE_FILE "/dev/samsung_sdb"
