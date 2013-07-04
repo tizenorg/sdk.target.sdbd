@@ -56,20 +56,96 @@ struct sync_permit_rule sdk_sync_permit_rule[] = {
  */
 #define DIR_PERMISSION 0777
 
-static int mkdirs(char *name)
+
+static void set_syncfile_smack_label(char *src) {
+    char *label = NULL;
+    char *src_chr = strrchr(src, '/');
+    int pos = src_chr - src + 1;
+    char dirname[512];
+
+    if (getuid() != 0) {
+        D("need root permission to set smack label: %d\n", getuid());
+        return;
+    }
+
+    snprintf(dirname, pos, "%s", src);
+
+    //D("src:[%s], dirname:[%s]\n", src, dirname);
+    int rc = smack_getlabel(dirname, &label, SMACK_LABEL_TRANSMUTE);
+
+    if (rc == 0 && label != NULL) {
+        if (!strcmp("TRUE", label)) {
+            free(label);
+            rc = smack_getlabel(dirname, &label, SMACK_LABEL_ACCESS);
+            if (rc == 0 && label != NULL) {
+                if (smack_setlabel(src, label, SMACK_LABEL_ACCESS) == -1) {
+                    D("unable to set sync file smack label %s due to %s\n", label, strerror(errno));
+                }
+                free(label);
+            }
+        } else{
+            D("fail to set label, is it transmuted?:%s\n", label);
+        }
+    } else {
+        free(label);
+        if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) == -1) {
+            D("unable to set sync file smack label %s due to %s\n", SMACK_SYNC_FILE_LABEL, strerror(errno));
+        }
+    }
+}
+
+static int sync_send_label_notify(int s, const char *path, int success)
+{
+    char buffer[512] = {0,};
+    snprintf(buffer, sizeof(buffer), "%d:%s", success, path);
+
+    int len = sdb_write(s, buffer, sizeof(buffer));
+
+    return len;
+}
+
+static void sync_read_label_notify(int s)
+{
+    char buffer[512] = {0,};
+
+    while (1) {
+        int len = sdb_read(s, buffer, sizeof(buffer));
+        if (len < 0) {
+            D("sync notify read error:%s\n", strerror(errno));
+            exit(-1);
+        }
+
+        if (buffer[0] == '0') {
+            D("sync notify child process exit\n");
+            exit(-1);
+        }
+        char *path = buffer;
+        path++;
+        path++;
+        set_syncfile_smack_label(path);
+    }
+}
+
+static int mkdirs(int noti_fd, char *name)
 {
     int ret;
     char *x = name + 1;
 
-    if(name[0] != '/') return -1;
+    if(name[0] != '/') {
+        return -1;
+    }
 
     for(;;) {
         x = sdb_dirstart(x);
-        if(x == 0) return 0;
+        if(x == 0) {
+            return 0;
+        }
         *x = 0;
-        /* tizen specific */
-        ret = sdb_mkdir(name, DIR_PERMISSION);
 
+        ret = sdb_mkdir(name, DIR_PERMISSION);
+        if (ret == 0) {
+            sync_send_label_notify(noti_fd, name, 1);
+        }
         if((ret < 0) && (errno != EEXIST)) {
             D("mkdir(\"%s\") -> %s\n", name, strerror(errno));
             *x = '/';
@@ -183,7 +259,7 @@ static int fail_errno(int s)
     return fail_message(s, strerror(errno));
 }
 
-static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
+static int handle_send_file(int s, int noti_fd, char *path, mode_t mode, char *buffer)
 {
     syncmsg msg;
     unsigned int timestamp = 0;
@@ -191,7 +267,7 @@ static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
 
     fd = sdb_open_mode(path, O_WRONLY | O_CREAT | O_EXCL, mode);
     if(fd < 0 && errno == ENOENT) {
-        mkdirs(path);
+        mkdirs(noti_fd, path);
         fd = sdb_open_mode(path, O_WRONLY | O_CREAT | O_EXCL, mode);
     }
     if(fd < 0 && errno == EEXIST) {
@@ -256,6 +332,7 @@ static int handle_send_file(int s, char *path, mode_t mode, char *buffer)
         D("sync error: %d!!!\n", fd);
         return -1;
     }
+    sync_send_label_notify(noti_fd, path, 1);
     return 0;
 
 fail:
@@ -266,7 +343,7 @@ fail:
 }
 
 #ifdef HAVE_SYMLINKS
-static int handle_send_link(int s, char *path, char *buffer)
+static int handle_send_link(int s, int noti_fd, char *path, char *buffer)
 {
     syncmsg msg;
     unsigned int len;
@@ -290,7 +367,7 @@ static int handle_send_link(int s, char *path, char *buffer)
 
     ret = symlink(buffer, path);
     if(ret && errno == ENOENT) {
-        mkdirs(path);
+        mkdirs(noti_fd, path);
         ret = symlink(buffer, path);
     }
     if(ret) {
@@ -315,7 +392,7 @@ static int handle_send_link(int s, char *path, char *buffer)
 }
 #endif /* HAVE_SYMLINKS */
 
-static int do_send(int s, char *path, char *buffer)
+static int do_send(int s, int noti_fd, char *path, char *buffer)
 {
     char *tmp;
     mode_t mode;
@@ -346,7 +423,7 @@ static int do_send(int s, char *path, char *buffer)
 
 #ifdef HAVE_SYMLINKS
     if(is_link)
-        ret = handle_send_link(s, path, buffer);
+        ret = handle_send_link(s, noti_fd, path, buffer);
     else {
 #else
     {
@@ -358,7 +435,7 @@ static int do_send(int s, char *path, char *buffer)
 
         //mode |= ((mode >> 3) & 0070);
         //mode |= ((mode >> 3) & 0007);
-        ret = handle_send_file(s, path, mode, buffer);
+        ret = handle_send_file(s, noti_fd, path, mode, buffer);
     }
 
     return ret;
@@ -439,6 +516,7 @@ void file_sync_service(int fd, void *cookie)
     fd_set set;
     struct timeval timeout;
     int rv;
+    int s[2];
     char *buffer = malloc(SYNC_DATA_MAX);
     if(buffer == 0) goto fail;
 
@@ -448,63 +526,82 @@ void file_sync_service(int fd, void *cookie)
     timeout.tv_sec = SYNC_TIMEOUT;
     timeout.tv_usec = 0;
 
-    for(;;) {
-        D("sync: waiting for command for %d sec\n", SYNC_TIMEOUT);
+    if(sdb_socketpair(s)) {
+        D("cannot create service socket pair\n");
+        exit(-1);
+    }
 
-        rv = select(fd + 1, &set, NULL, NULL, &timeout);
-        if (rv == -1) {
-            D("sync file descriptor select failed\n");
-        } else if (rv == 0) {
-            D("sync file descriptor timeout: (took %d sec over)\n", SYNC_TIMEOUT);
-            fail_message(fd, "sync timeout");
-            goto fail;
-        }
+    pid_t pid = fork();
 
-        if(readx(fd, &msg.req, sizeof(msg.req))) {
-            fail_message(fd, "command read failure");
-            break;
-        }
-        namelen = ltohl(msg.req.namelen);
-        if(namelen > 1024) {
-            fail_message(fd, "invalid namelen");
-            break;
-        }
-        if(readx(fd, name, namelen)) {
-            fail_message(fd, "filename read failure");
-            break;
-        }
-        name[namelen] = 0;
+    if (pid == 0) {
+        sdb_close(s[0]); //close the parent fd
+        sync_read_label_notify(s[1]);
+    } else if (pid > 0) {
+        sdb_close(s[1]);
+        for(;;) {
+            D("sync: waiting for command for %d sec\n", SYNC_TIMEOUT);
 
-        msg.req.namelen = 0;
-        D("sync: '%s' '%s'\n", (char*) &msg.req, name);
+            rv = select(fd + 1, &set, NULL, NULL, &timeout);
+            if (rv == -1) {
+                D("sync file descriptor select failed\n");
+            } else if (rv == 0) {
+                D("sync file descriptor timeout: (took %d sec over)\n", SYNC_TIMEOUT);
+                fail_message(fd, "sync timeout");
+                goto fail;
+            }
 
-        if (should_drop_privileges() && !verify_sync_rule(name)) {
-            set_developer_privileges();
-        }
+            if(readx(fd, &msg.req, sizeof(msg.req))) {
+                fail_message(fd, "command read failure");
+                break;
+            }
+            namelen = ltohl(msg.req.namelen);
+            if(namelen > 1024) {
+                fail_message(fd, "invalid namelen");
+                break;
+            }
+            if(readx(fd, name, namelen)) {
+                fail_message(fd, "filename read failure");
+                break;
+            }
+            name[namelen] = 0;
 
-        switch(msg.req.id) {
-        case ID_STAT:
-            if(do_stat(fd, name)) goto fail;
-            break;
-        case ID_LIST:
-            if(do_list(fd, name)) goto fail;
-            break;
-        case ID_SEND:
-            if(do_send(fd, name, buffer)) goto fail;
-            break;
-        case ID_RECV:
-            if(do_recv(fd, name, buffer)) goto fail;
-            break;
-        case ID_QUIT:
-            goto fail;
-        default:
-            fail_message(fd, "unknown command");
-            goto fail;
+            msg.req.namelen = 0;
+            D("sync: '%s' '%s'\n", (char*) &msg.req, name);
+
+            if (should_drop_privileges() && !verify_sync_rule(name)) {
+                set_developer_privileges();
+            }
+
+            switch(msg.req.id) {
+            case ID_STAT:
+                if(do_stat(fd, name)) goto fail;
+                break;
+            case ID_LIST:
+                if(do_list(fd, name)) goto fail;
+                break;
+            case ID_SEND:
+                if(do_send(fd, s[0], name, buffer)) goto fail;
+                break;
+            case ID_RECV:
+                if(do_recv(fd, name, buffer)) goto fail;
+                break;
+            case ID_QUIT:
+                goto fail;
+            default:
+                fail_message(fd, "unknown command");
+                goto fail;
+            }
         }
     }
 
+
 fail:
-    if(buffer != 0) free(buffer);
+    if(buffer != 0) {
+        free(buffer);
+    }
     D("sync: done\n");
+    sync_send_label_notify(s[0], name, 0);
+    sdb_close(s[0]);
+    sdb_close(s[1]);
     sdb_close(fd);
 }
