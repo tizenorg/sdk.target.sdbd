@@ -87,7 +87,6 @@ static void set_syncfile_smack_label(char *src) {
             D("fail to set label, is it transmuted?:%s\n", label);
         }
     } else {
-        free(label);
         if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) == -1) {
             D("unable to set sync file smack label %s due to %s\n", SMACK_SYNC_FILE_LABEL, strerror(errno));
         }
@@ -517,19 +516,21 @@ void file_sync_service(int fd, void *cookie)
     struct timeval timeout;
     int rv;
     int s[2];
+
+    if(sdb_socketpair(s)) {
+        D("cannot create service socket pair\n");
+        exit(-1);
+    }
     char *buffer = malloc(SYNC_DATA_MAX);
-    if(buffer == 0) goto fail;
+    if(buffer == 0) {
+        goto fail;
+    }
 
     FD_ZERO(&set); /* clear the set */
     FD_SET(fd, &set); /* add our file descriptor to the set */
 
     timeout.tv_sec = SYNC_TIMEOUT;
     timeout.tv_usec = 0;
-
-    if(sdb_socketpair(s)) {
-        D("cannot create service socket pair\n");
-        exit(-1);
-    }
 
     pid_t pid = fork();
 
