@@ -58,6 +58,7 @@ struct sync_permit_rule sdk_sync_permit_rule[] = {
 
 
 static void set_syncfile_smack_label(char *src) {
+    char *label_transmuted = NULL;
     char *label = NULL;
     char *src_chr = strrchr(src, '/');
     int pos = src_chr - src + 1;
@@ -71,11 +72,10 @@ static void set_syncfile_smack_label(char *src) {
     snprintf(dirname, pos, "%s", src);
 
     //D("src:[%s], dirname:[%s]\n", src, dirname);
-    int rc = smack_getlabel(dirname, &label, SMACK_LABEL_TRANSMUTE);
+    int rc = smack_getlabel(dirname, &label_transmuted, SMACK_LABEL_TRANSMUTE);
 
-    if (rc == 0 && label != NULL) {
-        if (!strcmp("TRUE", label)) {
-            free(label);
+    if (rc == 0 && label_transmuted != NULL) {
+        if (!strcmp("TRUE", label_transmuted)) {
             rc = smack_getlabel(dirname, &label, SMACK_LABEL_ACCESS);
             if (rc == 0 && label != NULL) {
                 if (smack_setlabel(src, label, SMACK_LABEL_ACCESS) == -1) {
@@ -84,8 +84,9 @@ static void set_syncfile_smack_label(char *src) {
                 free(label);
             }
         } else{
-            D("fail to set label, is it transmuted?:%s\n", label);
+            D("fail to set label, is it transmuted?:%s\n", label_transmuted);
         }
+        free(label_transmuted);
     } else {
         if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) == -1) {
             D("unable to set sync file smack label %s due to %s\n", SMACK_SYNC_FILE_LABEL, strerror(errno));
