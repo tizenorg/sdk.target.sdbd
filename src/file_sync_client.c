@@ -650,7 +650,7 @@ static int local_build_list(copyinfo **filelist,
                 return -1;
             }
             if(!S_ISREG(st.st_mode) && !S_ISLNK(st.st_mode)) {
-                fprintf(stderr, "skipping special file '%s'\n", ci->src);
+                fprintf(stderr, "skipping special file\n");
                 free(ci);
             } else {
                 ci->time = st.st_mtime;
