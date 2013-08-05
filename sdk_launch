@@ -124,7 +124,7 @@ then
         else
             result_mode="DEBUG"
         fi
-        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode $args"
+        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode"
 #       cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port /opt/apps/$pkgid/bin/$exe"
     fi
 else
@@ -132,7 +132,7 @@ else
     then
         if [ "" != "$result_mode" ]
         then
-            cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode $launch_app_mode $args"
+            cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode $launch_app_mode"
         else
             cmd="/usr/bin/launch_app $pkgid.$exe"
         fi
