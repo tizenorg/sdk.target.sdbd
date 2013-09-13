@@ -1,7 +1,7 @@
 Name:       sdbd
 Summary:    SDB daemon
 Version:    2.2.8
-Release:    0
+Release:    1
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
@@ -27,6 +27,9 @@ make %{?jobs:-j%jobs}
 
 %install
 rm -rf %{buildroot}
+mkdir -p %{buildroot}/usr/share/license
+cp LICENSE %{buildroot}/usr/share/license/%{name}
+
 %make_install
 
 %post
@@ -39,6 +42,7 @@ chsmack -t /home/developer
 %{_prefix}/sbin/sdbd
 %{_prefix}/sbin/sdk_launch
 %{_sysconfdir}/init.d/sdbd
+/usr/share/license/%{name}
 
 %ifarch %{ix86}
     %{_sysconfdir}/rc.d/rc3.d
