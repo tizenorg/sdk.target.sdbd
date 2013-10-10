@@ -29,6 +29,7 @@
 
 #include "sysdeps.h"
 #include "sdb.h"
+#include "strutils.h"
 
 #if !SDB_HOST
 #include <linux/prctl.h>
@@ -36,7 +37,7 @@
 #else
 #include "usb_vendors.h"
 #endif
-
+#include <system_info.h>
 #define PROC_CMDLINE_PATH "/proc/cmdline"
 #if SDB_TRACE
 SDB_MUTEX_DEFINE( D_lock );
@@ -299,7 +300,7 @@ static void send_close(unsigned local, unsigned remote, atransport *t)
     p->msg.arg1 = remote;
     send_packet(p, t);
 }
-
+static int device_status = 0; // 0:online, 1: password locked later
 static void send_connect(atransport *t)
 {
     D("Calling send_connect \n");
@@ -307,9 +308,24 @@ static void send_connect(atransport *t)
     cp->msg.command = A_CNXN;
     cp->msg.arg0 = A_VERSION;
     cp->msg.arg1 = MAX_PAYLOAD;
-    snprintf((char*) cp->data, sizeof cp->data, "%s::",
-            HOST ? "host" : sdb_device_banner);
+
+    char device_name[256]={0,};
+    int r = 0;
+
+    if (is_emulator()) {
+        r = get_emulator_name(device_name, sizeof device_name);
+    } else {
+        r = get_device_name(device_name, sizeof device_name);
+    }
+    if (r < 0) {
+        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, DEFAULT_DEVICENAME, device_status);
+    } else {
+        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, device_name, device_status);
+    }
+
+    D("CNXN data:%s\n", (char*)cp->data);
     cp->msg.data_length = strlen((char*) cp->data) + 1;
+
     send_packet(cp, t);
 #if SDB_HOST
         /* XXX why sleep here? */
@@ -399,6 +415,37 @@ int get_emulator_name(char str[], int str_size) {
         }
     }
     return 0;
+}
+
+int get_device_name(char str[], int str_size) {
+    char *value = NULL;
+    int r = system_info_get_value_string(SYSTEM_INFO_KEY_MODEL, &value);
+    if (r != SYSTEM_INFO_ERROR_NONE) {
+        D("fail to get system model:%d\n", errno);
+        return -1;
+    } else {
+        s_strncpy(str, value, str_size);
+        D("returns model_name:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+        return 0;
+    }
+    /*
+    int fd = unix_open(USB_SERIAL_PATH, O_RDONLY);
+    if (fd < 0) {
+        D("fail to read:%s (%d)\n", USB_SERIAL_PATH, errno);
+        return -1;
+    }
+
+    if(read_line(fd, str, str_size)) {
+        D("device serial name: %s\n", str);
+        sdb_close(fd);
+        return 0;
+    }
+    sdb_close(fd);
+    */
+    return -1;
 }
 
 void parse_banner(char *banner, atransport *t)
