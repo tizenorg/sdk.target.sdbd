@@ -37,6 +37,7 @@
 #include "usb_vendors.h"
 #endif
 
+#define PROC_CMDLINE_PATH "/proc/cmdline"
 #if SDB_TRACE
 SDB_MUTEX_DEFINE( D_lock );
 #endif
@@ -333,6 +334,71 @@ static char *connection_state_name(atransport *t)
     default:
         return "unknown";
     }
+}
+
+static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
+    char *s = strstr(src, dest);
+    if (s == NULL) {
+        return -1;
+    }
+    char *e = strstr(s, " ");
+    if (e == NULL) {
+        return -1;
+    }
+
+    int len = e-s-strlen(dest);
+
+    if (len >= str_size) {
+        D("buffer size(%d) should be bigger than %d\n", str_size, len+1);
+        return -1;
+    }
+
+    s_strncpy(str, s + strlen(dest), len);
+    return len;
+}
+
+int get_emulator_forward_port() {
+    char cmdline[512];
+    int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
+    char *port_str = "sdb_port=";
+    char port_buf[7]={0,};
+    int port = -1;
+
+    if (fd < 0) {
+        return -1;
+    }
+    if(read_line(fd, cmdline, sizeof(cmdline))) {
+        D("qemu cmd: %s\n", cmdline);
+        if (get_str_cmdline(cmdline, port_str, port_buf, sizeof(port_buf)) < 1) {
+            D("could not get port from cmdline\n");
+            sdb_close(fd);
+            return -1;
+        }
+        // FIXME: remove comma!
+        port_buf[strlen(port_buf)-1]='\0';
+        port = strtol(port_buf, NULL, 10);
+    }
+    return port;
+}
+
+int get_emulator_name(char str[], int str_size) {
+    char cmdline[512];
+    int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
+    char *name_str = "vm_name=";
+
+    if (fd < 0) {
+        D("fail to read /proc/cmdline\n");
+        return -1;
+    }
+    if(read_line(fd, cmdline, sizeof(cmdline))) {
+        D("qemu cmd: %s\n", cmdline);
+        if (get_str_cmdline(cmdline, name_str, str, str_size) < 1) {
+            D("could not get emulator name from cmdline\n");
+            sdb_close(fd);
+            return -1;
+        }
+    }
+    return 0;
 }
 
 void parse_banner(char *banner, atransport *t)

@@ -338,6 +338,8 @@ int should_drop_privileges(void);
 int set_developer_privileges();
 void set_root_privileges();
 
+int get_emulator_forward_port(void);
+int get_emulator_name(char str[], int str_size);
 /* packet allocator */
 apacket *get_apacket(void);
 void put_apacket(apacket *p);
