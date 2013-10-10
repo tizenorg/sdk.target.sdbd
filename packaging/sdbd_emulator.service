@@ -1,0 +1,15 @@
+[Unit]
+Description=sdbd
+Before=sensord.service
+
+[Service]
+Type=forking
+Environment=DISPLAY=:0
+PIDFile=/tmp/.sdbd.pid
+RemainAfterExit=yes
+ExecStartPre=/bin/bash -c "/bin/echo `/bin/sed 's/^.*sdb_port=\([^, ]*\).*$/\1/g' /proc/cmdline` > /opt/home/sdb_port.txt"
+ExecStart=/usr/sbin/sdbd
+
+[Install]
+WantedBy=emulator.target
+

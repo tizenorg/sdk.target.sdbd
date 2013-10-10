@@ -1,0 +1,10 @@
+* Wed Apr 04 2013 Ho Namkoong <ho.namkoong@samsung.com>
+ - supports platform gdbserver
+* Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
+ - supports cs report service using inotify
+* Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
+ - sdb code dropped from adb (Ice Cream Samdwich 4.1.1)
+* Wed Apr 18 2012 Yoonki Park <yoonki.park@samsung.com>
+ - set dir permission to 777
+* Sat Mar 31 2012 Yoonki Park <yoonki.park@samsung.com>
+ - let sshd be daemon and create sshd.pid file
