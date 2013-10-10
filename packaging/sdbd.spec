@@ -5,6 +5,8 @@ Release:    1
 Group:      TO_BE/FILLED_IN
 License:    TO BE FILLED IN
 Source0:    %{name}-%{version}.tar.gz
+
+BuildRequires: capi-system-info-devel
 Requires(post): pkgmgr
 Requires(post): pkgmgr-server
 Requires(post): wrt
@@ -38,7 +40,7 @@ chsmack -t /home/developer
 
 %files
 %manifest sdbd.manifest
-%defattr(-,root,root,-) 
+%defattr(-,root,root,-)
 %{_prefix}/sbin/sdbd
 %{_prefix}/sbin/sdk_launch
 %{_sysconfdir}/init.d/sdbd

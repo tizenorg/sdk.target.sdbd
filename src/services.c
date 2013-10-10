@@ -38,6 +38,9 @@
 #   include "sdktools.h"
 #endif
 
+#include "strutils.h"
+#include <system_info.h>
+
 typedef struct stinfo stinfo;
 
 struct stinfo {
@@ -577,6 +580,79 @@ static int create_syncproc_thread()
 
 #endif
 
+#define UNKNOWN "unknown"
+#define INFOBUF_MAXLEN 64
+#define INFO_VERSION "2.2.0"
+typedef struct platform_info {
+    
+    char platform_info_version[INFOBUF_MAXLEN];
+    char model_name[INFOBUF_MAXLEN]; // Emulator
+    char platform_name[INFOBUF_MAXLEN]; // Tizen
+    char platform_version[INFOBUF_MAXLEN]; // 2.2.1
+    char profile_name[INFOBUF_MAXLEN]; // 2.2.1
+} pinfo;
+
+static void get_platforminfo(int fd, void *cookie) {
+    pinfo sysinfo;
+
+    char *value = NULL;
+    s_strncpy(sysinfo.platform_info_version, INFO_VERSION, strlen(INFO_VERSION));
+
+    int r = system_info_get_value_string(SYSTEM_INFO_KEY_MODEL, &value);
+    if (r != SYSTEM_INFO_ERROR_NONE) {
+        s_strncpy(sysinfo.model_name, UNKNOWN, strlen(UNKNOWN));
+        D("fail to get system model:%d\n", errno);
+    } else {
+        s_strncpy(sysinfo.model_name, value, sizeof(sysinfo.model_name));
+        D("returns model_name:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+    r = system_info_get_value_string(SYSTEM_INFO_KEY_PLATFORM_NAME, &value);
+    if (r != SYSTEM_INFO_ERROR_NONE) {
+        s_strncpy(sysinfo.platform_name, UNKNOWN, strlen(UNKNOWN));
+        D("fail to get platform name:%d\n", errno);
+    } else {
+        s_strncpy(sysinfo.platform_name, value, sizeof(sysinfo.platform_name));
+        D("returns platform_name:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+
+    }
+
+    // FIXME: the result is different when using SYSTEM_INFO_KEY_TIZEN_VERSION_NAME
+    r = system_info_get_platform_string("tizen.org/feature/platform.version", &value);
+    if (r != SYSTEM_INFO_ERROR_NONE) {
+        s_strncpy(sysinfo.platform_version, UNKNOWN, strlen(UNKNOWN));
+        D("fail to get platform version:%d\n", errno);
+    } else {
+        s_strncpy(sysinfo.platform_version, value, sizeof(sysinfo.platform_version));
+        D("returns platform_version:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+    r = system_info_get_platform_string("tizen.org/feature/profile", &value);
+    if (r != SYSTEM_INFO_ERROR_NONE) {
+        s_strncpy(sysinfo.profile_name, UNKNOWN, strlen(UNKNOWN));
+        D("fail to get profile name:%d\n", errno);
+    } else {
+        s_strncpy(sysinfo.profile_name, value, sizeof(sysinfo.profile_name));
+        D("returns profile name:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+    writex(fd, &sysinfo, sizeof(pinfo));
+
+    sdb_close(fd);
+}
+
 int service_to_fd(const char *name)
 {
     int ret = -1;
@@ -664,10 +740,8 @@ int service_to_fd(const char *name)
     } else if(!strncmp(name, "cs:", 5)) {
         ret = create_service_thread(inoti_service, NULL);
 #endif
-#if 0
-    } else if(!strncmp(name, "echo:", 5)){
-        ret = create_service_thread(echo_service, 0);
-#endif
+    } else if(!strncmp(name, "sysinfo:", 8)){
+        ret = create_service_thread(get_platforminfo, 0);
     }
     if (ret >= 0) {
         if (close_on_exec(ret) < 0) {

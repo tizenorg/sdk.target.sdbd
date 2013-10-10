@@ -89,8 +89,8 @@ SDBD_SRC_FILES := \
 SDBD_CFLAGS := -O2 -g -DSDB_HOST=0 -Wall -Wno-unused-parameter
 SDBD_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
 SDBD_CFLAGS += -DHAVE_FORKEXEC -fPIE -D_DROP_PRIVILEGE -D_FILE_OFFSET_BITS=64
-
-IFLAGS := -Iinclude -Isrc
+SDBD_LFLAGS := -lcapi-system-info
+IFLAGS := -Iinclude -Isrc -I/usr/include/system
 OBJDIR := bin
 INSTALLDIR := usr/sbin
 INITSCRIPTDIR := etc/init.d
@@ -126,7 +126,7 @@ sdb : $(SDB_SRC_FILES)
 
 sdbd : $(SDBD_SRC_FILES)
 	mkdir -p $(OBJDIR)
-	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDBD_CFLAGS) $(IFLAGS) $(SDBD_SRC_FILES)
+	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDBD_CFLAGS) $(IFLAGS) $(SDBD_SRC_FILES) $(SDBD_LFLAGS)
 
 install :
 	mkdir -p $(DESTDIR)/$(INSTALLDIR)
