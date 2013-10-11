@@ -38,7 +38,7 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}
 
 %make_install
 mkdir -p %{buildroot}%{_libdir}/systemd/system
-%if 0%{?simulator}
+%if %{?simulator}
 install -m 0644 %SOURCE1001 %{buildroot}%{_libdir}/systemd/system/sdbd.service
 %else
 install -m 0644 %SOURCE1002 %{buildroot}%{_libdir}/systemd/system/sdbd.service
