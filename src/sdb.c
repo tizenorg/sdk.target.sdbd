@@ -29,6 +29,7 @@
 
 #include "sysdeps.h"
 #include "sdb.h"
+#include "strutils.h"
 
 #if !SDB_HOST
 #include <linux/prctl.h>
@@ -36,7 +37,8 @@
 #else
 #include "usb_vendors.h"
 #endif
-
+#include <system_info.h>
+#define PROC_CMDLINE_PATH "/proc/cmdline"
 #if SDB_TRACE
 SDB_MUTEX_DEFINE( D_lock );
 #endif
@@ -298,7 +300,7 @@ static void send_close(unsigned local, unsigned remote, atransport *t)
     p->msg.arg1 = remote;
     send_packet(p, t);
 }
-
+static int device_status = 0; // 0:online, 1: password locked later
 static void send_connect(atransport *t)
 {
     D("Calling send_connect \n");
@@ -306,9 +308,24 @@ static void send_connect(atransport *t)
     cp->msg.command = A_CNXN;
     cp->msg.arg0 = A_VERSION;
     cp->msg.arg1 = MAX_PAYLOAD;
-    snprintf((char*) cp->data, sizeof cp->data, "%s::",
-            HOST ? "host" : sdb_device_banner);
+
+    char device_name[256]={0,};
+    int r = 0;
+
+    if (is_emulator()) {
+        r = get_emulator_name(device_name, sizeof device_name);
+    } else {
+        r = get_device_name(device_name, sizeof device_name);
+    }
+    if (r < 0) {
+        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, DEFAULT_DEVICENAME, device_status);
+    } else {
+        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, device_name, device_status);
+    }
+
+    D("CNXN data:%s\n", (char*)cp->data);
     cp->msg.data_length = strlen((char*) cp->data) + 1;
+
     send_packet(cp, t);
 #if SDB_HOST
         /* XXX why sleep here? */
@@ -333,6 +350,102 @@ static char *connection_state_name(atransport *t)
     default:
         return "unknown";
     }
+}
+
+static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
+    char *s = strstr(src, dest);
+    if (s == NULL) {
+        return -1;
+    }
+    char *e = strstr(s, " ");
+    if (e == NULL) {
+        return -1;
+    }
+
+    int len = e-s-strlen(dest);
+
+    if (len >= str_size) {
+        D("buffer size(%d) should be bigger than %d\n", str_size, len+1);
+        return -1;
+    }
+
+    s_strncpy(str, s + strlen(dest), len);
+    return len;
+}
+
+int get_emulator_forward_port() {
+    char cmdline[512];
+    int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
+    char *port_str = "sdb_port=";
+    char port_buf[7]={0,};
+    int port = -1;
+
+    if (fd < 0) {
+        return -1;
+    }
+    if(read_line(fd, cmdline, sizeof(cmdline))) {
+        D("qemu cmd: %s\n", cmdline);
+        if (get_str_cmdline(cmdline, port_str, port_buf, sizeof(port_buf)) < 1) {
+            D("could not get port from cmdline\n");
+            sdb_close(fd);
+            return -1;
+        }
+        // FIXME: remove comma!
+        port_buf[strlen(port_buf)-1]='\0';
+        port = strtol(port_buf, NULL, 10);
+    }
+    return port;
+}
+
+int get_emulator_name(char str[], int str_size) {
+    char cmdline[512];
+    int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
+    char *name_str = "vm_name=";
+
+    if (fd < 0) {
+        D("fail to read /proc/cmdline\n");
+        return -1;
+    }
+    if(read_line(fd, cmdline, sizeof(cmdline))) {
+        D("qemu cmd: %s\n", cmdline);
+        if (get_str_cmdline(cmdline, name_str, str, str_size) < 1) {
+            D("could not get emulator name from cmdline\n");
+            sdb_close(fd);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+int get_device_name(char str[], int str_size) {
+    char *value = NULL;
+    int r = system_info_get_value_string(SYSTEM_INFO_KEY_MODEL, &value);
+    if (r != SYSTEM_INFO_ERROR_NONE) {
+        D("fail to get system model:%d\n", errno);
+        return -1;
+    } else {
+        s_strncpy(str, value, str_size);
+        D("returns model_name:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+        return 0;
+    }
+    /*
+    int fd = unix_open(USB_SERIAL_PATH, O_RDONLY);
+    if (fd < 0) {
+        D("fail to read:%s (%d)\n", USB_SERIAL_PATH, errno);
+        return -1;
+    }
+
+    if(read_line(fd, str, str_size)) {
+        D("device serial name: %s\n", str);
+        sdb_close(fd);
+        return 0;
+    }
+    sdb_close(fd);
+    */
+    return -1;
 }
 
 void parse_banner(char *banner, atransport *t)

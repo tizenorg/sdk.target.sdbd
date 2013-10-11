@@ -338,6 +338,9 @@ int should_drop_privileges(void);
 int set_developer_privileges();
 void set_root_privileges();
 
+int get_emulator_forward_port(void);
+int get_emulator_name(char str[], int str_size);
+int get_device_name(char str[], int str_size);
 /* packet allocator */
 apacket *get_apacket(void);
 void put_apacket(apacket *p);
@@ -487,12 +490,13 @@ int sendfailmsg(int fd, const char *reason);
 int handle_host_request(char *service, transport_type ttype, char* serial, int reply_fd, asocket *s);
 
 int is_emulator(void);
+#define DEFAULT_DEVICENAME "unknown"
 
 #if SDB_HOST /* tizen-specific */
 #define DEVICEMAP_SEPARATOR ":"
 #define DEVICENAME_MAX 256
 #define VMS_PATH OS_PATH_SEPARATOR_STR "vms" OS_PATH_SEPARATOR_STR // should include sysdeps.h above
-#define DEFAULT_DEVICENAME "<unknown>"
+
 void register_device_name(const char *device_type, const char *device_name, int port);
 int get_devicename_from_shdmem(int port, char *device_name);
 int read_line(const int fd, char* ptr, const size_t maxlen);

@@ -270,8 +270,11 @@ static void *server_socket_thread(void * arg)
 
         alen = sizeof(addr);
         D("server: trying to get new connection from %d\n", port);
-        // im ready to accept new client!
-        pthread_cond_broadcast(&noti_cond);
+
+        if (is_emulator()) {
+            // im ready to accept new client!
+            pthread_cond_broadcast(&noti_cond);
+        }
 
         fd = sdb_socket_accept(serverfd, &addr, &alen);
         if(fd >= 0) {
@@ -400,27 +403,6 @@ static const char _ok_resp[]    = "ok";
 #endif  // !SDB_HOST
 #endif
 
-static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
-    char *s = strstr(src, dest);
-    if (s == NULL) {
-        return -1;
-    }
-    char *e = strstr(s, " ");
-    if (e == NULL) {
-        return -1;
-    }
-
-    int len = e-s-strlen(dest);
-
-    if (len >= str_size) {
-        printf("buffer size should be over %d\n", len+1);
-        return -1;
-    }
-
-    s_strncpy(str, s + strlen(dest), len);
-    return len;
-}
-
 static int send_msg_to_localhost_from_guest(int local_port, char *request, int sock_type) {
     int                  ret, s;
     struct sockaddr_in   server;
@@ -429,6 +411,8 @@ static int send_msg_to_localhost_from_guest(int local_port, char *request, int s
     server.sin_family      = AF_INET;
     server.sin_port        = htons(local_port);
     server.sin_addr.s_addr = inet_addr(QEMU_FORWARD_IP);
+
+    D("try to send notification to host(%s:%d) using %s:[%s]\n", QEMU_FORWARD_IP, local_port, (sock_type == 0) ? "tcp" : "udp", request);
 
     if (sock_type == 0) {
         s = socket(AF_INET, SOCK_STREAM, 0);
@@ -446,67 +430,43 @@ static int send_msg_to_localhost_from_guest(int local_port, char *request, int s
         return -1;
     }
     if (sdb_write(s, request, strlen(request)) < 0) {
-        D("could not send sdbd noti request\n");
+        D("could not send notification request to host\n");
+        sdb_close(s);
+        return -1;
     }
-
     sdb_close(s);
+    D("sent notification request to host\n");
+
     return 0;
 }
 
 static void notify_sdbd_startup() {
-    int                  ret;
     char                 buffer[512];
     char                 request[512];
 
     // send the request to sdbserver
-    char cmdline[512];
-    int fd = unix_open("/proc/cmdline", O_RDONLY);
-    char *port_str = "sdb_port=";
-    char *name_str = "vm_name=";
-    char port[7]={0,};
     char vm_name[256]={0,};
+    int base_port = get_emulator_forward_port();
+    int r = get_emulator_name(vm_name, sizeof vm_name);
 
-    if (fd < 0) {
-        D("fail to read /proc/cmdline\n");
+    if (base_port < 0 || r < 0) {
         return;
     }
-    if(read_line(fd, cmdline, sizeof(cmdline))) {
-        D("qemu cmd: %s\n", cmdline);
-        ret = get_str_cmdline(cmdline, port_str, port, sizeof(port));
-        if (ret < 1) {
-            D("could not get port from cmdline\n");
-            sdb_close(fd);
-            return;
-        }
-        // FIXME: remove comma!
-        port[strlen(port)-1]='\0';
 
-        ret = get_str_cmdline(cmdline, name_str, vm_name, sizeof(vm_name));
-        if (ret < 1) {
-            D("could not get port from cmdline\n");
-            sdb_close(fd);
-            return;
-        }
-        int base_port = strtol(port, NULL, 10);
-        snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
-
-        snprintf( buffer, sizeof buffer, "%04x%s", strlen(request), request );
-        D("[%s]\n", buffer);
-        if (send_msg_to_localhost_from_guest(DEFAULT_SDB_PORT, buffer, 0) <0) {
-            D("could not send sdbd noti request\n");
-            sdb_close(fd);
-            return;
-        }
-        // send to sensord with udp
-        char sensord_buf[16];
-        snprintf(sensord_buf, sizeof sensord_buf, "2\n");
-        if (send_msg_to_localhost_from_guest(base_port + 3, sensord_buf, 1) < 0) {
-            D("could not send senserd noti request\n");
-            sdb_close(fd);
-            return;
-        }
+    // tell qemu sdbd is just started with udp
+    char sensord_buf[16];
+    snprintf(sensord_buf, sizeof sensord_buf, "2\n");
+    if (send_msg_to_localhost_from_guest(base_port + 3, sensord_buf, 1) < 0) {
+        D("could not send sensord noti request\n");
     }
-    sdb_close(fd);
+
+    // tell sdb server emulator's vms name
+    snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
+    snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request );
+
+    if (send_msg_to_localhost_from_guest(DEFAULT_SDB_PORT, buffer, 0) <0) {
+        D("could not send sdbd noti request. it might sdb server has not been started yet.\n");
+    }
 }
 
 void local_init(int port)
@@ -548,12 +508,13 @@ void local_init(int port)
      * wait until server socket thread made!
      * get noti from server_socket_thread
      */
+    if (is_emulator()) {
+        sdb_mutex_lock(&register_noti_lock);
+        pthread_cond_wait(&noti_cond, &register_noti_lock);
 
-    sdb_mutex_lock(&register_noti_lock);
-    pthread_cond_wait(&noti_cond, &register_noti_lock);
-
-    notify_sdbd_startup();
-    sdb_mutex_unlock(&register_noti_lock);
+        notify_sdbd_startup();
+        sdb_mutex_unlock(&register_noti_lock);
+    }
 }
 
 static void remote_kick(atransport *t)
