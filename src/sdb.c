@@ -394,6 +394,7 @@ int get_emulator_forward_port() {
         port_buf[strlen(port_buf)-1]='\0';
         port = strtol(port_buf, NULL, 10);
     }
+    sdb_close(fd);
     return port;
 }
 
@@ -414,6 +415,7 @@ int get_emulator_name(char str[], int str_size) {
             return -1;
         }
     }
+    sdb_close(fd);
     return 0;
 }
 
