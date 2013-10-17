@@ -574,7 +574,6 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
     if(!(ev & FDE_READ)) {
         return;
     }
-    memset(m, 0, sizeof(tmsg));
 
     if(transport_read_action(_fd, &m)) {
         fatal_errno("cannot read transport registration socket");
