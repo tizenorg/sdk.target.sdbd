@@ -9,7 +9,7 @@ Source0:    %{name}-%{version}.tar.gz
 Source1001:    sdbd_device.service
 Source1002:    sdbd_emulator.service
 
-BuildRequires: capi-system-info-devel
+BuildRequires: capi-system-info-devel >= 0.2.0
 Requires(post): pkgmgr
 Requires(post): pkgmgr-server
 Requires(post): wrt
