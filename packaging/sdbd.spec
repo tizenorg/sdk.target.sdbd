@@ -1,7 +1,7 @@
 Name:       sdbd
 Summary:    SDB daemon
-Version:    2.2.13
-Release:    1
+Version:    2.2.14
+Release:    0
 License:    Apache-2.0
 Summary:    SDB daemon
 Group:      System/Utilities
