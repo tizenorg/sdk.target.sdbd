@@ -11,7 +11,6 @@ Source1002:    sdbd_emulator.service
 Source1003:    %{name}.manifest
 
 BuildRequires: capi-system-info-devel >= 0.2.0
-Requires: sys-assert
 Requires: dbus
 
 %description
