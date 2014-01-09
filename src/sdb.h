@@ -503,4 +503,5 @@ int read_line(const int fd, char* ptr, const size_t maxlen);
 #endif
 #endif
 
+#define USB_FUNCFS_SDB_PATH "/dev/usbgadget/sdb"
 #define USB_NODE_FILE "/dev/samsung_sdb"

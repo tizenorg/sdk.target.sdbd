@@ -46,11 +46,16 @@ SDB_MUTEX_DEFINE( D_lock );
 int HOST = 0;
 
 int is_emulator(void) {
+#ifdef USB_FUNCFS
+    if (access(USB_FUNCFS_SDB_PATH, F_OK) == 0) {
+#else
     if (access(USB_NODE_FILE, F_OK) == 0) {
+#endif
         return 0;
     } else {
         return 1;
     }
+
 }
 
 void handle_sig_term(int sig) {
