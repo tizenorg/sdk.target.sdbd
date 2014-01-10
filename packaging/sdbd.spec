@@ -29,16 +29,18 @@ make %{?jobs:-j%jobs}
 %install
 %make_install
 
-mkdir -p %{buildroot}%{_libdir}/systemd/system
+install -d %{buildroot}%{_libdir}/systemd/system
 %if 0%{?simulator}
 install -m 0644 %SOURCE1002 %{buildroot}%{_libdir}/systemd/system/sdbd.service
-mkdir -p %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants
+install -d %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants
 ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants/
 %else
 install -m 0644 %SOURCE1001 %{buildroot}%{_libdir}/systemd/system/sdbd.service
+install -d %{buildroot}/%{_libdir}/systemd/system/multi-user.target.wants/
+ln -s %{_libdir}/systemd/system/%{name}.service %{buildroot}/%{_libdir}/systemd/system/multi-user.target.wants/
 %endif
 
-mkdir -p %{buildroot}%{_prefix}/sbin
+install -d %{buildroot}%{_prefix}/sbin
 install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 
 %files
@@ -51,6 +53,8 @@ install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 %{_libdir}/systemd/system/sdbd.service
 %if 0%{?simulator}
 %{_libdir}/systemd/system/emulator.target.wants/sdbd.service
+%else
+%{_libdir}/systemd/system/multi-user.target.wants/%{name}.service
 %endif
 
 %changelog
