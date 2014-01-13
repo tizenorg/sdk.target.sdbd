@@ -1,6 +1,6 @@
 [Unit]
 Description=sdbd
-After=syslog.target
+After=default.target
 
 [Service]
 Type=forking
@@ -8,6 +8,3 @@ Environment=DISPLAY=:0
 PIDFile=/tmp/.sdbd.pid
 RemainAfterExit=yes
 ExecStart=/usr/sbin/sdbd
-
-[Install]
-WantedBy=multi-user.target

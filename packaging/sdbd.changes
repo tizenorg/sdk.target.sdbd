@@ -1,6 +1,3 @@
-* Fri Jan 10 2014 Kévin THIERRY <kevin.thierry@open.eurogiciel.org> accepted/tizen/20131112.015040@29f2623
-- Start sdbd at boot time
-
 * Thu Oct 31 2013 Junfeng Dong <junfeng.dong@intel.com> submit/tizen/20131011.084016@81e3d5b
 - Fix some runtime issue in 3.0
 
