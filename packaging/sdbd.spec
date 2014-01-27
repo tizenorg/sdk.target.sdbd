@@ -1,6 +1,6 @@
 Name:       sdbd
 Summary:    SDB daemon
-Version:    3.0.0
+Version:    3.1.0
 Release:    0
 License:    Apache-2.0
 Summary:    SDB daemon

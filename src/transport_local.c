@@ -19,6 +19,7 @@
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include "sysdeps.h"
 #include <sys/types.h>
@@ -32,6 +33,9 @@
 #define  TRACE_TAG  TRACE_TRANSPORT
 #include "sdb.h"
 #include "strutils.h"
+#if !SDB_HOST
+#include "commandline_sdbd.h"
+#endif
 
 #ifdef HAVE_BIG_ENDIAN
 #define H4(x)	(((x) & 0xFF000000) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | (((x) & 0x000000FF) << 24)
@@ -403,16 +407,23 @@ static const char _ok_resp[]    = "ok";
 #endif  // !SDB_HOST
 #endif
 
-static int send_msg_to_localhost_from_guest(int local_port, char *request, int sock_type) {
+static int send_msg_to_host_from_guest(const char *hostname, int host_port, char *request, int sock_type) {
     int                  ret, s;
     struct sockaddr_in   server;
+    struct hostent       *host_entry;
+
+    host_entry = gethostbyname(hostname);
+    if (host_entry == NULL) {
+        D("could not resolve %s\n", hostname);
+        return -1;
+    }
 
     memset( &server, 0, sizeof(server) );
     server.sin_family      = AF_INET;
-    server.sin_port        = htons(local_port);
-    server.sin_addr.s_addr = inet_addr(QEMU_FORWARD_IP);
+    server.sin_port        = htons(host_port);
+    memcpy(&server.sin_addr, host_entry->h_addr_list[0], host_entry->h_length);
 
-    D("try to send notification to host(%s:%d) using %s:[%s]\n", QEMU_FORWARD_IP, local_port, (sock_type == 0) ? "tcp" : "udp", request);
+    D("try to send notification to host(%s:%d) using %s:[%s]\n", hostname, host_port, (sock_type == 0) ? "tcp" : "udp", request);
 
     if (sock_type == 0) {
         s = socket(AF_INET, SOCK_STREAM, 0);
@@ -444,27 +455,30 @@ static void notify_sdbd_startup() {
     char                 buffer[512];
     char                 request[512];
 
-    // send the request to sdbserver
-    char vm_name[256]={0,};
-    int base_port = get_emulator_forward_port();
-    int r = get_emulator_name(vm_name, sizeof vm_name);
+    SdbdCommandlineArgs *sdbd_args = &sdbd_commandline_args; /* alias */
 
-    if (base_port < 0 || r < 0) {
+    // send the request to sdbserver
+    const char *vm_name = sdbd_args->emulator.host;
+    int sdbd_port = sdbd_args->sdbd_port;
+    int sensors_port = sdbd_args->sensors.port;
+
+
+    if (sdbd_port <= 0 || vm_name == NULL) {
         return;
     }
 
     // tell qemu sdbd is just started with udp
     char sensord_buf[16];
     snprintf(sensord_buf, sizeof sensord_buf, "2\n");
-    if (send_msg_to_localhost_from_guest(base_port + 3, sensord_buf, 1) < 0) {
+    if (send_msg_to_host_from_guest(sdbd_args->sensors.host, sensors_port, sensord_buf, 1) < 0) {
         D("could not send sensord noti request\n");
     }
 
-    // tell sdb server emulator's vms name
-    snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
-    snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request );
+    // tell sdb server emulator's vms name and forward port
+    snprintf(request, sizeof request, "host:emulator:%d:%s", sdbd_port, vm_name);
+    snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request);
 
-    if (send_msg_to_localhost_from_guest(DEFAULT_SDB_PORT, buffer, 0) <0) {
+    if (send_msg_to_host_from_guest(sdbd_args->sdb.host, sdbd_args->sdb.port, buffer, 0) < 0) {
         D("could not send sdbd noti request. it might sdb server has not been started yet.\n");
     }
 }
