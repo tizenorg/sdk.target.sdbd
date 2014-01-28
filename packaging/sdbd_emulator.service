@@ -7,9 +7,7 @@ Type=forking
 Environment=DISPLAY=:0
 PIDFile=/tmp/.sdbd.pid
 RemainAfterExit=yes
-ExecStartPre=/bin/bash -c "/bin/echo `/bin/sed 's/^.*sdb_port=\([^, ]*\).*$/\1/g' /proc/cmdline` > /opt/home/sdb_port.txt"
-ExecStart=/usr/sbin/sdbd
+ExecStart=/bin/sh -c "/usr/sbin/sdbd `/usr/bin/awk '{match($0, /sdb_port=([0-9]+)/,port_match); match($0, /vm_name=([^, ]*)/,vm_match); print \"--emulator=\" vm_match[1] \":\" port_match[1] \" --sdb=10.0.2.2:26099\" \" --sensors=--sdb=10.0.2.2:\"port_match[1]+3 \" --sdbd-port=\"port_match[1]+1 }' /proc/cmdline`"
 
 [Install]
 WantedBy=emulator.target
-
