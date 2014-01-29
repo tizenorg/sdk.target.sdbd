@@ -19,6 +19,7 @@
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include "sysdeps.h"
 #include <sys/types.h>
@@ -32,6 +33,9 @@
 #define  TRACE_TAG  TRACE_TRANSPORT
 #include "sdb.h"
 #include "strutils.h"
+#if !SDB_HOST
+#include "commandline_sdbd.h"
+#endif
 
 #ifdef HAVE_BIG_ENDIAN
 #define H4(x)	(((x) & 0xFF000000) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | (((x) & 0x000000FF) << 24)
@@ -403,38 +407,81 @@ static const char _ok_resp[]    = "ok";
 #endif  // !SDB_HOST
 #endif
 
-static int send_msg_to_localhost_from_guest(int local_port, char *request, int sock_type) {
-    int                  ret, s;
-    struct sockaddr_in   server;
+/*!
+ * static int send_msg_to_host_from_guest(const char *hostname, int host_port, char *request, int sock_type)
+ * @brief Sends \c request to host using specified protocol
+ *
+ * @param hostname Hostname -- could be domain name or IP
+ * @param host_port Host port
+ * @param request Message to be sent to host
+ * @param protocol IP protocol to be used: IPPROTO_TCP or IPPROTO_UDP
+ *
+ * @returns 0 on success, -1 otherwise
+ *
+ * @note SOCK_STREAM will be used for IPPROTO_TCP as socket type
+ *       and SOCK_DGRAM for IPPROTO_UDP
+ */
+static int send_msg_to_host_from_guest(const char *hostname, int host_port, char *request, int protocol) {
+    int sock = -1;
+    int socket_type = 0;
+    char port[32]; /* string decimal representation for getaddrinfo */
+    struct addrinfo hints = {0};
+    struct addrinfo *addresses, *curr_addr;
+    int getaddr_ret;
+    const char *protocol_name = "unknown"; /* for debug message */
 
-    memset( &server, 0, sizeof(server) );
-    server.sin_family      = AF_INET;
-    server.sin_port        = htons(local_port);
-    server.sin_addr.s_addr = inet_addr(QEMU_FORWARD_IP);
-
-    D("try to send notification to host(%s:%d) using %s:[%s]\n", QEMU_FORWARD_IP, local_port, (sock_type == 0) ? "tcp" : "udp", request);
-
-    if (sock_type == 0) {
-        s = socket(AF_INET, SOCK_STREAM, 0);
-    } else {
-        s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    }
-    if (s < 0) {
-        D("could not create socket\n");
+    switch(protocol) {
+    case IPPROTO_TCP:
+        protocol_name = "tcp";
+        socket_type = SOCK_STREAM;
+        break;
+    case IPPROTO_UDP:
+        protocol_name = "udp";
+        socket_type = SOCK_DGRAM;
+        break;
+    default:
+        D("unsupported protocol: %d", protocol);
         return -1;
     }
-    ret = connect(s, (struct sockaddr*) &server, sizeof(server));
-    if (ret < 0) {
+
+    D("try to send notification to host(%s:%d) using %s:[%s]\n", hostname, host_port, protocol_name, request);
+
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = socket_type;
+
+    sprintf(port, "%d", host_port);
+    getaddr_ret = getaddrinfo(hostname, port, &hints, &addresses);
+
+    if (getaddr_ret != 0) {
+        D("could not resolve %s\n", hostname);
+        return -1;
+    }
+
+    for(curr_addr = addresses; curr_addr != NULL; curr_addr = curr_addr->ai_next) {
+        sock = socket(curr_addr->ai_family, curr_addr->ai_socktype, curr_addr->ai_protocol);
+        if (sock == -1)
+            continue;
+
+        if (connect(sock, curr_addr->ai_addr, curr_addr->ai_addrlen) != -1)
+            break; /* Success */
+
+        sdb_close(sock);
+    }
+
+    if(curr_addr == NULL) { /* No address succeeded */
+        freeaddrinfo(addresses);
         D("could not connect to server\n");
-        sdb_close(s);
         return -1;
     }
-    if (sdb_write(s, request, strlen(request)) < 0) {
+
+    freeaddrinfo(addresses);
+
+    if (sdb_write(sock, request, strlen(request)) < 0) {
         D("could not send notification request to host\n");
-        sdb_close(s);
+        sdb_close(sock);
         return -1;
     }
-    sdb_close(s);
+    sdb_close(sock);
     D("sent notification request to host\n");
 
     return 0;
@@ -444,27 +491,30 @@ static void notify_sdbd_startup() {
     char                 buffer[512];
     char                 request[512];
 
-    // send the request to sdbserver
-    char vm_name[256]={0,};
-    int base_port = get_emulator_forward_port();
-    int r = get_emulator_name(vm_name, sizeof vm_name);
+    SdbdCommandlineArgs *sdbd_args = &sdbd_commandline_args; /* alias */
 
-    if (base_port < 0 || r < 0) {
+    // send the request to sdbserver
+    const char *vm_name = sdbd_args->emulator.host;
+    int sdbd_port = sdbd_args->sdbd_port;
+    int sensors_port = sdbd_args->sensors.port;
+
+
+    if (sdbd_port <= 0 || vm_name == NULL) {
         return;
     }
 
     // tell qemu sdbd is just started with udp
     char sensord_buf[16];
     snprintf(sensord_buf, sizeof sensord_buf, "2\n");
-    if (send_msg_to_localhost_from_guest(base_port + 3, sensord_buf, 1) < 0) {
+    if (send_msg_to_host_from_guest(sdbd_args->sensors.host, sensors_port, sensord_buf, IPPROTO_UDP) < 0) {
         D("could not send sensord noti request\n");
     }
 
-    // tell sdb server emulator's vms name
-    snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
-    snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request );
+    // tell sdb server emulator's vms name and forward port
+    snprintf(request, sizeof request, "host:emulator:%d:%s", sdbd_port, vm_name);
+    snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request);
 
-    if (send_msg_to_localhost_from_guest(DEFAULT_SDB_PORT, buffer, 0) <0) {
+    if (send_msg_to_host_from_guest(sdbd_args->sdb.host, sdbd_args->sdb.port, buffer, IPPROTO_TCP) < 0) {
         D("could not send sdbd noti request. it might sdb server has not been started yet.\n");
     }
 }
