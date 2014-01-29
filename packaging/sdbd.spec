@@ -11,6 +11,7 @@ Source1002:    sdbd_emulator.service
 Source1003:    %{name}.manifest
 
 BuildRequires: capi-system-info-devel >= 0.2.0
+BuildRequires: cmake >= 2.8.3
 Requires: sys-assert
 Requires: dbus
 
@@ -23,6 +24,7 @@ Description: SDB daemon.
 cp %{SOURCE1003} .
 
 %build
+%cmake
 make %{?jobs:-j%jobs}
 
 
