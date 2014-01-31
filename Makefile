@@ -25,7 +25,8 @@ SDBD_SRC_FILES := \
 	src/strutils.c \
 	src/libsmack.c \
 	src/init.c \
-	src/fileutils.c
+	src/fileutils.c \
+	src/commandline_sdbd.c
 
 SDBD_CFLAGS := -O2 -g -DSDB_HOST=0 -Wall -Wno-unused-parameter
 SDBD_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
