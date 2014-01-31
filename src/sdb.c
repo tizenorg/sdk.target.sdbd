@@ -26,10 +26,15 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <grp.h>
+#include <netdb.h>
+
 
 #include "sysdeps.h"
 #include "sdb.h"
 #include "strutils.h"
+#if !SDB_HOST
+#include "commandline_sdbd.h"
+#endif
 
 #if !SDB_HOST
 #include <linux/prctl.h>
@@ -45,12 +50,16 @@ SDB_MUTEX_DEFINE( D_lock );
 
 int HOST = 0;
 
+#if !SDB_HOST
+SdbdCommandlineArgs sdbd_commandline_args;
+#endif
+
 int is_emulator(void) {
-    if (access(USB_NODE_FILE, F_OK) == 0) {
-        return 0;
-    } else {
-        return 1;
-    }
+#if SDB_HOST
+	return 0;
+#else
+	return sdbd_commandline_args.emulator.host != NULL;
+#endif
 }
 
 void handle_sig_term(int sig) {
@@ -374,48 +383,23 @@ static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
 }
 
 int get_emulator_forward_port() {
-    char cmdline[512];
-    int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
-    char *port_str = "sdb_port=";
-    char port_buf[7]={0,};
-    int port = -1;
+    SdbdCommandlineArgs *sdbd_args = &sdbd_commandline_args; /* alias */
 
-    if (fd < 0) {
+    if (sdbd_args->emulator.host == NULL) {
         return -1;
     }
-    if(read_line(fd, cmdline, sizeof(cmdline))) {
-        D("qemu cmd: %s\n", cmdline);
-        if (get_str_cmdline(cmdline, port_str, port_buf, sizeof(port_buf)) < 1) {
-            D("could not get port from cmdline\n");
-            sdb_close(fd);
-            return -1;
-        }
-        // FIXME: remove comma!
-        port_buf[strlen(port_buf)-1]='\0';
-        port = strtol(port_buf, NULL, 10);
-    }
-    sdb_close(fd);
-    return port;
+
+    return sdbd_args->emulator.port;
 }
 
 int get_emulator_name(char str[], int str_size) {
-    char cmdline[512];
-    int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
-    char *name_str = "vm_name=";
+    SdbdCommandlineArgs *sdbd_args = &sdbd_commandline_args; /* alias */
 
-    if (fd < 0) {
-        D("fail to read /proc/cmdline\n");
+    if (sdbd_args->emulator.host == NULL) {
         return -1;
     }
-    if(read_line(fd, cmdline, sizeof(cmdline))) {
-        D("qemu cmd: %s\n", cmdline);
-        if (get_str_cmdline(cmdline, name_str, str, str_size) < 1) {
-            D("could not get emulator name from cmdline\n");
-            sdb_close(fd);
-            return -1;
-        }
-    }
-    sdb_close(fd);
+
+    s_strncpy(str, sdbd_args->emulator.host, str_size);
     return 0;
 }
 
@@ -812,6 +796,7 @@ static BOOL WINAPI ctrlc_handler(DWORD type)
 
 static void sdb_cleanup(void)
 {
+    clear_sdbd_commandline_args(&sdbd_commandline_args);
     usb_cleanup();
 //    if(required_pid > 0) {
 //        kill(required_pid, SIGKILL);
@@ -1628,6 +1613,8 @@ int main(int argc, char **argv)
 
     //sdbd will never die on emulator!
     signal(SIGTERM, handle_sig_term); /* tizen specific */
+    apply_sdbd_commandline_defaults(&sdbd_commandline_args);
+    parse_sdbd_commandline(&sdbd_commandline_args, argc, argv);
     return sdb_main(0, DEFAULT_SDB_PORT);
 #endif
 }

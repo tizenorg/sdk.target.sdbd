@@ -18,8 +18,13 @@
 #define __SDB_H
 
 #include <limits.h>
+#include <stdlib.h>
 
 #include "transport.h"  /* readx(), writex() */
+#include "fdevent.h"
+#if !SDB_HOST
+#include "commandline_sdbd.h"
+#endif
 
 #define MAX_PAYLOAD 4096
 
@@ -444,6 +449,7 @@ void sdb_qemu_trace(const char* fmt, ...);
 #  define QEMU_FORWARD_IP "10.0.2.2"
 
 #define DEFAULT_SDB_LOCAL_TRANSPORT_PORT 26101 /* tizen specific */
+#define DEFAULT_SENSORS_LOCAL_TRANSPORT_PORT 26103 /* tizen specific */
 
 #define SDB_CLASS              0xff
 #define SDB_SUBCLASS           0x20 //0x42 /* tizen specific */
@@ -483,6 +489,9 @@ int connection_state(atransport *t);
 
 extern int HOST;
 extern int SHELL_EXIT_NOTIFY_FD;
+#if !SDB_HOST
+extern SdbdCommandlineArgs sdbd_commandline_args;
+#endif
 
 #define CHUNK_SIZE (64*1024)
 
