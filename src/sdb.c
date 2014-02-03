@@ -1603,6 +1603,25 @@ int main(int argc, char **argv)
         recovery_mode = 1;
     }
 #endif
+
+    apply_sdbd_commandline_defaults(&sdbd_commandline_args);
+    int parse_ret = parse_sdbd_commandline(&sdbd_commandline_args, argc, argv);
+
+    // TODO: Add detailed error messages
+    // TODO: Add individual messages for help and usage
+    if(parse_ret != SDBD_COMMANDLINE_SUCCESS) {
+        if (parse_ret == SDBD_COMMANDLINE_HELP
+                || parse_ret == SDBD_COMMANDLINE_USAGE) {
+            // User requested help or usage
+            print_sdbd_usage_message(stdout);
+            return EXIT_SUCCESS;
+        }
+
+        // Print usage message because of invalid options
+        print_sdbd_usage_message(stderr);
+        return EXIT_FAILURE;
+    }
+
 #if !SDB_HOST
     if (daemonize() < 0)
         fatal("daemonize() failed: %.200s", strerror(errno));
@@ -1613,8 +1632,6 @@ int main(int argc, char **argv)
 
     //sdbd will never die on emulator!
     signal(SIGTERM, handle_sig_term); /* tizen specific */
-    apply_sdbd_commandline_defaults(&sdbd_commandline_args);
-    parse_sdbd_commandline(&sdbd_commandline_args, argc, argv);
     return sdb_main(0, DEFAULT_SDB_PORT);
 #endif
 }
