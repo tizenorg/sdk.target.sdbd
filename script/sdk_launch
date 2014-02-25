@@ -4,9 +4,10 @@
 #      Kangho Kim <kh5325.kim@samsung.com>, Yoonki Park <yoonki.park@samsung.com>
 #
 # Description: front hand of app launcher
+source /etc/tizen-platform.conf
 
-APP_PATH_PREFIX=/opt/apps
-SDK_TOOLS_PATH=/home/developer/sdk_tools
+APP_PATH_PREFIX=${TZ_SYS_RW_APP}
+SDK_TOOLS_PATH=${TZ_SDK_TOOLS}
 
 print_usage()
 {
@@ -115,7 +116,7 @@ then
     if [ "" != "$attach_id" ]
     #debug attach
     then
-        cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port --attach $attach_id"
+        cmd="$COV_TEST_PREFIX ${TZ_SDK_TOOLS}/gdbserver/gdbserver :$port --attach $attach_id"
     #debug
     else
         if [ "" != "$result_mode" ]
@@ -125,7 +126,7 @@ then
             result_mode="DEBUG"
         fi
         cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode"
-#       cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port /opt/apps/$pkgid/bin/$exe"
+#       cmd="$COV_TEST_PREFIX ${TZ_SDK_TOOLS}/gdbserver/gdbserver :$port ${TZ_SYS_RW_APP}/$pkgid/bin/$exe"
     fi
 else
     if [ "$mode" = "run" ]

@@ -81,7 +81,7 @@ endif()
 include(FindPkgConfig)
 
 # Get capi-system-info
-pkg_check_modules(CAPI_SYSTEM_INFO REQUIRED capi-system-info)
+pkg_check_modules(CAPI_SYSTEM_INFO REQUIRED capi-system-info libtzplatform-config)
 include_directories(${CAPI_SYSTEM_INFO_INCLUDE_DIRS})
 
 # Get pthreads

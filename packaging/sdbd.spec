@@ -12,6 +12,7 @@ Source1003:    %{name}.manifest
 
 BuildRequires: capi-system-info-devel >= 0.2.0
 BuildRequires: cmake >= 2.8.3
+BuildRequires:  pkgconfig(libtzplatform-config)
 Requires: dbus
 
 %description

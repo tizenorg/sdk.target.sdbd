@@ -36,6 +36,17 @@ struct arg_permit_rule sdk_arg_permit_rule[] = {
     /* end */ {NULL, NULL, 0}
 };
 
+void init_sdk_arg_permit_rule_pattern(void)
+{
+    asprintf(&sdk_arg_permit_rule[0].pattern, "^GCOV_PREFIX=((%s)|(%s))/[a-zA-Z0-9]{10}/data$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
+    asprintf(&sdk_arg_permit_rule[1].pattern, "GCOV_PREFIX_STRIP=0");
+    asprintf(&sdk_arg_permit_rule[2].pattern, "LD_LIBRARY_PATH=%s/gtest/usr/lib:$LD_LIBRARY_PATH", DEV_INSTALL_PATH_PREFIX, APP_INSTALL_PATH_PREFIX2);
+    asprintf(&sdk_arg_permit_rule[3].pattern, "TIZEN_LAUNCH_MODE=debug");
+    asprintf(&sdk_arg_permit_rule[4].pattern, "LD_PRELOAD=/usr/lib/da_probe_osp.so", DEV_INSTALL_PATH_PREFIX, APP_INSTALL_PATH_PREFIX2);
+    asprintf(&sdk_arg_permit_rule[5].pattern, "^\\-\\-gtest_output=xml:((%s)|(%s))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,30}\\.xml$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
+}
+
+
 int verify_commands(const char *arg1) {
     if (arg1 != NULL) {
         if (verify_root_commands(arg1)) {
@@ -170,6 +181,7 @@ int regcmp(const char* pattern, const char* str) {
 
 int env_verify(const char* arg) {
     int i;
+    init_sdk_arg_permit_rule_pattern;
     for (i=0; sdk_arg_permit_rule[i].name != NULL; i++) {
         if (sdk_arg_permit_rule[i].expression == 0) {
             if (!strcmp(sdk_arg_permit_rule[i].pattern, arg)) {
@@ -184,6 +196,9 @@ int env_verify(const char* arg) {
         }
     }
     D("failed to set %s\n", arg);
+    for (i = 0; i <= 6; i++){
+       free(sdk_arg_permit_rule[i].pattern);
+    }
     return 0;
 }
 

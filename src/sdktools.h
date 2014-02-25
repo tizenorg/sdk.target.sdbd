@@ -4,6 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <tzplatform_config.h>
 
 struct sudo_command
 {
@@ -23,10 +24,11 @@ struct arg_permit_rule
 };
 
 #define SDK_LAUNCH_PATH                         "/usr/sbin/sdk_launch"
-#define APP_INSTALL_PATH_PREFIX1                "/opt/apps"
-#define APP_INSTALL_PATH_PREFIX2                "/opt/usr/apps"
-#define GDBSERVER_PATH                          "/home/developer/sdk_tools/gdbserver/gdbserver"
-#define GDBSERVER_PLATFORM_PATH                 "/home/developer/sdk_tools/gdbserver-platform/gdbserver"
+#define APP_INSTALL_PATH_PREFIX1                tzplatform_getenv(TZ_SYS_RW_APP)
+#define APP_INSTALL_PATH_PREFIX2                tzplatform_getenv(TZ_USER_APP)
+#define DEV_INSTALL_PATH_PREFIX                 tzplatform_getenv(TZ_SDK_TOOLS)
+#define GDBSERVER_PATH                          tzplatform_mkpath(TZ_SDK_TOOLS,"gdbserver/gdbserver")
+#define GDBSERVER_PLATFORM_PATH                 tzplatform_mkpath(TZ_SDK_TOOLS,"gdbserver-platform/gdbserver")
 #define SMACK_LEBEL_SUBJECT_PATH                "/proc/self/attr/current"
 #define SMACK_SYNC_FILE_LABEL                   "*"
 #define APP_GROUPS_MAX                          100
@@ -35,6 +37,7 @@ struct arg_permit_rule
 #define SDBD_LABEL_NAME                         "sdbd"
 #define SDK_HOME_LABEL_NAME                     "sdbd::home"
 
+void init_sdk_arg_permit_rule_pattern(void);
 int verify_commands(const char *arg1);
 int verify_root_commands(const char *arg1);
 int verify_app_path(const char* path);

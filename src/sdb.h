@@ -25,6 +25,7 @@
 #if !SDB_HOST
 #include "commandline_sdbd.h"
 #endif
+#include <tzplatform_config.h>
 
 #define MAX_PAYLOAD 4096
 
@@ -331,8 +332,8 @@ int rootshell_mode;// 0: developer, 1: root
 
 #define SID_ROOT        0    /* traditional unix root user */
 #define SID_TTY         5    /* group for /dev/ptmx */
-#define SID_APP         5000 /* application */
-#define SID_DEVELOPER   5100 /* developer with SDK */
+#define SID_APP         tzplatform_getuid(TZ_USER_NAME) /* application */
+#define SID_DEVELOPER   tzplatform_getuid(TZ_SDK_USER_NAME) /* developer with SDK */
 #define SID_APP_LOGGING 6509
 #define SID_SYS_LOGGING 6527
 #define SID_INPUT       1004
