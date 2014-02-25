@@ -28,6 +28,7 @@
 #include <sys/select.h>
 #include "sysdeps.h"
 #include "smack.h"
+#include <tzplatform_config.h>
 
 #define TRACE_TAG  TRACE_SYNC
 #include "sdb.h"
@@ -35,6 +36,9 @@
 #include "sdktools.h"
 
 #define SYNC_TIMEOUT 15
+
+#define APP_INSTALL_PATH_PREFIX1                tzplatform_getenv(TZ_SYS_RW_APP)
+#define APP_INSTALL_PATH_PREFIX2                tzplatform_getenv(TZ_USER_APP)
 
 struct sync_permit_rule
 {
@@ -56,6 +60,13 @@ struct sync_permit_rule sdk_sync_permit_rule[] = {
  */
 #define DIR_PERMISSION 0777
 
+void init_sdk_sync_permit_rule_regx(void)
+{
+    asprintf(&sdk_sync_permit_rule[0].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
+    asprintf(&sdk_sync_permit_rule[1].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/+(.)*\\.gcda$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
+    asprintf(&sdk_sync_permit_rule[2].regx, "da", "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$");
+
+}
 
 static void set_syncfile_smack_label(char *src) {
     char *label_transmuted = NULL;
@@ -486,6 +497,7 @@ static int verify_sync_rule(const char* path) {
     char buf[PATH_MAX];
     int i=0;
 
+    init_sdk_sync_permit_rule_regx();
     for (i=0; sdk_sync_permit_rule[i].regx != NULL; i++) {
         ret = regcomp(&regex, sdk_sync_permit_rule[i].regx, REG_EXTENDED);
         if(ret){
@@ -505,6 +517,9 @@ static int verify_sync_rule(const char* path) {
         }
     }
     regfree(&regex);
+    for (i = 0; i <= 3; i++){
+       free(sdk_sync_permit_rule[i].regx);
+    }
     return 0;
 }
 

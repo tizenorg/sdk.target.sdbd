@@ -27,7 +27,7 @@
 #include <signal.h>
 #include <grp.h>
 #include <netdb.h>
-
+#include <tzplatform_config.h>
 
 #include "sysdeps.h"
 #include "sdb.h"
@@ -49,7 +49,8 @@ SDB_MUTEX_DEFINE( D_lock );
 #endif
 
 int HOST = 0;
-
+#define HOME_DEV_PATH tzplatform_getenv(TZ_SDK_HOME)
+#define DEV_NAME tzplatform_getenv(TZ_SDK_USER_NAME)
 #if !SDB_HOST
 SdbdCommandlineArgs sdbd_commandline_args;
 #endif
@@ -1110,19 +1111,21 @@ int set_developer_privileges() {
         return -1;
     }
 
-    if (chdir("/home/developer") < 0) {
-        D("sdbd: unable to change working directory to /home/developer\n");
+    if (chdir(HOME_DEV_PATH) < 0) {
+        D("sdbd: unable to change working directory to %s\n", HOME_DEV_PATH);
     } else {
         if (chdir("/") < 0) {
             D("sdbd: unable to change working directory to /\n");
         }
     }
     // TODO: use pam later
-    putenv("HOME=/home/developer");
+    char * env = "HOME=";
+    strcat(env, HOME_DEV_PATH);
+    putenv(env);
 
     return 1;
 }
-#define ONDEMAND_ROOT_PATH "/home/developer"
+#define ONDEMAND_ROOT_PATH tzplatform_getenv(TZ_SDK_HOME)
 
 static void execute_required_process() {
 
@@ -1166,7 +1169,7 @@ static void init_sdk_requirements() {
     }
     if (st.st_uid != SID_DEVELOPER || st.st_gid != SID_DEVELOPER) {
         char cmd[128];
-        snprintf(cmd, sizeof(cmd), "chown developer:developer %s -R", ONDEMAND_ROOT_PATH);
+        snprintf(cmd, sizeof(cmd), "chown %s:%s %s -R", DEV_NAME, DEV_NAME, ONDEMAND_ROOT_PATH);
         if (system(cmd) < 0) {
             D("failed to change ownership to developer to %s\n", ONDEMAND_ROOT_PATH);
         }

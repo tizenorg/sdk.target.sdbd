@@ -40,7 +40,7 @@
 
 #include "strutils.h"
 #include <system_info.h>
-
+#include <tzplatform_config.h>
 typedef struct stinfo stinfo;
 
 struct stinfo {
@@ -238,7 +238,7 @@ void reboot_service(int fd, void *arg)
 #if !SDB_HOST
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
-#define CS_PATH     "/opt/usr/share/crash/report"
+#define CS_PATH     tzplatform_mkpath(TZ_USER_SHARE,"crash/report")
 
 void inoti_service(int fd, void *arg)
 {
