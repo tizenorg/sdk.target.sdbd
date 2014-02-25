@@ -12,8 +12,10 @@ Source1003:    %{name}.manifest
 
 BuildRequires: capi-system-info-devel >= 0.2.0
 BuildRequires: cmake >= 2.8.3
+BuildRequires:  pkgconfig(libtzplatform-config)
 Requires: dbus
-
+Requires: debug-launchpad
+Requires(post): /usr/bin/debug_launchpad_preloading_preinitializing_daemon
 %description
 Description: SDB daemon.
 
@@ -48,7 +50,7 @@ install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 %defattr(-,root,root,-)
 %{_prefix}/sbin/sdbd
 %{_prefix}/sbin/sdk_launch
-%{_sysconfdir}/init.d/sdbd
+%attr(0755, root, root) %{_sysconfdir}/init.d/sdbd
 %{_libdir}/systemd/system/sdbd.service
 %if 0%{?simulator}
 %{_libdir}/systemd/system/emulator.target.wants/sdbd.service

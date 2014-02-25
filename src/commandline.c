@@ -36,6 +36,7 @@
 #include "sdb.h"
 #include "sdb_client.h"
 #include "file_sync_service.h"
+#include <tzplatform_config.h>
 
 static int do_cmd(transport_type ttype, char* serial, char *cmd, ...);
 
@@ -1465,7 +1466,7 @@ int sdb_command2(const char* cmd) {
 
 int install_app_sdb(const char *srcpath) {
     D("Install start\n");
-    const char * APP_DEST = "/opt/apps/PKGS/%s";
+    const char * APP_DEST = tzplatform_mkpath(TZ_SYS_RW_APP,"PKGS/%s");
     const char* filename = sdb_dirstop(srcpath);
     char destination[PATH_MAX];
 
