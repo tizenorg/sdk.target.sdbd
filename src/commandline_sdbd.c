@@ -47,6 +47,8 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 		{ ARG_SENSORS, required_argument, NULL, ARG_S_SENSORS },
 		{ ARG_SDB, required_argument, NULL, ARG_S_SDB },
 		{ ARG_SDBD_LISTEN_PORT, required_argument, NULL, ARG_S_SDBD_LISTEN_PORT },
+		{ ARG_HELP, no_argument, NULL, ARG_S_HELP },
+		{ ARG_USAGE, no_argument, NULL, ARG_S_USAGE },
 		{ NULL, 0, NULL, 0 }
 	};
 
@@ -83,6 +85,10 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 				return SDBD_COMMANDLINE_FAILURE;
 			}
 			break;
+		case ARG_S_HELP:
+		    return SDBD_COMMANDLINE_HELP;
+		case ARG_S_USAGE:
+		    return SDBD_COMMANDLINE_USAGE;
 		case 1:
 			return SDBD_COMMANDLINE_FAILURE_UNKNOWN_OPT;
 		case '?':
@@ -139,4 +145,25 @@ void clear_sdbd_commandline_args(SdbdCommandlineArgs *sdbd_args) {
     sdbd_args->sensors.host = NULL;
 
 	memset(sdbd_args, 0, sizeof(SdbdCommandlineArgs));
+}
+
+
+void print_sdbd_usage_message(FILE *stream) {
+    const char *format = "Usage sdbd [OPTION]...\n"
+            "\t-%c, --%s=HOST:PORT\temulator's name and forward port\n"
+            "\t-%c, --%s=HOST:PORT\thostname or IP and port of sdb listening on host\n"
+            "\t-%c, --%s=HOST:PORT \thostname or IP and port of sensors daemon\n"
+            "\t-%c, --%s=PORT     \tport on which sdbd shall be listening on\n"
+            "\t-%c, --%s              \tprint help message\n"
+            "\t-%c, --%s             \tprint this usage message\n"
+            ;
+
+    fprintf(stream, format,
+            ARG_S_EMULATOR_VM_NAME, ARG_EMULATOR_VM_NAME,
+            ARG_S_SDB, ARG_SDB,
+            ARG_S_SENSORS, ARG_SENSORS,
+            ARG_S_SDBD_LISTEN_PORT, ARG_SDBD_LISTEN_PORT,
+            ARG_S_HELP, ARG_HELP,
+            ARG_S_USAGE, ARG_USAGE
+            );
 }

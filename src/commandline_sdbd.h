@@ -29,9 +29,17 @@
 #define ARG_SENSORS "sensors"
 #define ARG_S_SENSORS 's'
 
+#define ARG_HELP "help"
+#define ARG_S_HELP 'h'
+
+#define ARG_USAGE "usage"
+#define ARG_S_USAGE 'u'
+
 #define SDBD_COMMANDLINE_SUCCESS 0 ///< Success
 #define SDBD_COMMANDLINE_FAILURE -1 ///< Generic failure
 #define SDBD_COMMANDLINE_FAILURE_UNKNOWN_OPT -2 ///< Unknown option
+#define SDBD_COMMANDLINE_HELP 1 ///< Help request
+#define SDBD_COMMANDLINE_USAGE 2 ///< Usage message request
 
 /*!
  * @struct HostPort
@@ -53,6 +61,7 @@ typedef struct {
 	int sdbd_port; ///< Port to listen on in tcp mode
 } SdbdCommandlineArgs;
 
+#include <stdio.h>
 
 /*!
  * @fn int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[])
@@ -94,5 +103,13 @@ void apply_sdbd_commandline_defaults(SdbdCommandlineArgs *sdbd_args);
  * if string pointers are not allocated and not NULL-ed.
  */
 void clear_sdbd_commandline_args(SdbdCommandlineArgs *sdbd_args);
+
+/*!
+ * @fn void print_usage_message(FILE *stream)
+ * @brief Prints usage message to specified \stream
+ *
+ * @param stream Stream to print to
+ */
+void print_sdbd_usage_message(FILE *stream);
 
 #endif /* COMMANDLINE_SDBD_H */

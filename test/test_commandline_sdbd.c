@@ -64,6 +64,10 @@
 			print_nullable((hp)->host), (hp)->port, print_nullable(h), (p)))
 
 
+#define array_size(a) \
+    (sizeof(a) / sizeof((a)[0]))
+
+
 void setup(void) {
 
 }
@@ -73,8 +77,8 @@ void teardown(void) {
 }
 
 
-START_TEST(test_ok) {
-	char *argv[] = {
+START_TEST(test_all_opts) {
+	char *test_argv[] = {
 			"./test",
 			"--emulator=tizen:101",
 			"--listen-port=101",
@@ -85,7 +89,7 @@ START_TEST(test_ok) {
 	SdbdCommandlineArgs sdbd_args = {0};
 
 	apply_sdbd_commandline_defaults(&sdbd_args);
-	int parse_res = parse_sdbd_commandline(&sdbd_args, 5, argv);
+	int parse_res = parse_sdbd_commandline(&sdbd_args, array_size(test_argv), test_argv);
 
 	if (parse_res != SDBD_COMMANDLINE_SUCCESS) {
 		ck_abort_msg("parsing commandline failed");
@@ -101,13 +105,13 @@ START_TEST(test_ok) {
 
 
 START_TEST(test_empty) {
-	char *argv[] = {
+	char *test_argv[] = {
 			"./test"
 	};
 
 	SdbdCommandlineArgs sdbd_args = {0};
 
-	int parse_res = parse_sdbd_commandline(&sdbd_args, 1, argv);
+	int parse_res = parse_sdbd_commandline(&sdbd_args, array_size(test_argv), test_argv);
 
 	if (parse_res != SDBD_COMMANDLINE_SUCCESS) {
 		ck_abort_msg("parsing commandline failed");
@@ -125,7 +129,7 @@ START_TEST(test_empty) {
 
 
 START_TEST(test_unknown) {
-	char *argv[] = {
+	char *test_argv[] = {
 			"./test",
 			"--emulator=tizen:26101",
 			"--unknown=true"
@@ -133,7 +137,7 @@ START_TEST(test_unknown) {
 
 	SdbdCommandlineArgs sdbd_args = {0};
 
-	int parse_res = parse_sdbd_commandline(&sdbd_args, 3, argv);
+	int parse_res = parse_sdbd_commandline(&sdbd_args, array_size(test_argv), test_argv);
 
 	if (parse_res != SDBD_COMMANDLINE_FAILURE_UNKNOWN_OPT) {
 		ck_abort_msg("parsing commandline failed");
@@ -181,17 +185,84 @@ START_TEST(test_default_args) {
 } END_TEST
 
 
+START_TEST(test_usage_message) {
+    FILE *stream;
+    char *buffer = NULL;
+    size_t buf_len = 0;
+
+    stream = open_memstream(&buffer, &buf_len);
+    print_sdbd_usage_message(stream);
+    fclose(stream);
+
+    // Just check if all options are mentioned in usage message
+    ck_assert(strstr(buffer, "--"ARG_EMULATOR_VM_NAME) != NULL);
+    ck_assert(strstr(buffer, "--"ARG_SDBD_LISTEN_PORT) != NULL);
+    ck_assert(strstr(buffer, "--"ARG_SDB) != NULL);
+    ck_assert(strstr(buffer, "--"ARG_SENSORS) != NULL);
+    ck_assert(strstr(buffer, "--"ARG_HELP) != NULL);
+    ck_assert(strstr(buffer, "--"ARG_USAGE) != NULL);
+
+    free(buffer);
+} END_TEST
+
+START_TEST(test_usage) {
+    char *test_argv[] = {
+            "./test",
+            "--usage"
+    };
+
+    SdbdCommandlineArgs sdbd_args = {0};
+
+    int parse_res = parse_sdbd_commandline(&sdbd_args, array_size(test_argv), test_argv);
+    ck_assert_int_eq(parse_res, SDBD_COMMANDLINE_USAGE);
+
+} END_TEST
+
+
+START_TEST(test_help) {
+    char *test_argv[] = {
+            "./test",
+            "--help"
+    };
+
+    SdbdCommandlineArgs sdbd_args = {0};
+
+    int parse_res = parse_sdbd_commandline(&sdbd_args, array_size(test_argv), test_argv);
+    ck_assert_int_eq(parse_res, SDBD_COMMANDLINE_HELP);
+
+} END_TEST
+
+
+START_TEST(test_help_other_opt) {
+    char *test_argv[] = {
+            "./test",
+            "--listen-port=1234",
+            "--help"
+    };
+
+    SdbdCommandlineArgs sdbd_args = {0};
+
+    int parse_res = parse_sdbd_commandline(&sdbd_args, array_size(test_argv), test_argv);
+    ck_assert_int_eq(parse_res, SDBD_COMMANDLINE_HELP);
+
+} END_TEST
+
+
 Suite *sdbd_commandline_suite (void) {
 	Suite *s = suite_create ("sdbd commandline");
 
 	TCase *tc_core = tcase_create ("Core");
 	tcase_add_checked_fixture(tc_core, setup, teardown);
-	tcase_add_test (tc_core, test_ok);
+	tcase_add_test (tc_core, test_all_opts);
 	tcase_add_test (tc_core, test_empty);
 	tcase_add_test (tc_core, test_unknown);
 	tcase_add_test (tc_core, test_clear_args);
 	tcase_add_test (tc_core, test_double_clear);
 	tcase_add_test (tc_core, test_default_args);
+	tcase_add_test (tc_core, test_usage_message);
+	tcase_add_test (tc_core, test_usage);
+	tcase_add_test (tc_core, test_help);
+	tcase_add_test (tc_core, test_help_other_opt);
 	suite_add_tcase (s, tc_core);
 
 	return s;
