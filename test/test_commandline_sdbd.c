@@ -103,6 +103,44 @@ START_TEST(test_all_opts) {
 
 } END_TEST
 
+START_TEST(test_emul_default_tcp_port) {
+        char *test_argv[] = {
+                        "./test",
+                        "--emulator=tizen:101",
+        };
+
+        SdbdCommandlineArgs sdbd_args = {0};
+
+        apply_sdbd_commandline_defaults(&sdbd_args);
+        int parse_res = parse_sdbd_commandline(&sdbd_args, array_size(test_argv), test_argv);
+
+        if (parse_res != SDBD_COMMANDLINE_SUCCESS) {
+                ck_abort_msg("parsing commandline failed");
+                return;
+        }
+
+        ck_assert_hostport_eq(&sdbd_args.emulator, "tizen", 101);
+	ck_assert_int_eq(sdbd_args.sdbd_port, DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
+} END_TEST
+
+START_TEST(test_tcp_port) {
+        char *test_argv[] = {
+                        "./test",
+			"--listen-port=101",
+        };
+
+        SdbdCommandlineArgs sdbd_args = {0};
+
+        apply_sdbd_commandline_defaults(&sdbd_args);
+        int parse_res = parse_sdbd_commandline(&sdbd_args, array_size(test_argv), test_argv);
+
+        if (parse_res != SDBD_COMMANDLINE_SUCCESS) {
+                ck_abort_msg("parsing commandline failed");
+                return;
+        }
+
+        ck_assert_int_eq(sdbd_args.sdbd_port, 101);
+} END_TEST
 
 START_TEST(test_empty) {
 	char *test_argv[] = {
@@ -181,7 +219,7 @@ START_TEST(test_default_args) {
 	ck_assert_hostport_eq(&sdbd_args.emulator, NULL, 0);
 	ck_assert_hostport_eq(&sdbd_args.sensors, QEMU_FORWARD_IP, DEFAULT_SENSORS_LOCAL_TRANSPORT_PORT);
 	ck_assert_hostport_eq(&sdbd_args.sdb, QEMU_FORWARD_IP, DEFAULT_SDB_PORT);
-	ck_assert_int_eq(sdbd_args.sdbd_port, DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
+	ck_assert_int_eq(sdbd_args.sdbd_port, -1);
 } END_TEST
 
 

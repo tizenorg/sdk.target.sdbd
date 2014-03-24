@@ -63,6 +63,12 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 			if (split_retval != SDBD_COMMANDLINE_SUCCESS) {
 				return split_retval;
 			}
+			/* if we are on emulator we listen using local transport
+			 * so we should set port to default value but this can
+			 * be overwritten by command line options */
+			if (sdbd_args->sdbd_port < 0) {
+				sdbd_args->sdbd_port = DEFAULT_SDB_LOCAL_TRANSPORT_PORT;
+			}
 			break;
 		case ARG_S_SENSORS:
 			split_retval = split_host_port(optarg,
@@ -109,7 +115,8 @@ void apply_sdbd_commandline_defaults(SdbdCommandlineArgs *sdbd_args) {
 	sdbd_args->sdb.host = strdup(QEMU_FORWARD_IP);
 	sdbd_args->sdb.port = DEFAULT_SDB_PORT;
 
-	sdbd_args->sdbd_port = DEFAULT_SDB_LOCAL_TRANSPORT_PORT;
+	// by default don't listen on local transport
+	sdbd_args->sdbd_port = -1;
 }
 
 
