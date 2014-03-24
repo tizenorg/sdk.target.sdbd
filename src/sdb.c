@@ -1254,11 +1254,13 @@ int sdb_main(int is_daemon, int server_port)
     if (!is_emulator()) {
         // listen on USB
         usb_init();
-        // listen on tcp
-        //local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
+        /* by default don't listen on local transport but
+         * listen if suitable command line argument has been provided */
+        if (sdbd_commandline_args.sdbd_port >= 0)
+		local_init(sdbd_commandline_args.sdbd_port);
     } else {
         // listen on default port
-        local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
+        local_init(sdbd_commandline_args.sdbd_port);
     }
 
 #if 0 /* tizen specific */
