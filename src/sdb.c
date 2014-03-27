@@ -1127,30 +1127,6 @@ int set_developer_privileges() {
 }
 #define ONDEMAND_ROOT_PATH tzplatform_getenv(TZ_SDK_HOME)
 
-static void execute_required_process() {
-
-    FILE *pre_proc_file = popen("pidof debug_launchpad_preloading_preinitializing_daemon", "r");
-
-    if(pre_proc_file == NULL) {
-        D("fail to get the pidof debug_launchpad_preloading_preinitializing_daemon");
-        return;
-    }
-
-    int result = 0;
-    while(!feof(pre_proc_file)) {
-        int pid = 0;
-        result += fscanf(pre_proc_file, "%d", &pid);
-        if(pid > 0) {
-            kill(pid, SIGKILL);
-        }
-    }
-    D("Kill %d debug launchpad daemon", result);
-
-    pclose(pre_proc_file);
-
-    system("/usr/bin/debug_launchpad_preloading_preinitializing_daemon &");
-}
-
 static void init_sdk_requirements() {
     struct stat st;
 
@@ -1175,7 +1151,6 @@ static void init_sdk_requirements() {
         }
     }
 
-    execute_required_process();
 }
 #endif /* !SDB_HOST */
 

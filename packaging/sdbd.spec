@@ -14,8 +14,6 @@ BuildRequires: capi-system-info-devel >= 0.2.0
 BuildRequires: cmake >= 2.8.3
 BuildRequires:  pkgconfig(libtzplatform-config)
 Requires: dbus
-Requires: debug-launchpad
-Requires(post): /usr/bin/debug_launchpad_preloading_preinitializing_daemon
 %description
 Description: SDB daemon.
 
