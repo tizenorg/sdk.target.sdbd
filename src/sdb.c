@@ -1119,7 +1119,8 @@ int set_developer_privileges() {
         }
     }
     // TODO: use pam later
-    char * env = "HOME=";
+    char * env = malloc (strlen("HOME=") + strlen(HOME_DEV_PATH) +1);
+    strcpy(env, "HOME=");
     strcat(env, HOME_DEV_PATH);
     putenv(env);
 
