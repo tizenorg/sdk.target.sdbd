@@ -1120,6 +1120,7 @@ int set_developer_privileges() {
     }
     // TODO: use pam later
     char * env = malloc (strlen("HOME=") + strlen(HOME_DEV_PATH) +1);
+    if(env == 0) fatal("failed to allocate for env string");
     strcpy(env, "HOME=");
     strcat(env, HOME_DEV_PATH);
     putenv(env);
