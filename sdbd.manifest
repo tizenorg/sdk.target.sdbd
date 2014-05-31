@@ -1,0 +1,32 @@
+<manifest>
+    <define>
+        <domain name="sdbd" policy="shared" />
+        <provide>
+            <label name="sdbd::home" />
+        </provide>
+        <request>
+            <smack request="sys-assert::core" type="rwxat" />
+            <smack request="device::app_logging" type="rwxat" />
+            <smack request="device::sys_logging" type="rwxat" />
+            <smack request="pkgmgr" type="rx" />
+            <smack request="pkgmgr::svc" type="rx" />
+            <smack request="pkgmgr::info" type="r" />
+            <smack request="pkgmgr-server" type="r" />
+            <smack request="pkgmgr-client" type="r" />
+            <smack request="aul" type="rx" />
+            <smack request="wrt::wrt-launcher" type="rx" />
+            <smack request="system::media" type="rwxat" />
+            <smack request="sdbd::home" type="rwxat" />
+            <smack request="dbus" type="rwx" />
+            <smack request="system::use_internet" type="w" />
+        </request>
+        <permit>
+            <smack permit="system::use_internet" type="w" />
+            <smack permit="aul" type="rx" />
+            <smack permit="wrt::wrt-launcher" type="rw" />
+        </permit>
+    </define>
+    <request>
+        <domain name="sdbd" />
+    </request>
+</manifest>
