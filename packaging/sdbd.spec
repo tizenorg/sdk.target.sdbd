@@ -32,7 +32,7 @@ make %{?jobs:-j%jobs}
 %make_install
 
 mkdir -p %{buildroot}%{_libdir}/systemd/system
-%if 0%{?simulator}
+%if 0%{?emulator}
 install -m 0644 %SOURCE1002 %{buildroot}%{_libdir}/systemd/system/sdbd.service
 mkdir -p %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants
 ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants/
@@ -52,7 +52,7 @@ install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 %{_prefix}/sbin/sdk_launch
 %attr(0755, root, root) %{_sysconfdir}/init.d/sdbd
 %{_libdir}/systemd/system/sdbd.service
-%if 0%{?simulator}
+%if 0%{?emulator}
 %{_libdir}/systemd/system/emulator.target.wants/sdbd.service
 %else
 %{_libdir}/systemd/system/sdbd_tcp.service
