@@ -218,13 +218,6 @@ error:
     sdb_mutex_unlock(&h->control_lock);
 }
 
-
-void usb_cleanup()
-{
-    /* nothing to do here */
-}
-
-
 static void *usb_open_thread(void *x)
 {
     struct usb_handle *usb = (struct usb_handle *)x;
@@ -405,29 +398,6 @@ static int bulk_write(int bulkin_fd, const void *buf, size_t length)
 
 
 /*
- * Writes data to bulk_in descriptor
- *
- * In fact, data is forwarded to bulk_write.
- *
- * @returns 0 on success and -1 on failure (errno is set)
- */
-int usb_write(usb_handle *h, const void *data, int len)
-{
-    int n;
-
-    D("about to write (fd=%d, len=%d)\n", h->bulk_in, len);
-    n = bulk_write(h->bulk_in, data, len);
-    if(n != len) {
-        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
-            h->bulk_in, n, errno, strerror(errno));
-        return -1;
-    }
-    D("[ done fd=%d ]\n", h->bulk_in);
-    return 0;
-}
-
-
-/*
  * Reads data from bulkout_fd
  *
  * Blocks until length data is read or error occurs.
@@ -458,34 +428,10 @@ static int bulk_read(int bulkout_fd, void *buf, size_t length)
     return count;
 }
 
-
-/*
- * Reads data from bulk_out descriptor
- *
- * In fact, reading task is forwarded to bulk_read.
- *
- * @returns 0 on success and -1 on failure (errno is set)
- */
-int usb_read(usb_handle *h, void *data, int len)
-{
-    int n;
-
-    D("%d: about to read (fd=%d, len=%d)\n", getpid(), h->bulk_out, len);
-    n = bulk_read(h->bulk_out, data, len);
-    if(n != len) {
-        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
-            h->bulk_out, n, errno, strerror(errno));
-        return -1;
-    }
-    D("[ done fd=%d ]\n", h->bulk_out);
-    return 0;
-}
-
-
 /*
  * Checks if EP0 exists on filesystem
  */
-int ep0_exists()
+static int ep0_exists()
 {
 	struct stat statb;
 	return stat(ep0_path, &statb) == 0;
@@ -513,9 +459,14 @@ static int autoconfig(struct usb_handle *h)
 
 
 /*
+ * Public host/client interface
+ */
+
+
+/*
  * Creates and starts USB threads
  */
-void usb_init()
+void ffs_usb_init()
 {
     usb_handle *h;
     sdb_thread_t tid;
@@ -550,7 +501,65 @@ void usb_init()
 }
 
 
-void usb_kick(usb_handle *h)
+void ffs_usb_cleanup()
+{
+    /* nothing to do here */
+}
+
+
+/*
+ * Writes data to bulk_in descriptor
+ *
+ * In fact, data is forwarded to bulk_write.
+ *
+ * @returns 0 on success and -1 on failure (errno is set)
+ */
+int ffs_usb_write(usb_handle *h, const void *data, int len)
+{
+    int n;
+
+    D("about to write (fd=%d, len=%d)\n", h->bulk_in, len);
+    n = bulk_write(h->bulk_in, data, len);
+    if(n != len) {
+        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
+            h->bulk_in, n, errno, strerror(errno));
+        return -1;
+    }
+    D("[ done fd=%d ]\n", h->bulk_in);
+    return 0;
+}
+
+
+/*
+ * Reads data from bulk_out descriptor
+ *
+ * In fact, reading task is forwarded to bulk_read.
+ *
+ * @returns 0 on success and -1 on failure (errno is set)
+ */
+int ffs_usb_read(usb_handle *h, void *data, int len)
+{
+    int n;
+
+    D("%d: about to read (fd=%d, len=%d)\n", getpid(), h->bulk_out, len);
+    n = bulk_read(h->bulk_out, data, len);
+    if(n != len) {
+        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
+            h->bulk_out, n, errno, strerror(errno));
+        return -1;
+    }
+    D("[ done fd=%d ]\n", h->bulk_out);
+    return 0;
+}
+
+
+int ffs_usb_close(usb_handle *h)
+{
+    return 0;
+}
+
+
+void ffs_usb_kick(usb_handle *h)
 {
     int err;
 
@@ -568,10 +577,4 @@ void usb_kick(usb_handle *h)
     /* notify usb_open_thread that we are disconnected */
     sdb_cond_signal(&h->kick_notify);
     sdb_mutex_unlock(&h->kick_lock);
-}
-
-
-int usb_close(usb_handle *h)
-{
-    return 0;
 }

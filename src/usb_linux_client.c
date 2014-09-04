@@ -37,11 +37,6 @@ struct usb_handle
     sdb_mutex_t lock;
 };
 
-void usb_cleanup()
-{
-    // nothing to do here
-}
-
 static void *usb_open_thread(void *x)
 {
     struct usb_handle *usb = (struct usb_handle *)x;
@@ -82,7 +77,9 @@ static void *usb_open_thread(void *x)
     return 0;
 }
 
-int usb_write(usb_handle *h, const void *data, int len)
+// Public host/client interface
+
+int linux_usb_write(usb_handle *h, const void *data, int len)
 {
     int n;
 
@@ -97,7 +94,7 @@ int usb_write(usb_handle *h, const void *data, int len)
     return 0;
 }
 
-int usb_read(usb_handle *h, void *data, int len)
+int linux_usb_read(usb_handle *h, void *data, int len)
 {
     int n;
 
@@ -112,7 +109,7 @@ int usb_read(usb_handle *h, void *data, int len)
     return 0;
 }
 
-void usb_init()
+void linux_usb_init()
 {
     usb_handle *h;
     sdb_thread_t tid;
@@ -142,7 +139,7 @@ void usb_init()
     }
 }
 
-void usb_kick(usb_handle *h)
+void linux_usb_kick(usb_handle *h)
 {
     D("usb_kick\n");
     sdb_mutex_lock(&h->lock);
@@ -154,8 +151,13 @@ void usb_kick(usb_handle *h)
     sdb_mutex_unlock(&h->lock);
 }
 
-int usb_close(usb_handle *h)
+int linux_usb_close(usb_handle *h)
 {
     // nothing to do here
     return 0;
+}
+
+void linux_usb_cleanup()
+{
+    // nothing to do here
 }
