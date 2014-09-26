@@ -1095,13 +1095,13 @@ int should_drop_privileges() {
 }
 
 int set_developer_privileges() {
-    gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
+    gid_t groups[] = { GID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
     if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
         D("set groups failed (errno: %d, %s)\n", errno, strerror(errno));
     }
 
     // then switch user and group to developer
-    if (setgid(SID_DEVELOPER) != 0) {
+    if (setgid(GID_DEVELOPER) != 0) {
         D("set group id failed (errno: %d, %s)\n", errno, strerror(errno));
         return -1;
     }
@@ -1146,7 +1146,7 @@ static void init_sdk_requirements() {
     if (stat(ONDEMAND_ROOT_PATH, &st) == -1) {
         return;
     }
-    if (st.st_uid != SID_DEVELOPER || st.st_gid != SID_DEVELOPER) {
+    if (st.st_uid != SID_DEVELOPER || st.st_gid != GID_DEVELOPER) {
         char cmd[128];
         snprintf(cmd, sizeof(cmd), "chown %s:%s %s -R", DEV_NAME, DEV_NAME, ONDEMAND_ROOT_PATH);
         if (system(cmd) < 0) {
@@ -1207,7 +1207,7 @@ int sdb_main(int is_daemon, int server_port)
             exit(1);
         }
         /* then switch user and group to "developer" */
-        if (setgid(SID_DEVELOPER) != 0) {
+        if (setgid(GID_DEVELOPER) != 0) {
             fprintf(stderr, "set group id failed errno: %d\n", errno);
             exit(1);
         }
