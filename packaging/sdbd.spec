@@ -46,6 +46,13 @@ install -m 0644 %SOURCE1004 %{buildroot}%{_libdir}/systemd/system/sdbd_tcp.servi
 mkdir -p %{buildroot}%{_prefix}/sbin
 install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 
+
+%post 
+mkdir -p /home/developer/.applications
+chown -R developer:users /home/developer/
+chsmack -a "User" /home/developer/
+chsmack -a "User" /home/developer/.applications
+
 %files
 %manifest sdbd.manifest
 %license LICENSE
