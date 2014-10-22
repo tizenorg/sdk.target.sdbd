@@ -20,8 +20,7 @@
 #include "utils.h"
 
 struct sudo_command root_commands[] = {
-    /* 0 */ {"da_command", "/usr/bin/da_command"},
-    /* 1 */ {"oprofile", "/usr/bin/oprofile_command"},
+    /* 0 */ {"profile", "/usr/bin/profile_command"},
     /* end */ {NULL, NULL}
 };
 

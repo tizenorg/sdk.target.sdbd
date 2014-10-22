@@ -1,0 +1,103 @@
+#!/bin/bash
+
+VERSION="3.0"
+KILL=/usr/bin/killall
+MANAGER=/usr/bin/da_manager
+FIND=/usr/bin/find
+GETAPPINSTALLPATH="/usr/bin/pkgcmd -a"
+PORTFILE=/tmp/port.da
+READLINK=/usr/bin/readlink
+
+print_usage()
+{
+	echo "usage: profile_command [options]"
+	echo "Options:"
+	echo "killmanager               terminate da_manager"
+	echo "runmanager                execute da_manager"
+	echo "findunittest              find unittest project"
+	echo "getversion		get version"
+	echo "killvalgrind		kill valgrind process"
+	echo "readlink filepath		get value of given symbolic link or canonical file name"
+}
+
+kill_manager()
+{
+	$KILL $MANAGER
+	/bin/rm -f $PORTFILE
+}
+
+run_manager()
+{
+	kill_manager
+	$MANAGER
+}
+
+find_unittest()
+{
+	$FIND `$GETAPPINSTALLPATH | /usr/bin/awk '{if (FNR==1) printf $NF}'` -name *.unittest
+}
+
+process_list()
+{
+	/bin/ps -eo pid,cmd
+}
+
+get_version()
+{
+	echo $VERSION
+}
+
+read_link()
+{
+	$READLINK -f $FILEPATH
+}
+
+kill_valgrind()
+{
+        /bin/ps ax | /bin/grep "/home/developer/sdk_tools/valgrind/usr/bin/valgrin[d]" | /usr/bin/awk '{print "kill -3 " $1}' | /bin/sh
+}
+
+if test $# -gt 2 -o $# -lt 1; then
+	print_usage
+	exit 1
+fi
+
+if test -n "$2"; then
+	case "$1" in
+		readlink)
+			FILEPATH=$2
+			;;
+		*)
+			print_usage
+			exit 1
+			;;
+	esac
+fi
+
+case "$1" in
+	killmanager)
+		kill_manager
+		;;
+	runmanager)
+		run_manager
+		;;
+	findunittest)
+		find_unittest
+		;;
+	process)
+		process_list
+		;;
+	getversion)
+		get_version
+		;;
+	readlink)
+		read_link
+		;;
+	killvalgrind)
+                kill_valgrind
+                ;;
+	*)
+		echo "Unknown option!"
+		print_usage
+		;;
+esac

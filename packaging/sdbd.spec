@@ -47,6 +47,9 @@ install -m 0644 %SOURCE1001 %{buildroot}%{_libdir}/systemd/system/sdbd.service
 mkdir -p %{buildroot}%{_prefix}/sbin
 install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 
+mkdir -p %{buildroot}/usr/bin
+install -m 755 script/profile_command %{buildroot}/usr/bin/
+
 %post
 chsmack -a sdbd::home /home/developer
 chsmack -t /home/developer
@@ -61,6 +64,7 @@ chsmack -t /home/developer
 %{_libdir}/systemd/system/emulator.target.wants/sdbd.service
 %endif
 /usr/share/license/%{name}
+/usr/bin/profile_command
 
 %changelog
 
