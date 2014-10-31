@@ -39,7 +39,7 @@
 #endif
 
 #include "strutils.h"
-#include <system_info.h>
+#include <system_info_internal.h>
 
 typedef struct stinfo stinfo;
 
