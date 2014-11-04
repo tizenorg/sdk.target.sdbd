@@ -12,12 +12,18 @@ print_usage()
 {
 	echo "usage: profile_command [options]"
 	echo "Options:"
+	echo "getprobemap		get da_api_map"
 	echo "killmanager               terminate da_manager"
 	echo "runmanager                execute da_manager"
 	echo "findunittest              find unittest project"
 	echo "getversion		get version"
 	echo "killvalgrind		kill valgrind process"
 	echo "readlink filepath		get value of given symbolic link or canonical file name"
+}
+
+get_probe_map()
+{
+	/bin/cat /usr/lib/da_api_map
 }
 
 kill_manager()
@@ -96,6 +102,9 @@ case "$1" in
 	killvalgrind)
                 kill_valgrind
                 ;;
+	getprobemap)
+		get_probe_map
+		;;
 	*)
 		echo "Unknown option!"
 		print_usage
