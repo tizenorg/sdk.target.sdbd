@@ -35,7 +35,6 @@ struct arg_permit_rule
 #define SDBD_LABEL_NAME                         "sdbd"
 #define SDK_HOME_LABEL_NAME                     "sdbd::home"
 
-int verify_commands(const char *arg1);
 int verify_root_commands(const char *arg1);
 int verify_app_path(const char* path);
 int regcmp(const char* pattern, const char* str);

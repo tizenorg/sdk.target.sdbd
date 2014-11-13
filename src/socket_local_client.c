@@ -38,7 +38,7 @@ int socket_local_client(const char *name, int namespaceId, int type)
 #include <sys/types.h>
 
 #include "socket_local.h"
-
+#include "strutils.h"
 #define LISTEN_BACKLOG 4
 
 /* Documented in header file. */
@@ -75,8 +75,8 @@ int socket_make_sockaddr_un(const char *name, int namespaceId,
                 goto error;
             }
 
-            strcpy(p_addr->sun_path, FILESYSTEM_SOCKET_PREFIX);
-            strcat(p_addr->sun_path, name);
+            s_strncpy(p_addr->sun_path, FILESYSTEM_SOCKET_PREFIX, strlen(FILESYSTEM_SOCKET_PREFIX));
+            strncat(p_addr->sun_path, name, strlen(name));
 #endif /*HAVE_LINUX_LOCAL_SOCKET_NAMESPACE*/
         break;
 
@@ -88,8 +88,8 @@ int socket_make_sockaddr_un(const char *name, int namespaceId,
                 goto error;
             }
 
-            strcpy(p_addr->sun_path, ANDROID_RESERVED_SOCKET_PREFIX);
-            strcat(p_addr->sun_path, name);
+            s_strncpy(p_addr->sun_path, ANDROID_RESERVED_SOCKET_PREFIX, strlen(ANDROID_RESERVED_SOCKET_PREFIX));
+            strncat(p_addr->sun_path, name, strlen(name));
         break;
 
         case ANDROID_SOCKET_NAMESPACE_FILESYSTEM:
@@ -100,7 +100,7 @@ int socket_make_sockaddr_un(const char *name, int namespaceId,
                 goto error;
             }
 
-            strcpy(p_addr->sun_path, name);
+            s_strncpy(p_addr->sun_path, name, strlen(name));
         break;
         default:
             // invalid namespace id

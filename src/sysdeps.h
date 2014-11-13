@@ -278,7 +278,6 @@ static __inline__  int  sdb_is_absolute_host_path( const char*  path )
 
 #include "fdevent.h"
 #include "sockets.h"
-#include "properties.h"
 // tizen specific #include <cutils/misc.h>
 #include <stdio.h>
 #include <signal.h>
@@ -527,6 +526,8 @@ static __inline__  int  sdb_is_absolute_host_path( const char*  path )
     return path[0] == '/';
 }
 
+#include "strutils.h"
+
 static __inline__  char* ansi_to_utf8(const char *str)
 {
     // Not implement!
@@ -536,7 +537,7 @@ static __inline__  char* ansi_to_utf8(const char *str)
 
     len = strlen(str);
     utf8 = (char *)calloc(len+1, sizeof(char));
-    strcpy(utf8, str);
+    s_strncpy(utf8, str, strlen(str));
     return utf8;
 }
 

@@ -39,7 +39,10 @@
 #endif
 
 #include "strutils.h"
+#include <system_info.h>
 #include <system_info_internal.h>
+#include <vconf.h>
+#include <limits.h>
 
 typedef struct stinfo stinfo;
 
@@ -140,26 +143,6 @@ void restart_root_service(int fd, void *cookie)
 }
 #endif
 
-void restart_tcp_service(int fd, void *cookie)
-{
-    char buf[100];
-    char value[PROPERTY_VALUE_MAX];
-    int port = (int)cookie;
-
-    if (port <= 0) {
-        snprintf(buf, sizeof(buf), "invalid port\n");
-        writex(fd, buf, strlen(buf));
-        sdb_close(fd);
-        return;
-    }
-
-    snprintf(value, sizeof(value), "%d", port);
-    property_set("service.sdb.tcp.port", value);
-    snprintf(buf, sizeof(buf), "restarting in TCP mode port: %d\n", port);
-    writex(fd, buf, strlen(buf));
-    sdb_close(fd);
-}
-
 void rootshell_service(int fd, void *cookie)
 {
     char buf[100];
@@ -190,16 +173,7 @@ void rootshell_service(int fd, void *cookie)
         writex(fd, buf, strlen(buf));
     }
     D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : "developer");
-    sdb_close(fd);
-}
-
-void restart_usb_service(int fd, void *cookie)
-{
-    char buf[100];
-
-    property_set("service.sdb.tcp.port", "0");
-    snprintf(buf, sizeof(buf), "restarting in USB mode\n");
-    writex(fd, buf, strlen(buf));
+    free(mode);
     sdb_close(fd);
 }
 
@@ -265,7 +239,7 @@ void inoti_service(int fd, void *arg)
             goto done;
         }
 
-        while ( i < length ) {
+        while ( i >= 0 && i < length ) {
             struct inotify_event *event = ( struct inotify_event * )&buffer[i];
             if (event->len) {
                 if ( event->mask & IN_CREATE) {
@@ -280,6 +254,9 @@ void inoti_service(int fd, void *arg)
                     }
                 }
             }
+            if (i + EVENT_SIZE + event->len > INT_MAX ) { // in case of integer is max
+                break;
+            }
             i += EVENT_SIZE + event->len;
         }
     }
@@ -292,6 +269,48 @@ done:
 }
 #endif
 #endif
+
+void rndis_config_service(int fd, void *cookie)
+{
+    char buf[100];
+    int val = 0;
+    char* mode = (char*) cookie;
+
+    usb_mode = 0;
+    if (vconf_get_int(DEBUG_MODE_KEY, &val)) {
+        D("Failed to get debug mode\n");
+        sdb_close(fd);
+        free(mode);
+        return;
+    }
+    if (!strcmp(mode, "on")) {
+        if (val != 6) {
+            usb_mode = 6;
+            sdb_sleep_ms(500);
+            if (vconf_set_int(DEBUG_MODE_KEY, 6)) {
+                D("Failed to set rndis %s\n", mode);
+                snprintf(buf, sizeof(buf), "Failed to set rndis %s\n", mode);
+                writex(fd, buf, strlen(buf));
+            }
+        }
+    } else if (!strcmp(mode, "off")) {
+        if (val != 2) {
+            usb_mode = 2;
+            sdb_sleep_ms(500);
+            if (vconf_set_int(DEBUG_MODE_KEY, 2)) {
+                D("Failed to set rndis %s\n", mode);
+                snprintf(buf, sizeof(buf), "Failed to set rndis %s\n", mode);
+                writex(fd, buf, strlen(buf));
+            }
+        }
+    } else {
+        D("Unknown command option:(rndis %s)\n", mode);
+        snprintf(buf, sizeof(buf), "Unknown command option:(rndis %s)\n", mode);
+        writex(fd, buf, strlen(buf));
+    }
+    free(mode);
+    sdb_close(fd);
+}
 
 #if 0
 static void echo_service(int fd, void *cookie)
@@ -418,10 +437,15 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
             }
         }
 
-        //verify_commands(arg1);
         if (should_drop_privileges()) {
-            set_developer_privileges();
+            if (argv[2] != NULL && verify_root_commands(argv[2])) {
+                // do nothing
+                D("sdb: executes root commands!!:%s\n", argv[2]);
+            } else {
+                set_developer_privileges();
+            }
         }
+
         execve(cmd, argv, envp);
         fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
                 cmd, strerror(errno), errno);
@@ -830,21 +854,20 @@ int service_to_fd(const char *name)
     } else if(!strncmp(name, "restore:", 8)) {
         ret = backup_service(RESTORE, NULL);
     }*/ else if(!strncmp(name, "root:", 5)) {
-        ret = create_service_thread(rootshell_service, (void *)(name+5));
-    } else if(!strncmp(name, "tcpip:", 6)) {
-        int port;
-        /*if (sscanf(name + 6, "%d", &port) == 0) {
-            port = 0;
-        }*/
-        port = DEFAULT_SDB_LOCAL_TRANSPORT_PORT;
-        ret = create_service_thread(restart_tcp_service, (void *)port);
-    } else if(!strncmp(name, "usb:", 4)) {
-        ret = create_service_thread(restart_usb_service, NULL);
+        char* service_name = NULL;
+
+        service_name = strdup(name+5);
+        ret = create_service_thread(rootshell_service, (void *)(service_name));
     } else if(!strncmp(name, "cs:", 5)) {
         ret = create_service_thread(inoti_service, NULL);
 #endif
     } else if(!strncmp(name, "sysinfo:", 8)){
         ret = create_service_thread(get_platforminfo, 0);
+    } else if(!strncmp(name, "rndis:", 6)){
+        char *service_name = NULL;
+
+        service_name = strdup(name+6);
+        ret = create_service_thread(rndis_config_service, (void *)(service_name));
     }
     if (ret >= 0) {
         if (close_on_exec(ret) < 0) {

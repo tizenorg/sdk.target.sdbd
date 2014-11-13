@@ -25,6 +25,7 @@
 
 #define  TRACE_TAG  TRACE_SOCKETS
 #include "sdb.h"
+#include "strutils.h"
 
 SDB_MUTEX_DEFINE( socket_list_lock );
 
@@ -554,7 +555,7 @@ void connect_to_remote(asocket *s, const char *destination)
     p->msg.command = A_OPEN;
     p->msg.arg0 = s->id;
     p->msg.data_length = len;
-    strcpy((char*) p->data, destination);
+    s_strncpy((char*) p->data, destination, len);
     send_packet(p, s->transport);
 }
 

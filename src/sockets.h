@@ -97,6 +97,7 @@ extern int socket_local_client_connect(int fd,
 extern int socket_local_client(const char *name, int namespaceId, int type);
 extern int socket_inaddr_any_server(int port, int type);
 int socket_ifr_client(int port, int type, char *ifr_dev);
+int socket_ifr_client(int port, int type, char *ifr_dev);
 int ifconfig(char *ifname, char *address, char *netmask, int activated);
 #ifdef __cplusplus
 }

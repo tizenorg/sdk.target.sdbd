@@ -31,6 +31,7 @@
 #include "sysdeps.h"
 #include "sdb.h"
 #include "strutils.h"
+#include "utils.h"
 
 #if !SDB_HOST
 #include <linux/prctl.h>
@@ -38,8 +39,10 @@
 #else
 #include "usb_vendors.h"
 #endif
+#include <system_info.h>
 #include <system_info_internal.h>
 #include <vconf.h>
+#include "utils.h"
 
 #define PROC_CMDLINE_PATH "/proc/cmdline"
 #define USB_SERIAL_PATH "/sys/class/usb_mode/usb0/iSerial"
@@ -63,13 +66,22 @@ void handle_sig_term(int sig) {
     if (access(SDB_PIDPATH, F_OK) == 0)
         sdb_unlink(SDB_PIDPATH);
 #endif
-    //kill(getpgid(getpid()),SIGTERM);
-    //killpg(getpgid(getpid()),SIGTERM);
+    char *cmd1_args[] = {"/usr/bin/killall", "/usr/bin/debug_launchpad_preloading_preinitializing_daemon", NULL};
+
     if (!is_emulator()) {
-        exit(0);
+        int val = 0;
+        if (vconf_get_int(DEBUG_MODE_KEY, &val)) {
+            D("Failed to get debug mode\n");
+        } else {
+            if (usb_mode != 6 && val == 6) { // set mtp mode by default!.
+                vconf_set_int(DEBUG_MODE_KEY, 2);
+            }
+        }
     } else {
-    	// do nothing on a emulator
+        // do nothing on a emulator
     }
+    spawn("/usr/bin/killall", cmd1_args);
+    sdb_sleep_ms(1000);
 }
 
 static const char *sdb_device_banner = "device";
@@ -394,7 +406,8 @@ static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
         return -1;
     }
 
-    s_strncpy(str, s + strlen(dest), len);
+    strncpy(str, s + strlen(dest), len);
+    str[len]='\0';
     return len;
 }
 
@@ -402,7 +415,7 @@ int get_emulator_forward_port() {
     char cmdline[512];
     int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
     char *port_str = "sdb_port=";
-    char port_buf[7]={0,};
+    char port_buf[128]={0,};
     int port = -1;
 
     if (fd < 0) {
@@ -1214,22 +1227,24 @@ int set_developer_privileges() {
 #define ONDEMAND_ROOT_PATH "/home/developer"
 
 static void execute_required_process() {
-    system("killall /usr/bin/debug_launchpad_preloading_preinitializing_daemon");
-    system("/usr/bin/debug_launchpad_preloading_preinitializing_daemon &");
+    char *cmd_args[] = {"/usr/bin/debug_launchpad_preloading_preinitializing_daemon",NULL};
+
+    spawn("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", cmd_args);
 }
 
 static void init_sdk_requirements() {
     struct stat st;
 
+    // initialize usb mode
+    usb_mode = 0;
+
     if (stat(ONDEMAND_ROOT_PATH, &st) == -1) {
         return;
     }
     if (st.st_uid != SID_DEVELOPER || st.st_gid != SID_DEVELOPER) {
-        char cmd[128];
-        snprintf(cmd, sizeof(cmd), "chown developer:developer %s -R", ONDEMAND_ROOT_PATH);
-        if (system(cmd) < 0) {
-            D("failed to change ownership to developer to %s\n", ONDEMAND_ROOT_PATH);
-        }
+        char *arg_list[] = {"/bin/chown", ONDEMAND_ROOT_PATH, "-R", NULL};
+
+        spawn("/bin/chown", arg_list);
     }
 
     execute_required_process();
@@ -1359,7 +1374,7 @@ void connect_device(char* host, char* buffer, int buffer_size)
     char hostbuf[100];
     char serial[100];
 
-    strncpy(hostbuf, host, sizeof(hostbuf) - 1);
+    s_strncpy(hostbuf, host, sizeof(hostbuf) - 1);
     if (portstr) {
         if (portstr - host >= sizeof(hostbuf)) {
             snprintf(buffer, buffer_size, "bad host name %s", host);

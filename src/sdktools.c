@@ -20,7 +20,8 @@
 #include "utils.h"
 
 struct sudo_command root_commands[] = {
-    /* 0 */ {"profile", "/usr/bin/profile_command"},
+    /* 0 */ {"da_command", "/usr/bin/da_command"},
+    /* 1 */ {"profile", "/usr/bin/profile_command"},
     /* end */ {NULL, NULL}
 };
 
@@ -62,20 +63,6 @@ static int is_cmd_suffix_denied(const char* arg) {
     }
     D("cmd suffix arrowed:%s\n", arg);
     return 0;
-}
-
-int verify_commands(const char *arg1) {
-    if (arg1 != NULL) {
-        if (verify_root_commands(arg1)) {
-            // do not drop privilege only if root auth is required
-            return 1;
-        }
-    }
-    // doing these steps if we don't have root permission
-    if (should_drop_privileges()) {
-        set_developer_privileges();
-    }
-    return 1;
 }
 
 /**
@@ -378,7 +365,7 @@ char* clone_gdbserver_label_from_app(const char* app_path) {
     int rc = smack_lgetlabel(app_path, &buffer, SMACK_LABEL_ACCESS);
 
     if (rc == 0 && buffer != NULL) {
-        strcpy(appid, buffer);
+        s_strncpy(appid, buffer, sizeof appid);
         free(buffer);
     } else {
         strcpy(appid, "_");

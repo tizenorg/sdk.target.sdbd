@@ -1,3 +1,5 @@
+* Wed Nov 27 2013 Yoonki Park <yoonki.park@samsung.com>
+ - changed port redirection to usb0 instead of loopback
 * Wed Apr 04 2013 Ho Namkoong <ho.namkoong@samsung.com>
  - supports platform gdbserver
 * Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>

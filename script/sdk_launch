@@ -10,13 +10,22 @@ SDK_TOOLS_PATH=/home/developer/sdk_tools
 
 print_usage()
 {
-    echo "usage: $0 -p <pkgid> -e <executable> -m <run|debug|da|oprofile> [-P <port>] [-attach <pid>] -t <gtest,gcov> [<args...>]"
+    echo "usage: $0 [-a <appid>] [-p <pkgid>] [-e <executable>] -m <run|debug|da|oprofile> [-P <port>] [-attach <pid>] -t <gtest,gcov> [<args...>]"
 }
 
 first="true"
 
 until [ -z "$1" ]; do
     case "$1" in
+    -a)
+        if [ -z "$2" ]
+        then
+            print_usage
+            exit 1;
+        fi
+        appid=$2
+        shift 2;
+        ;;
     -p)
         if [ -z "$2" ]
         then
@@ -110,6 +119,13 @@ until [ -z "$1" ]; do
     esac
 done
 
+if [ "" != "$appid" ]
+then
+    launch_app_arg1=$appid
+else
+    launch_app_arg1=$pkgid.$exe
+fi
+
 if [ "$mode" = "debug" ]
 then
     if [ "" != "$attach_id" ]
@@ -124,7 +140,7 @@ then
         else
             result_mode="DEBUG"
         fi
-        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode $args"
+        cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode $args"
 #       cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port /opt/apps/$pkgid/bin/$exe"
     fi
 else
@@ -132,9 +148,9 @@ else
     then
         if [ "" != "$result_mode" ]
         then
-            cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode $launch_app_mode $args"
+            cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode $launch_app_mode $args"
         else
-            cmd="/usr/bin/launch_app $pkgid.$exe"
+            cmd="/usr/bin/launch_app $launch_app_arg1"
         fi
     else
         if [ "$mode" = "da" ]
@@ -153,7 +169,7 @@ else
                 result_mode="OPROFILE"
             fi
         fi
-        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode"
+        cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode"
     fi
 fi
 

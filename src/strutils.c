@@ -12,9 +12,9 @@
 size_t tokenize(const char *str, const char *delim, char *tokens[], size_t max_tokens ) {
     int cnt = 0;
 
-    char tmp[PATH_MAX];
+    char tmp[PATH_MAX] = {0, };
+    snprintf(tmp, PATH_MAX, "%s", str);
 
-    strncpy(tmp, str, PATH_MAX);
     char *p = strtok(tmp, delim);
     if (max_tokens < 1 || max_tokens > MAX_TOKENS) {
         max_tokens = 1;
@@ -69,17 +69,19 @@ int read_line(const int fd, char* ptr, const unsigned int maxlen)
  * strncpy(ntbs, source, sizeof(ntbs)-1);
  * ntbs[sizeof(ntbs)-1] = '\0'
  */
+
 char *s_strncpy(char *dest, const char *source, size_t n) {
+
     char *start = dest;
 
-    while (n && (*dest++ = *source++)) {
+    while(n && (*dest++ = *source++)) {
         n--;
     }
+
     if (n) {
         while (--n) {
-            *dest++ = '\0';
+            *dest++ = '\0'; 
         }
     }
     return start;
 }
-

@@ -67,4 +67,11 @@ char*   buff_add  (char*  buff, char*  buffEnd, const char*  format, ... );
     char   _buff[_size], *_cursor=_buff, *_end = _cursor + (_size)
 
 char *str_trim(const char* string);
+
+/*
+ * spawn a process and returns the process id of the new spawned process.
+ * it is working as async.
+ */
+int spawn(char* program, char** arg_list);
+
 #endif /* _SDB_UTILS_H */

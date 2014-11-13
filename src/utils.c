@@ -18,6 +18,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <errno.h>
 
 #define STRING_MAXLEN 1024
 char*
@@ -123,3 +128,31 @@ char *str_trim(const char* string)
 
     return  ret;
 }
+
+int spawn(char* program, char** arg_list)
+{
+    pid_t pid;
+    int ret;
+
+    if ((pid = fork()) < 0) {
+        fprintf(stderr, "couldn't fork: %d\n", errno);
+        exit(1);
+    } else if (pid == 0) {
+            if ((pid = fork()) < 0) {
+                fprintf(stderr, "couldn't fork: %d\n", errno);
+                exit(1);
+            } else if (pid > 0) {
+                // init takes the process, and the process is not able to be zombie
+                exit(0);
+            }
+            execvp (program, arg_list);
+            fprintf(stderr, "failed to spawn: never reach here!:%s\n", program);
+            exit(0);
+    }
+    if (waitpid(pid, &ret, 0) != pid) {
+        fprintf(stderr, "failed to wait pid\n");
+    }
+
+    return pid;
+}
+

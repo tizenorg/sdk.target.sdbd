@@ -16,7 +16,6 @@
 // libs/cutils/socket_loopback_client.c
 
 #include "sockets.h"
-#include "strutils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +33,7 @@
 #include <arpa/inet.h>
 #endif
 
+#include "strutils.h"
 /* Connect to port on the loopback IP interface. type is
  * SOCK_STREAM or SOCK_DGRAM. 
  * return is a file descriptor or -1 on error
@@ -57,7 +57,6 @@ int socket_loopback_client(int port, int type)
     }
 
     return s;
-
 }
 
 int socket_ifr_client(int port, int type, char *ifr_dev)

@@ -19,9 +19,12 @@
             <smack request="sdbd::home" type="rwxat" />
             <smack request="dbus" type="rwx" />
             <smack request="system::use_internet" type="w" />
+            <smack request="system::debugging_network" type="w" />
+            <smack request="device::input" type="rwx" />
         </request>
         <permit>
             <smack permit="system::use_internet" type="w" />
+            <smack permit="system::debugging_network" type="w" />
             <smack permit="aul" type="rx" />
             <smack permit="wrt::wrt-launcher" type="rw" />
         </permit>

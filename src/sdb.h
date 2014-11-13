@@ -323,6 +323,7 @@ void remount_service(int fd, void *cookie);
 char * get_log_file_path(const char * log_name);
 
 int rootshell_mode;// 0: developer, 1: root
+int usb_mode; // 2:mtp 6:rndis
 
 // This is the users and groups config for the platform
 
@@ -509,3 +510,4 @@ int read_line(const int fd, char* ptr, const size_t maxlen);
 #endif
 
 #define USB_NODE_FILE "/dev/samsung_sdb"
+#define DEBUG_MODE_KEY "db/usb/sel_mode"

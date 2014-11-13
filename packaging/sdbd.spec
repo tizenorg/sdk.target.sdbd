@@ -1,7 +1,6 @@
 Name:       sdbd
-Version:    2.2.16
-Release:    0
-VCS:        framework/system/sdbd#submit/tizen_2.2/20130621.075403-19-g58620683604f7e5cc268f404b8d05d7e653b145c
+Version:    2.2.21
+Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
 Group:      System/Utilities
@@ -12,6 +11,10 @@ Source1002:    sdbd_emulator.service
 BuildRequires: capi-system-info-devel
 BuildRequires: vconf-devel
 BuildRequires: smack-devel
+Requires(post): pkgmgr
+Requires(post): pkgmgr-server
+Requires(post): wrt
+Requires(post): aul
 Requires: default-files-tizen
 Requires: sys-assert
 Requires: debug-launchpad
