@@ -11,10 +11,6 @@ Source1002:    sdbd_emulator.service
 BuildRequires: capi-system-info-devel
 BuildRequires: vconf-devel
 BuildRequires: smack-devel
-Requires(post): pkgmgr
-Requires(post): pkgmgr-server
-Requires(post): wrt
-Requires(post): aul
 Requires: default-files-tizen
 Requires: sys-assert
 Requires: debug-launchpad
