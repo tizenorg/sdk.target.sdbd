@@ -39,7 +39,6 @@
 #else
 #include "usb_vendors.h"
 #endif
-#include <system_info.h>
 #include <system_info_internal.h>
 #include <vconf.h>
 #include "utils.h"
