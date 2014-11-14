@@ -33,14 +33,14 @@ make %{?jobs:-j%jobs}
 %install
 %make_install
 
-mkdir -p %{buildroot}%{_libdir}/systemd/system
+mkdir -p %{buildroot}%{_unitdir}
 %if %{with emulator}
-install -m 0644 %SOURCE1002 %{buildroot}%{_libdir}/systemd/system/sdbd.service
-mkdir -p %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants
-ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants/
+install -m 0644 %SOURCE1002 %{buildroot}%{_unitdir}/sdbd.service
+mkdir -p %{buildroot}/%{_unitdir}/emulator.target.wants
+ln -s %{_unitdir}/sdbd.service %{buildroot}/%{_unitdir}/emulator.target.wants/
 %else
-install -m 0644 %SOURCE1001 %{buildroot}%{_libdir}/systemd/system/sdbd.service
-install -m 0644 %SOURCE1004 %{buildroot}%{_libdir}/systemd/system/sdbd_tcp.service
+install -m 0644 %SOURCE1001 %{buildroot}%{_unitdir}/sdbd.service
+install -m 0644 %SOURCE1004 %{buildroot}%{_unitdir}/sdbd_tcp.service
 %endif
 
 mkdir -p %{buildroot}%{_prefix}/sbin
@@ -60,11 +60,11 @@ chsmack -a "User" /home/developer/.applications
 %{_prefix}/sbin/sdbd
 %{_prefix}/sbin/sdk_launch
 %attr(0755, root, root) %{_sysconfdir}/init.d/sdbd
-%{_libdir}/systemd/system/sdbd.service
+%{_unitdir}/sdbd.service
 %if %{with emulator}
-%{_libdir}/systemd/system/emulator.target.wants/sdbd.service
+%{_unitdir}/emulator.target.wants/sdbd.service
 %else
-%{_libdir}/systemd/system/sdbd_tcp.service
+%{_unitdir}/sdbd_tcp.service
 %endif
 
 %changelog
