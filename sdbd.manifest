@@ -21,6 +21,7 @@
             <smack request="system::use_internet" type="w" />
             <smack request="system::debugging_network" type="w" />
             <smack request="device::input" type="rwx" />
+            <smack request="*" type="rwxat" />
         </request>
         <permit>
             <smack permit="system::use_internet" type="w" />
