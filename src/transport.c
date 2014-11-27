@@ -977,17 +977,19 @@ void unregister_all_tcp_transports()
 
 #endif
 
-int get_connected_device_count(transport_type type) /* tizen specific */
+int get_connected_count(transport_type type) /* tizen specific */
 {
     int cnt = 0;
     atransport *t;
     sdb_mutex_lock(&transport_lock);
     for(t = transport_list.next; t != &transport_list; t = t->next) {
-        if (type == kTransportUsb && t->type == kTransportUsb)
+        if (type == kTransportAny || type == t->type)
             cnt++;
      }
     sdb_mutex_unlock(&transport_lock);
-    D("connected device count:%d\n",cnt);
+    if (type == kTransportUsb) {
+        D("connected device count:%d\n",cnt);
+    }
     return cnt;
 }
 
@@ -1023,7 +1025,7 @@ void register_usb_transport(usb_handle *usb, const char *serial, unsigned writea
     }
 
     /* tizen specific */
-    sprintf(device_name, "device-%d",get_connected_device_count(kTransportUsb)+1);
+    sprintf(device_name, "device-%d",get_connected_count(kTransportUsb)+1);
     t->device_name = strdup(device_name);
     register_transport(t);
 }

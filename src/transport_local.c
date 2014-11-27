@@ -257,6 +257,7 @@ static void *server_socket_thread(void * arg)
     serverfd = -1;
     for(;;) {
         if(serverfd == -1) {
+            // socket_inaddr_any_server returns -1 if there is any error
             serverfd = socket_inaddr_any_server(port, SOCK_STREAM);
             if(serverfd < 0) {
                 D("server: cannot bind socket yet\n");
@@ -485,7 +486,8 @@ static int send_msg_to_localhost_from_guest(int local_port, char *request, int s
         sdb_close(s);
         return -1;
     }
-    if (sdb_write(s, request, strlen(request)) < 0) {
+    // writex handles EINTR and returns 0 if success
+    if (writex(s, request, strlen(request)) != 0) {
         D("could not send notification request to host\n");
         sdb_close(s);
         return -1;
@@ -505,7 +507,7 @@ static void notify_sdbd_startup() {
     int base_port = get_emulator_forward_port();
     int r = get_emulator_name(vm_name, sizeof vm_name);
     int time = 0;
-    int try_limit_time = 10;
+    int try_limit_time = 60; // It would take 20 or more trials in slow VMs
     if (base_port < 0 || r < 0) {
         return;
     }
@@ -529,6 +531,60 @@ static void notify_sdbd_startup() {
 
         }
         time ++;
+        sleep(1);
+    }
+}
+
+// send the "emulator" request to sdbserver
+static void notify_sdbd_startup_thread() {
+    char                 buffer[512];
+    char                 request[512];
+
+    char vm_name[256]={0,};
+    int base_port = get_emulator_forward_port();
+    int r = get_emulator_name(vm_name, sizeof vm_name);
+    int time = 0;
+    int try_limit_time = -1; // try_limit_time < 0 if unlimited
+    if (base_port < 0 || r < 0) {
+        return;
+    }
+
+    // XXX: Known issue - log collision
+    while (1) {
+        // Trial limitation reached. terminate notify thread.
+        if (0 <= try_limit_time && try_limit_time <= time) {
+            break;
+        }
+
+        // If there is any connected (via TCP/IP) SDB server, sleep 10 secs
+        if (get_connected_count(kTransportLocal) > 0) {
+            if (time >= 0) {
+                time = 0;
+                D("notify_sdbd_startup() success after %d trial(s)", time);
+            }
+            sleep(10);
+            continue;
+        }
+
+        // tell qemu sdbd is just started with udp
+        if (send_msg_to_localhost_from_guest(base_port + 3, "2\n", 1) < 0) {
+            D("could not send sensord noti request, try again %dth\n", time+1);
+            goto sleep_and_continue;
+        }
+
+        // tell sdb server emulator's vms name
+        snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
+        snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request );
+
+        if (send_msg_to_localhost_from_guest(DEFAULT_SDB_PORT, buffer, 0) <0) {
+            D("could not send sdbd noti request. it might sdb server has not been started yet.\n");
+            goto sleep_and_continue;
+        }
+        
+        //LOGI("sdbd noti request sent.\n");
+
+sleep_and_continue:
+        time++;
         sleep(1);
     }
 }
@@ -576,7 +632,11 @@ void local_init(int port)
         sdb_mutex_lock(&register_noti_lock);
         pthread_cond_wait(&noti_cond, &register_noti_lock);
 
-        notify_sdbd_startup();
+        // thread start
+        if(sdb_thread_create(&thr, notify_sdbd_startup_thread, NULL)) {
+            fatal("cannot create notify_sdbd_startup_thread");
+            notify_sdbd_startup(); // defensive code
+        }
         sdb_mutex_unlock(&register_noti_lock);
     }
 }
