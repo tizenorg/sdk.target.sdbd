@@ -1,5 +1,6 @@
 [Unit]
 Description=sdbd
+DefaultDependencies=false
 
 [Service]
 Type=forking
