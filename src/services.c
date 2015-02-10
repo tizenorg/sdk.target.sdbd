@@ -167,8 +167,27 @@ void rootshell_service(int fd, void *cookie)
             snprintf(buf, sizeof(buf), "Switched to 'developer' account mode\n");
             writex(fd, buf, strlen(buf));
         }
+    } else if (!strcmp(mode, "hoston")) {
+        if (hostshell_mode == 1) {
+    	//snprintf(buf, sizeof(buf), "Already changed to hostshell mode\n");
+    	// do not show message
+    	} else {
+    	    if (access("/bin/su", F_OK) == 0) {
+    	        hostshell_mode = 1;
+    	        snprintf(buf, sizeof(buf), "Switched to host shell mode\n");
+    	    } else {
+    	        snprintf(buf, sizeof(buf), "Permission denied\n");
+    	    }
+    	    writex(fd, buf, strlen(buf));
+    	}
+    } else if (!strcmp(mode, "hostoff")) {
+    	if (hostshell_mode == 1) {
+    	    hostshell_mode = 0;
+    	    snprintf(buf, sizeof(buf), "Switched to foreground zone shell mode\n");
+    	    writex(fd, buf, strlen(buf));
+    	}
     } else {
-        snprintf(buf, sizeof(buf), "Unknown command option\n");
+    	snprintf(buf, sizeof(buf), "Unknown command option : %s\n", mode);
         writex(fd, buf, strlen(buf));
     }
     D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : "developer");
@@ -376,6 +395,7 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
 
 #if !SDB_HOST
 
+#define ATTACH_COMMAND "/usr/bin/vsm-attach"
 static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], const char *envp[])
 {
     char *devname;
@@ -436,19 +456,57 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
             }
         }
 
-        if (should_drop_privileges()) {
-            if (argv[2] != NULL && verify_root_commands(argv[2])) {
+        if (hostshell_mode) {
+            if (should_drop_privileges()) {
+                if (argv[2] != NULL && verify_root_commands(argv[2])) {
                 // do nothing
                 D("sdb: executes root commands!!:%s\n", argv[2]);
-            } else {
-                set_developer_privileges();
+                } else {
+                    set_developer_privileges();
+                }
             }
-        }
+		        execve(cmd, argv, envp);
+		} else {
+			char **pargv, **pargv_attach, sid[16];
+			char *argv_attach[16] = {
+				ATTACH_COMMAND,
+			   "-f",
+			   NULL,
+			};
+			pargv_attach = argv_attach + 2;
 
-        execve(cmd, argv, envp);
-        fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
-                cmd, strerror(errno), errno);
-        exit(-1);
+			if (should_drop_privileges()) {
+				if (argv[2] != NULL && verify_root_commands(argv[2])) {
+					// do nothing
+					D("sdb: executes root commands!!:%s\n", argv[2]);
+				} else {
+					snprintf(sid, 16, "%d", SID_DEVELOPER);
+					*(pargv_attach++) = "--uid";
+					*(pargv_attach++) = sid;
+					*(pargv_attach++) = "--gid";
+					*(pargv_attach++) = sid;
+
+					if (chdir("/home/developer") < 0) {
+						D("sdbd: unable to change working directory to /home/developer\n");
+					} else {
+						if (chdir("/") < 0) {
+							D("sdbd: unable to change working directory to /\n");
+						}
+					}
+					// TODO: use pam later
+					putenv("HOME=/home/developer");
+				}
+			}
+			*(pargv_attach++) = "--";
+			pargv = argv;
+			while(*pargv) {
+				*(pargv_attach++) = *(pargv++);
+			}
+			execve(ATTACH_COMMAND, argv_attach, envp);
+		}
+		fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
+			cmd, strerror(errno), errno);
+		exit(-1);
     } else {
         // Don't set child's OOM adjustment to zero.
         // Let the child do it itself, as sometimes the parent starts
