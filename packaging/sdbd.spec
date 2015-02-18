@@ -11,6 +11,11 @@ Source1002:    sdbd_emulator.service
 BuildRequires: capi-system-info-devel
 BuildRequires: vconf-devel
 BuildRequires: smack-devel
+#BuildRequires: sec-product-features
+Requires(post): pkgmgr
+Requires(post): pkgmgr-server
+Requires(post): wrt
+Requires(post): aul
 Requires: default-files-tizen
 Requires: sys-assert
 Requires: debug-launchpad
@@ -23,7 +28,11 @@ Description: SDB daemon.
 %setup -q
 
 %build
-make %{?jobs:-j%jobs}
+#%if 0%{?sec_product_feature_container_enable}
+make %{?jobs:-j%jobs} sdbd-container-on
+#%else
+#make %{?jobs:-j%jobs}
+#%endif
 
 %install
 mkdir -p %{buildroot}/usr/share/license

@@ -167,7 +167,7 @@ void rootshell_service(int fd, void *cookie)
             snprintf(buf, sizeof(buf), "Switched to 'developer' account mode\n");
             writex(fd, buf, strlen(buf));
         }
-    } else if (!strcmp(mode, "hoston")) {
+    } else if ((!strcmp(mode, "hoston")) && (is_container_enabled())) {
         if (hostshell_mode == 1) {
     	//snprintf(buf, sizeof(buf), "Already changed to hostshell mode\n");
     	// do not show message
@@ -180,7 +180,7 @@ void rootshell_service(int fd, void *cookie)
     	    }
     	    writex(fd, buf, strlen(buf));
     	}
-    } else if (!strcmp(mode, "hostoff")) {
+    } else if ((!strcmp(mode, "hostoff")) && (is_container_enabled())) {
     	if (hostshell_mode == 1) {
     	    hostshell_mode = 0;
     	    snprintf(buf, sizeof(buf), "Switched to foreground zone shell mode\n");
@@ -395,7 +395,6 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
 
 #if !SDB_HOST
 
-#define ATTACH_COMMAND "/usr/bin/vsm-attach"
 static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], const char *envp[])
 {
     char *devname;
@@ -469,7 +468,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 		} else {
 			char **pargv, **pargv_attach, sid[16];
 			char *argv_attach[16] = {
-				ATTACH_COMMAND,
+			   CMD_ATTACH,
 			   "-f",
 			   NULL,
 			};
@@ -502,7 +501,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 			while(*pargv) {
 				*(pargv_attach++) = *(pargv++);
 			}
-			execve(ATTACH_COMMAND, argv_attach, envp);
+			execve(CMD_ATTACH, argv_attach, envp);
 		}
 		fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
 			cmd, strerror(errno), errno);

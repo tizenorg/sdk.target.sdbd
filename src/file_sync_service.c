@@ -261,7 +261,6 @@ static int fail_errno(int s)
 }
 
 // FIXME: should get the following paths with api later but, do it for simple and not having dependency on other packages
-#define CMD_ATTACH         "/usr/bin/vsm-attach"
 #define VAR_ABS_PATH        "/opt/var"
 #define VSM_ZONE_PATH       "/var/lib/lxc/"
 #define VSM_ZONE_ROOTFS     "rootfs/"

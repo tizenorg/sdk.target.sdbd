@@ -497,6 +497,7 @@ int handle_host_request(char *service, transport_type ttype, char* serial, int r
 int copy_packet(apacket* dest, apacket* src);
 
 int is_emulator(void);
+int is_container_enabled(void);
 #define DEFAULT_DEVICENAME "unknown"
 
 #if SDB_HOST /* tizen-specific */
@@ -512,3 +513,4 @@ int read_line(const int fd, char* ptr, const size_t maxlen);
 
 #define USB_NODE_FILE "/dev/samsung_sdb"
 #define DEBUG_MODE_KEY "db/usb/sel_mode"
+#define CMD_ATTACH  "/usr/bin/vsm-attach"

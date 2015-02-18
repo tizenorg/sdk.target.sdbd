@@ -60,6 +60,14 @@ int is_emulator(void) {
     }
 }
 
+int is_container_enabled(void) {
+    if (access(CMD_ATTACH, F_OK) == 0) {
+        return 1;
+    } else {
+        return 0;
+	}
+}
+
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
     if (access(SDB_PIDPATH, F_OK) == 0)
@@ -1254,9 +1262,14 @@ static void init_sdk_requirements() {
 
 int sdb_main(int is_daemon, int server_port)
 {
+    if(is_container_enabled() == 1) {
+        hostshell_mode = 0;
+    } else {
+        hostshell_mode = 1;
+    }
+
 #if !SDB_HOST
     init_drop_privileges();
-    hostshell_mode = 0;
     init_sdk_requirements();
     umask(000);
 #endif
