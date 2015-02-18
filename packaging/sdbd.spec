@@ -48,10 +48,16 @@ install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 
 
 %post 
-mkdir -p /home/developer/.applications
-chown -R developer:users /home/developer/
-chsmack -a "User" /home/developer/
-chsmack -a "User" /home/developer/.applications
+. %{_sysconfdir}/tizen-platform.conf
+if ! getent passwd "${TZ_SDK_USER_NAME}" > /dev/null; then
+  rm -rf "${TZ_SDK_HOME}"
+  useradd -u 5100 -s /bin/false -m -d "${TZ_SDK_HOME}" "${TZ_SDK_USER_NAME}"
+  usermod -a -G app_logging "${TZ_SDK_USER_NAME}"
+  usermod -a -G crash "${TZ_SDK_USER_NAME}"
+  usermod -a -G display "${TZ_SDK_USER_NAME}"
+  getent group developer > /dev/null || groupadd -g 5100 developer
+  usermod -a -G developer "${TZ_SDK_USER_NAME}"
+fi
 
 %files
 %manifest sdbd.manifest
