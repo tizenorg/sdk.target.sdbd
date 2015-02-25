@@ -54,7 +54,7 @@ if ! getent passwd "${TZ_SDK_USER_NAME}" > /dev/null; then
   useradd -u 5100 -s /bin/false -m -d "${TZ_SDK_HOME}" "${TZ_SDK_USER_NAME}"
   getent group developer > /dev/null || groupadd -g 5100 developer
   for x in app_logging crash developer; do
-    usermod -a -G app_logging "${TZ_SDK_USER_NAME}"
+    usermod -A app_logging "${TZ_SDK_USER_NAME}"
   done
 fi
 
