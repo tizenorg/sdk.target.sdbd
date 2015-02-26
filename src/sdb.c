@@ -44,6 +44,7 @@
 #endif
 #include <system_info.h>
 #define PROC_CMDLINE_PATH "/proc/cmdline"
+#define SYSTEM_INFO_KEY_MODEL           "http://tizen.org/system/model_name"
 #if SDB_TRACE
 SDB_MUTEX_DEFINE( D_lock );
 #endif
@@ -406,7 +407,7 @@ int get_emulator_name(char str[], int str_size) {
 
 int get_device_name(char str[], int str_size) {
     char *value = NULL;
-    int r = system_info_get_value_string(SYSTEM_INFO_KEY_MODEL, &value);
+    int r = system_info_get_platform_string(SYSTEM_INFO_KEY_MODEL, &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         D("fail to get system model:%d\n", errno);
         return -1;

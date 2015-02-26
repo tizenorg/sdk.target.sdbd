@@ -41,6 +41,10 @@
 #include "strutils.h"
 #include <system_info.h>
 #include <tzplatform_config.h>
+
+#define SYSTEM_INFO_KEY_MODEL           "http://tizen.org/system/model_name"
+#define SYSTEM_INFO_KEY_PLATFORM_NAME   "http://tizen.org/system/platform.name"
+
 typedef struct stinfo stinfo;
 
 struct stinfo {
@@ -598,7 +602,7 @@ static void get_platforminfo(int fd, void *cookie) {
     char *value = NULL;
     s_strncpy(sysinfo.platform_info_version, INFO_VERSION, strlen(INFO_VERSION));
 
-    int r = system_info_get_value_string(SYSTEM_INFO_KEY_MODEL, &value);
+    int r = system_info_get_platform_string(SYSTEM_INFO_KEY_MODEL, &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         s_strncpy(sysinfo.model_name, UNKNOWN, strlen(UNKNOWN));
         D("fail to get system model:%d\n", errno);
@@ -610,7 +614,7 @@ static void get_platforminfo(int fd, void *cookie) {
         }
     }
 
-    r = system_info_get_value_string(SYSTEM_INFO_KEY_PLATFORM_NAME, &value);
+    r = system_info_get_platform_string(SYSTEM_INFO_KEY_PLATFORM_NAME, &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         s_strncpy(sysinfo.platform_name, UNKNOWN, strlen(UNKNOWN));
         D("fail to get platform name:%d\n", errno);
