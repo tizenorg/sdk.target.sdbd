@@ -1,4 +1,5 @@
-/*
+/* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*-
+ *
  * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
@@ -55,6 +56,13 @@ int HOST = 0;
 #if !SDB_HOST
 SdbdCommandlineArgs sdbd_commandline_args;
 #endif
+
+void (*usb_init)() = NULL;
+void (*usb_cleanup)() = NULL;
+int (*usb_write)(usb_handle *h, const void *data, int len) = NULL;
+int (*usb_read)(usb_handle *h, void *data, int len) = NULL;
+int (*usb_close)(usb_handle *h) = NULL;
+void (*usb_kick)(usb_handle *h) = NULL;
 
 int is_emulator(void) {
 #if SDB_HOST
@@ -1234,6 +1242,24 @@ int sdb_main(int is_daemon, int server_port)
     }
 
     if (!is_emulator()) {
+        /* choose the usb gadget backend */
+        if (access(USB_NODE_FILE, F_OK) == 0) {
+            /* legacy kernel-based sdb gadget */
+            usb_init =    &linux_usb_init;
+            usb_cleanup = &linux_usb_cleanup;
+            usb_write =   &linux_usb_write;
+            usb_read =    &linux_usb_read;
+            usb_close =   &linux_usb_close;
+            usb_kick =    &linux_usb_kick;
+        } else {
+            /* functionfs based gadget */
+            usb_init =    &ffs_usb_init;
+            usb_cleanup = &ffs_usb_cleanup;
+            usb_write =   &ffs_usb_write;
+            usb_read =    &ffs_usb_read;
+            usb_close =   &ffs_usb_close;
+            usb_kick =    &ffs_usb_kick;
+        }
         // listen on USB
         usb_init();
     }

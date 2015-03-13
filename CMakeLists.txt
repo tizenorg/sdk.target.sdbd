@@ -42,15 +42,11 @@ set(sdbd_SRCS
 	src/init.c
 	src/fileutils.c
 	src/commandline_sdbd.c
+	src/usb_linux_client.c
+	src/usb_funcfs_client.c
 )
 
 include_directories(src)
-
-if(USE_FUNCTION_FS)
-	list(APPEND sdbd_SRCS src/usb_funcfs_client.c)
-else()
-	list(APPEND sdbd_SRCS src/usb_linux_client.c)
-endif()
 
 add_executable(sdbd ${sdbd_SRCS})
 
