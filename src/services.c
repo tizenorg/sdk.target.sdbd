@@ -545,6 +545,11 @@ static int create_subproc_thread(const char *name)
     int ret_fd;
     pid_t pid;
     char *value = NULL;
+    char *trim_value = NULL;
+    char path[PATH_MAX];
+    memset(path, 0, sizeof(path));
+    snprintf(path, sizeof(path), "%s", "PATH=");
+
 
     char *envp[] = {
         "TERM=linux", /* without this, some programs based on screen can't work, e.g. top */
@@ -553,16 +558,26 @@ static int create_subproc_thread(const char *name)
         NULL,
         NULL
     };
+
     if (should_drop_privileges()) {
-        envp[2] = "HOME=/home/developer";
-        get_env("ENV_PATH", &value);
-    } else {
-        get_env("ENV_SUPATH", &value);
-        envp[2] = "HOME=/root";
-    }
-    if (value != NULL) {
-        envp[3] = value;
-    }
+         envp[2] = "HOME=/home/developer";
+         get_env("ENV_PATH", &value);
+     } else {
+         get_env("ENV_SUPATH", &value);
+         if(value == NULL) {
+             get_env("ENV_ROOTPATH", &value);
+         }
+         envp[2] = "HOME=/root";
+     }
+     if (value != NULL) {
+         trim_value = str_trim(value);
+         // if string is not including 'PATH=', append it.
+         if(strncmp(trim_value, "PATH", 4)) {
+             strncat(path , trim_value, sizeof(path) - 6);
+             trim_value = path;
+         }
+         envp[3] = strdup(trim_value);
+     }
 
     D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
 
