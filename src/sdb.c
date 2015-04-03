@@ -1256,6 +1256,7 @@ int sdb_main(int is_daemon, int server_port)
 {
 #if !SDB_HOST
     init_drop_privileges();
+    hostshell_mode = 0;
     init_sdk_requirements();
     umask(000);
 #endif

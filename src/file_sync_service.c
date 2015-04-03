@@ -261,31 +261,66 @@ static int fail_errno(int s)
 }
 
 // FIXME: should get the following paths with api later but, do it for simple and not having dependency on other packages
+#define CMD_ATTACH         "/usr/bin/vsm-attach"
+#define VAR_ABS_PATH        "/opt/var"
+#define VSM_ZONE_PATH       "/var/lib/lxc/"
+#define VSM_ZONE_ROOTFS     "rootfs/"
 #define CMD_MEDIADB_UPDATE "/usr/bin/mediadb-update"
 #define MEDIA_CONTENTS_PATH1 "/opt/media"
 #define MEDIA_CONTENTS_PATH2 "/opt/usr/media"
 #define MEDIA_CONTENTS_PATH3 "/opt/storage/sdcard"
 
 static void sync_mediadb(char *path) {
+	int is_inzone = 0;
+
     if (access(CMD_MEDIADB_UPDATE, F_OK) != 0) {
         D("%s: command not found\n", CMD_MEDIADB_UPDATE);
         return;
     }
 
+    if (strstr(path, VAR_ABS_PATH) == path) {
+        path += 4;
+    }
+    if (strstr(path, VSM_ZONE_PATH) == path) {
+        path += sizeof(VSM_ZONE_PATH) - 1;
+        while (*(path++) != '/');
+        while (*(path++) == '/');
+        path--;
+
+		if (strstr(path, VSM_ZONE_ROOTFS) == path) {
+			path += sizeof(VSM_ZONE_ROOTFS) - 1;
+			while (*(path++) == '/');
+			path -= 2;
+			is_inzone = 1;
+        }
+     }
+
     if (strstr(path, MEDIA_CONTENTS_PATH1) != NULL) {
-        char *arg_list[] = {CMD_MEDIADB_UPDATE, "r", MEDIA_CONTENTS_PATH1, NULL};
-
-        spawn(CMD_MEDIADB_UPDATE, arg_list);
-        D("media db update done to %s\n", MEDIA_CONTENTS_PATH1);
+    	if (is_inzone) {
+    	    char *arg_list[] = {CMD_ATTACH, "-f", "--", CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH1, NULL};
+    	    spawn(CMD_ATTACH, arg_list);
+    	} else {
+    	    char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH1, NULL};
+            spawn(CMD_MEDIADB_UPDATE, arg_list);
+            D("media db update done to %s\n", MEDIA_CONTENTS_PATH1);
+    	}
     } else if (strstr(path, MEDIA_CONTENTS_PATH2) != NULL) {
-        char *arg_list[] = {CMD_MEDIADB_UPDATE, "r", MEDIA_CONTENTS_PATH2, NULL};
-
-        spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	if (is_inzone) {
+    	    char *arg_list[] = {CMD_ATTACH, "-f", "--", CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH2, NULL};
+    	    spawn(CMD_ATTACH, arg_list);
+    	} else {
+    	    char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH2, NULL};
+    	    spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	}
         D("media db update done to %s\n", MEDIA_CONTENTS_PATH2);
     } else if (strstr(path, MEDIA_CONTENTS_PATH3) != NULL) {
-        char *arg_list[] = {CMD_MEDIADB_UPDATE, "r", MEDIA_CONTENTS_PATH3, NULL};
-
-        spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	if (is_inzone) {
+    	    char *arg_list[] = {CMD_ATTACH, "-f", "--", CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH3, NULL};
+    	    spawn(CMD_ATTACH, arg_list);
+    	} else {
+    	    char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH3, NULL};
+    	    spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	}
         D("media db update done to %s\n", MEDIA_CONTENTS_PATH3);
     }
     return;
@@ -550,6 +585,8 @@ void file_sync_service(int fd, void *cookie)
     struct timeval timeout;
     int rv;
     int s[2];
+    char zone_path[1025];
+    char name_vsm[1025];
 
     if(sdb_socketpair(s)) {
         D("cannot create service socket pair\n");
@@ -573,6 +610,24 @@ void file_sync_service(int fd, void *cookie)
         sync_read_label_notify(s[1]);
     } else if (pid > 0) {
         sdb_close(s[1]);
+
+        if (!hostshell_mode) {
+            FILE *fp;
+            fp = popen("/usr/bin/vsm-foreground", "r");
+            fgets(name_vsm, 1025, fp);
+            pclose(fp);
+
+            snprintf(zone_path, 1025, "/usr/bin/vsm-info -r -n %s", name_vsm);
+            fp = popen(zone_path, "r");
+            fgets(zone_path, 1025, fp);
+            pclose(fp);
+
+            //trim zone path
+            namelen = strlen(zone_path);
+            while(zone_path[--namelen]=='\n');
+            zone_path[namelen + 1] = '\0';
+       }
+
         for(;;) {
             D("sync: waiting for command for %d sec\n", SYNC_TIMEOUT);
 
@@ -600,6 +655,10 @@ void file_sync_service(int fd, void *cookie)
             }
             name[namelen] = 0;
 
+            if (!hostshell_mode) {
+                snprintf(name_vsm, 1025, "%s/%s", zone_path, name);
+                strncpy(name, name_vsm, 1024);
+            }
             msg.req.namelen = 0;
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
 
