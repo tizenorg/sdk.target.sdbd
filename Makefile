@@ -65,7 +65,9 @@ all : $(MODULE)
 sdbd : $(SDBD_SRC_FILES)
 	mkdir -p $(OBJDIR)
 	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDBD_CFLAGS) $(IFLAGS) $(SDBD_SRC_FILES) $(SDBD_LFLAGS)
-
+sdbd-container-on : $(SDBD_SRC_FILES)
+	mkdir -p $(OBJDIR)
+	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDBD_CFLAGS) $(IFLAGS) $(SDBD_SRC_FILES) $(SDBD_LFLAGS) -D_SEC_FEATURE_CONTAINER_ENABLE
 install :
 	mkdir -p $(DESTDIR)/$(INSTALLDIR)
 	install $(OBJDIR)/$(MODULE) $(DESTDIR)/$(INSTALLDIR)/$(MODULE)
