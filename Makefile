@@ -32,7 +32,7 @@ SDBD_SRC_FILES := \
 	src/fileutils.c
 
 SDBD_CFLAGS := -O2 -g -DSDB_HOST=0 -Wall -Wno-unused-parameter
-SDBD_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE
+SDBD_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE -D_SEC_FEATURE_CONTAINER_ENABLE
 SDBD_CFLAGS += -DHAVE_FORKEXEC -fPIE -D_DROP_PRIVILEGE -D_FILE_OFFSET_BITS=64
 SDBD_LFLAGS := -lcapi-system-info -lvconf -lsmack
 IFLAGS := -Iinclude -Isrc -I/usr/include/system -I/usr/include/vconf
@@ -64,10 +64,10 @@ all : $(MODULE)
 
 sdbd : $(SDBD_SRC_FILES)
 	mkdir -p $(OBJDIR)
-	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDBD_CFLAGS) $(IFLAGS) $(SDBD_SRC_FILES) $(SDBD_LFLAGS)
-sdbd-container-on : $(SDBD_SRC_FILES)
+	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDBD_CFLAGS) $(IFLAGS) $(SDBD_SRC_FILES) $(SDBD_LFLAGS) 
+wearable : $(SDBD_SRC_FILES)
 	mkdir -p $(OBJDIR)
-	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDBD_CFLAGS) $(IFLAGS) $(SDBD_SRC_FILES) $(SDBD_LFLAGS) -D_SEC_FEATURE_CONTAINER_ENABLE
+	$(CC) -pthread -o $(OBJDIR)/$(MODULE) $(SDBD_CFLAGS) $(IFLAGS) $(SDBD_SRC_FILES) $(SDBD_LFLAGS) -D_WEARABLE
 install :
 	mkdir -p $(DESTDIR)/$(INSTALLDIR)
 	install $(OBJDIR)/$(MODULE) $(DESTDIR)/$(INSTALLDIR)/$(MODULE)

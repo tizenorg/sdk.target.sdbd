@@ -28,11 +28,11 @@ Description: SDB daemon.
 %setup -q
 
 %build
-#%if 0%{?sec_product_feature_container_enable}
-make %{?jobs:-j%jobs} sdbd-container-on
-#%else
-#make %{?jobs:-j%jobs}
-#%endif
+%if "%{?tizen_profile_name}" == "wearable"
+make %{?jobs:-j%jobs} wearable
+%else
+make %{?jobs:-j%jobs}
+%endif
 
 %install
 mkdir -p %{buildroot}/usr/share/license

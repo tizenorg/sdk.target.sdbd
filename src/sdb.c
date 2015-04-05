@@ -1156,15 +1156,29 @@ int is_pwlocked(void) {
         pwlock_status = 0;
         D("failed to get pw lock status\n");
     }
+#ifdef _WEARABLE
+    D("wearable lock applied\n");
+    // for wearable which uses different VCONF key (lock type)
+	if (vconf_get_int(VCONFKEY_SETAPPL_PRIVACY_LOCK_TYPE_INT, &pwlock_type)) {
+		pwlock_type = 0;
+		D("failed to get pw lock type\n");
+	}
+	  if ((pwlock_status == VCONFKEY_IDLE_LOCK) && (pwlock_type != SETTING_PRIVACY_LOCK_TYPE_NONE)) {
+		   D("device has been locked\n");
+		   return 1; // locked!
+	  }
+#else
+	D("mobile lock applied\n");
+    // for mobile
     if (vconf_get_int(VCONFKEY_SETAPPL_SCREEN_LOCK_TYPE_INT, &pwlock_type)) {
         pwlock_type = 0;
         D("failed to get pw lock type\n");
     }
-    if (pwlock_status == VCONFKEY_IDLE_LOCK && (pwlock_type == SETTING_SCREEN_LOCK_TYPE_SIMPLE_PASSWORD || pwlock_type == SETTING_SCREEN_LOCK_TYPE_PASSWORD)) {
+    if (pwlock_status == VCONFKEY_IDLE_LOCK && ((pwlock_type != SETTING_SCREEN_LOCK_TYPE_NONE) && (pwlock_type != SETTING_SCREEN_LOCK_TYPE_SWIPE))) {
         D("device has been locked\n");
         return 1; // locked!
     }
-
+#endif
     return 0; // unlocked!
 }
 
