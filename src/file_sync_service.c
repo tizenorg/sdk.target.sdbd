@@ -584,8 +584,9 @@ void file_sync_service(int fd, void *cookie)
     struct timeval timeout;
     int rv;
     int s[2];
-    char zone_path[1025];
-    char name_vsm[1025];
+    char zone_path[1025] = {0, };
+    char name_vsm[1025] = {0, };
+    int has_container = 0;
 
     if(sdb_socketpair(s)) {
         D("cannot create service socket pair\n");
@@ -614,17 +615,23 @@ void file_sync_service(int fd, void *cookie)
             FILE *fp;
             fp = popen("/usr/bin/vsm-foreground", "r");
             fgets(name_vsm, 1025, fp);
-            pclose(fp);
 
-            snprintf(zone_path, 1025, "/usr/bin/vsm-info -r -n %s", name_vsm);
-            fp = popen(zone_path, "r");
-            fgets(zone_path, 1025, fp);
-            pclose(fp);
+            // check if vsm name exists
+            if(!strncmp(name_vsm, "\n", 1) || !strncmp(name_vsm, zone_path, 1025)) {
+                has_container = 0;
+            } else {
+                has_container = 1;
+                snprintf(zone_path, 1025, "/usr/bin/vsm-info -r -n %s", name_vsm);
+                fp = popen(zone_path, "r");
+                fgets(zone_path, 1025, fp);
+                pclose(fp);
 
-            //trim zone path
-            namelen = strlen(zone_path);
-            while(zone_path[--namelen]=='\n');
-            zone_path[namelen + 1] = '\0';
+				//trim zone path
+                namelen = strlen(zone_path);
+                while(zone_path[--namelen]=='\n');
+                zone_path[namelen + 1] = '\0';
+            }
+            pclose(fp);
        }
 
         for(;;) {
@@ -654,10 +661,11 @@ void file_sync_service(int fd, void *cookie)
             }
             name[namelen] = 0;
 
-            if (!hostshell_mode) {
+            if (!hostshell_mode && has_container) {
                 snprintf(name_vsm, 1025, "%s/%s", zone_path, name);
                 strncpy(name, name_vsm, 1024);
             }
+
             msg.req.namelen = 0;
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
 
