@@ -61,11 +61,31 @@ int is_emulator(void) {
 }
 
 int is_container_enabled(void) {
-    if (access(CMD_ATTACH, F_OK) == 0) {
+    if ((access(CMD_ATTACH, F_OK) == 0) || (access(CMD_FOREGROUND, F_OK) == 0)) {
         return 1;
     } else {
         return 0;
 	}
+}
+
+int has_container(void) {
+    FILE *fp;
+    char name_vsm[1025] = {0, };
+    char empty_vsm[1025] = {0, };
+    fp = popen(CMD_FOREGROUND, "r");
+    if(fp == NULL) {
+        D("Failed to create pipe of %s \n", CMD_FOREGROUND);
+        return 0;
+    }
+    fgets(name_vsm, 1025, fp);
+    pclose(fp);
+
+    D("name_vsm :%s\n", name_vsm);
+    // check if foreground container exists
+    if((name_vsm[0] == '\n')  || !strncmp(name_vsm, empty_vsm, 1025))
+        return 0;
+    else
+        return 1;
 }
 
 void handle_sig_term(int sig) {
@@ -1276,7 +1296,7 @@ static void init_sdk_requirements() {
 
 int sdb_main(int is_daemon, int server_port)
 {
-    if(is_container_enabled() == 1) {
+    if(is_container_enabled() && has_container()) {
         hostshell_mode = 0;
     } else {
         hostshell_mode = 1;

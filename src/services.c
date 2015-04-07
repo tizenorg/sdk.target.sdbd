@@ -181,11 +181,16 @@ void rootshell_service(int fd, void *cookie)
     	    writex(fd, buf, strlen(buf));
     	}
     } else if ((!strcmp(mode, "hostoff")) && (is_container_enabled())) {
-    	if (hostshell_mode == 1) {
-    	    hostshell_mode = 0;
-    	    snprintf(buf, sizeof(buf), "Switched to foreground zone shell mode\n");
-    	    writex(fd, buf, strlen(buf));
-    	}
+        if (hostshell_mode == 1) {
+            if(has_container()) {
+                hostshell_mode = 0;
+                snprintf(buf, sizeof(buf), "Switched to foreground zone shell mode\n");
+                writex(fd, buf, strlen(buf));
+            } else {
+                snprintf(buf, sizeof(buf), "No foreground zone exists\n");
+                writex(fd, buf, strlen(buf));
+            }
+        }
     } else {
     	snprintf(buf, sizeof(buf), "Unknown command option : %s\n", mode);
         writex(fd, buf, strlen(buf));

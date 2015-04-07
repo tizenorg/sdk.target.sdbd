@@ -586,7 +586,6 @@ void file_sync_service(int fd, void *cookie)
     int s[2];
     char zone_path[1025] = {0, };
     char name_vsm[1025] = {0, };
-    int has_container = 0;
 
     if(sdb_socketpair(s)) {
         D("cannot create service socket pair\n");
@@ -617,21 +616,15 @@ void file_sync_service(int fd, void *cookie)
             fgets(name_vsm, 1025, fp);
             pclose(fp);
 
-            // check if vsm name exists
-            if(!strncmp(name_vsm, "\n", 1) || !strncmp(name_vsm, zone_path, 1025)) {
-                has_container = 0;
-            } else {
-                has_container = 1;
-                snprintf(zone_path, 1025, "/usr/bin/vsm-info -r -n %s", name_vsm);
-                fp = popen(zone_path, "r");
-                fgets(zone_path, 1025, fp);
-                pclose(fp);
+			snprintf(zone_path, 1025, "/usr/bin/vsm-info -r -n %s", name_vsm);
+			fp = popen(zone_path, "r");
+			fgets(zone_path, 1025, fp);
+			pclose(fp);
 
-				//trim zone path
-                namelen = strlen(zone_path);
-                while(zone_path[--namelen]=='\n');
-                zone_path[namelen + 1] = '\0';
-            }
+			//trim zone path
+			namelen = strlen(zone_path);
+			while(zone_path[--namelen]=='\n');
+			zone_path[namelen + 1] = '\0';
        }
 
         for(;;) {
@@ -661,7 +654,7 @@ void file_sync_service(int fd, void *cookie)
             }
             name[namelen] = 0;
 
-            if (!hostshell_mode && has_container) {
+            if (!hostshell_mode) {
                 snprintf(name_vsm, 1025, "%s/%s", zone_path, name);
                 strncpy(name, name_vsm, 1024);
             }
