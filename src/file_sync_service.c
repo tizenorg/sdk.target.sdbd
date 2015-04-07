@@ -615,6 +615,7 @@ void file_sync_service(int fd, void *cookie)
             FILE *fp;
             fp = popen("/usr/bin/vsm-foreground", "r");
             fgets(name_vsm, 1025, fp);
+            pclose(fp);
 
             // check if vsm name exists
             if(!strncmp(name_vsm, "\n", 1) || !strncmp(name_vsm, zone_path, 1025)) {
@@ -631,7 +632,6 @@ void file_sync_service(int fd, void *cookie)
                 while(zone_path[--namelen]=='\n');
                 zone_path[namelen + 1] = '\0';
             }
-            pclose(fp);
        }
 
         for(;;) {
