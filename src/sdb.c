@@ -48,7 +48,9 @@
 #endif
 #include <system_info.h>
 #include <vconf.h>
+#include <glib.h>
 #include "utils.h"
+
 #define PROC_CMDLINE_PATH "/proc/cmdline"
 #define USB_SERIAL_PATH "/sys/class/usb_mode/usb0/iSerial"
 
@@ -1249,31 +1251,47 @@ int should_drop_privileges() {
     return 1;
 }
 
-static void *pwlock_tmp_cb(void *x)
-{
-    int status = is_pwlocked();
-    /**
-     * FIXME: make it callback using vconf_notify_key_changed
-     */
+static void pwlock_cb(keynode_t *key, void* data) {
+	D("pwlock callback is issued\n");
+    send_device_status();
+}
 
-    while(1) {
-        if (status != is_pwlocked()) {
-            send_device_status();
-            status = is_pwlocked();
-        }
-        sdb_sleep_ms(3000);
+static void *pwlock_thread(void *x) {
+	GMainLoop *loop;
+	loop = g_main_loop_new(NULL, FALSE);
+	register_pwlock_cb();
+	g_main_loop_run(loop);
+	g_main_loop_unref(loop);
+	unregister_pwlock_cb();
+	return 0;
+}
+
+
+void create_pwlock_thread() {
+    sdb_thread_t t;
+    if(sdb_thread_create( &t, pwlock_thread, NULL)) {
+        D("cannot create_pwlock_thread.\n");
+        return;
     }
-    return 0;
+    D("created pwlock_thread\n");
 }
 
 void register_pwlock_cb() {
-    D("registerd vconf callback\n");
-
-    sdb_thread_t t;
-    if(sdb_thread_create( &t, pwlock_tmp_cb, NULL)){
-        D("cannot create service thread\n");
+    int ret = vconf_notify_key_changed(VCONFKEY_IDLE_LOCK_STATE, pwlock_cb, NULL);
+    if(ret != 0) {
+        D("cannot register vconf callback.\n");
         return;
     }
+    D("registered vconf callback\n");
+}
+
+void unregister_pwlock_cb() {
+    int ret = vconf_ignore_key_changed(VCONFKEY_IDLE_LOCK_STATE, pwlock_cb);
+    if(ret != 0) {
+        D("cannot unregister vconf callback.\n");
+        return;
+    }
+    D("unregistered vconf callback\n");
 }
 
 #include <dbus/dbus.h>
@@ -1650,11 +1668,11 @@ static void init_sdk_requirements() {
 
     execute_required_process();
 
-    register_pwlock_cb();
-
     if (is_emulator()) {
         register_bootdone_cb();
     }
+
+    create_pwlock_thread();
 }
 #endif /* !SDB_HOST */
 
