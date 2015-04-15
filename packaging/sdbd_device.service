@@ -1,10 +1,11 @@
 [Unit]
 Description=sdbd
 After=default.target
+Requires=tizen-system-env.service
 
 [Service]
 Type=forking
-Environment=DISPLAY=:0
+EnvironmentFile-=/run/tizen-system-env
 PIDFile=/tmp/.sdbd.pid
 RemainAfterExit=yes
 ExecStart=/usr/sbin/sdbd
