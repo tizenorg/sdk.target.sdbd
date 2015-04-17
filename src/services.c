@@ -400,6 +400,17 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
 
 #if !SDB_HOST
 
+static int redirect_and_exec(int pts, const char *cmd, const char *argv[], const char *envp[])
+{
+    dup2(pts, 0);
+    dup2(pts, 1);
+    dup2(pts, 2);
+
+    sdb_close(pts);
+
+    execve(cmd, argv, envp);
+}
+
 static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], const char *envp[])
 {
     char *devname;
@@ -439,11 +450,6 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
             exit(-1);
         }
 
-        dup2(pts, 0);
-        dup2(pts, 1);
-        dup2(pts, 2);
-
-        sdb_close(pts);
         sdb_close(ptm);
 
         // set OOM adjustment to zero
@@ -469,7 +475,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
                     set_developer_privileges();
                 }
             }
-		        execve(cmd, argv, envp);
+		        redirect_and_exec(pts, cmd, argv, envp);
 		} else {
 			char **pargv, **pargv_attach, sid[16];
 			char *argv_attach[16] = {
@@ -506,7 +512,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 			while(*pargv) {
 				*(pargv_attach++) = *(pargv++);
 			}
-			execve(CMD_ATTACH, argv_attach, envp);
+			redirect_and_exec(pts, CMD_ATTACH, argv_attach, envp);
 		}
 		fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
 			cmd, strerror(errno), errno);
@@ -538,7 +544,7 @@ static void subproc_waiter_service(int fd, void *cookie)
         pid_t p = waitpid(pid, &status, 0);
         if (p == pid) {
             D("fd=%d, post waitpid(pid=%d) status=%04x\n", fd, p, status);
-            
+
             if (WIFEXITED(status)) {
                 D("*** Exit code %d\n", WEXITSTATUS(status));
                 break;
@@ -774,7 +780,7 @@ static int create_syncproc_thread()
 #define INFOBUF_MAXLEN 64
 #define INFO_VERSION "2.2.0"
 typedef struct platform_info {
-    
+
     char platform_info_version[INFOBUF_MAXLEN];
     char model_name[INFOBUF_MAXLEN]; // Emulator
     char platform_name[INFOBUF_MAXLEN]; // Tizen
