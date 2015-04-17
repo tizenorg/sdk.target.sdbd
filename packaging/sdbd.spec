@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.22
+Version:    2.2.23
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon

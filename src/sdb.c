@@ -72,16 +72,16 @@ int has_container(void) {
     FILE *fp;
     char name_vsm[1025] = {0, };
     char empty_vsm[1025] = {0, };
-    fp = popen(CMD_FOREGROUND, "r");
+    fp = popen(CMD_LIST, "r");
     if(fp == NULL) {
-        D("Failed to create pipe of %s \n", CMD_FOREGROUND);
+        D("Failed to create pipe of %s \n", CMD_LIST);
         return 0;
     }
     fgets(name_vsm, 1025, fp);
     pclose(fp);
 
-    D("name_vsm :%s\n", name_vsm);
-    // check if foreground container exists
+    D("zone list :%s\n", name_vsm);
+    // check zone list
     if((name_vsm[0] == '\n')  || !strncmp(name_vsm, empty_vsm, 1025))
         return 0;
     else
@@ -1296,12 +1296,6 @@ static void init_sdk_requirements() {
 
 int sdb_main(int is_daemon, int server_port)
 {
-    if(is_container_enabled() && has_container()) {
-        hostshell_mode = 0;
-    } else {
-        hostshell_mode = 1;
-    }
-
 #if !SDB_HOST
     init_drop_privileges();
     init_sdk_requirements();
@@ -1374,6 +1368,23 @@ int sdb_main(int is_daemon, int server_port)
             exit(1);
         }
     }
+
+	int i;
+	if(is_container_enabled()) {
+		for(i = 0; i < 5; i++) {
+			if(has_container()){
+				D("so set host mode off\n");
+				hostshell_mode = 0;
+				break;
+			}
+			D("not found any zone, so set host mode on\n");
+			hostshell_mode = 1;
+			sdb_sleep_ms(100);
+		}
+	} else {
+		D("not found vsm package, so set host mode on\n");
+		hostshell_mode = 1;
+	}
 
     if (!is_emulator()) {
         // listen on USB

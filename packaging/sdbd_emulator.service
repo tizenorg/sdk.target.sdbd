@@ -1,6 +1,6 @@
 [Unit]
 Description=sdbd
-DefaultDependencies=false
+After=vsm-zone-svc.service vsm-resource-provider.service
 
 [Service]
 Type=forking

@@ -516,3 +516,4 @@ int read_line(const int fd, char* ptr, const size_t maxlen);
 #define DEBUG_MODE_KEY "db/usb/sel_mode"
 #define CMD_ATTACH  "/usr/bin/vsm-attach"
 #define CMD_FOREGROUND "/usr/bin/vsm-foreground"
+#define CMD_LIST "/usr/bin/vsm-list"
