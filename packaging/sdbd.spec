@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.23
+Version:    2.2.24
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -71,4 +71,5 @@ chsmack -t /home/developer
 /usr/bin/profile_command
 
 %changelog
-
+* Mon Apr 18 2015 - Shingil Kang <shingil.kang@samsung.com>
+- Change "sdb forward" command to be zone-aware
