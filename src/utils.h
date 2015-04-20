@@ -74,4 +74,6 @@ char *str_trim(const char* string);
  */
 int spawn(char* program, char** arg_list);
 
+char** str_split(char* a_str, const char a_delim);
+
 #endif /* _SDB_UTILS_H */

@@ -88,6 +88,28 @@ int has_container(void) {
         return 1;
 }
 
+char** get_zone_list() {
+    FILE *fp;
+    char name_vsm[1025] = {0, };
+    char empty_vsm[1025] = {0, };
+    fp = popen(CMD_LIST, "r");
+    if(fp == NULL) {
+        D("Failed to create pipe of %s \n", CMD_LIST);
+        return 0;
+    }
+    fgets(name_vsm, 1025, fp);
+    pclose(fp);
+
+    D("zone list :%s\n", name_vsm);
+
+    if((name_vsm[0] == '\n')  || !strncmp(name_vsm, empty_vsm, 1025))
+        return NULL;
+    else {
+        char** tokens = str_split(name_vsm, '\n');
+        return tokens;
+    }
+}
+
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
     if (access(SDB_PIDPATH, F_OK) == 0)
@@ -1273,6 +1295,144 @@ static void execute_required_process() {
     spawn("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", cmd_args);
 }
 
+#include <stdio.h>
+#include <glib.h>
+#include <vasum.h>
+
+static const char *const state_string[] = {
+	"STOPPED",
+	"STARTING",
+	"RUNNING",
+	"STOPPING",
+	"ABORTING",
+	"FREEZING",
+	"THAWED",
+};
+
+static const char *const event_string[] = {
+	"NONE",
+	"CREATED",
+	"DESTROYED",
+	"SWITCHED",
+};
+
+static void execute_required_process_in_each_zone(char* zone_name) {
+	D("Name of zone which executes required processes : %s \n", zone_name);
+
+	// debug-launchpad need to be executed in each zone
+	char zone_name_with_option[100] = {0,};
+	snprintf(zone_name_with_option, sizeof(zone_name_with_option), "--name=%s", zone_name);
+	char *arg_list[] = {CMD_ATTACH, zone_name_with_option, "--", "/usr/bin/debug_launchpad_preloading_preinitializing_daemon", NULL};
+	spawn(CMD_ATTACH, arg_list);
+}
+
+static int vasum_zone_state_cb( vsm_zone_h zone, vsm_zone_state_t state, void * userdata)
+{
+	char * zone_name;
+	vsm_zone_state_t before_state, new_state;
+
+	zone_name = vsm_get_zone_name(zone);
+	before_state = vsm_get_zone_state(zone);
+	new_state = state;
+
+	D("Zone state is changed : Name[%s] , Before State[%s], Changed State[%s]\n",
+			zone_name , state_string[state], state_string[state]);
+
+	// if state of zone is "RUNNING", execute required process in zone.
+	if(state == 2)
+		execute_required_process_in_each_zone(zone_name);
+	return 0;
+}
+
+static int vasum_event_cb( vsm_zone_h zone, vsm_zone_event_t event, void * userdata)
+{
+	char * zone_name;
+
+	zone_name = vsm_get_zone_name(zone);
+
+	D("Zone got event : Name[%s], Event[%s]\n", zone_name, event_string[event]);
+
+	return 0;
+}
+
+static gboolean vasum_context_callback(GIOChannel * channel, GIOCondition condition,
+		void *data)
+{
+	vsm_context_h ctx = (vsm_context_h)data;
+	/* Call handler function for update vsm_context */
+	vsm_enter_eventloop(ctx, 0, 0);
+	return TRUE;
+}
+
+
+static void *zone_check_thread(void *x) {
+	GMainLoop *mainloop;
+	vsm_context_h ctx;
+	int fd, ret;
+	int state_hndl = 0;
+	int event_hndl = 0;
+
+	mainloop = g_main_loop_new(NULL, FALSE);
+
+	ctx = vsm_create_context();
+	if (ctx == NULL) {
+		D("Failed to init vasum context\n");
+	}
+
+	/* Get vasum event file descriptor from vsm context */
+	fd = vsm_get_poll_fd(ctx);
+	if (fd < 0) {
+		D("Failed to get poll fd\n");
+	}
+
+	GIOChannel *channel = g_io_channel_unix_new(fd);
+	if (channel == NULL) {
+		D("Failed to allocate channel allocation\n");
+		return;
+	}
+
+	/* Bind vasum context to g_main_loop watch handler */
+	g_io_add_watch(channel, G_IO_IN, vasum_context_callback, ctx);
+
+	state_hndl = vsm_add_state_changed_callback(ctx, vasum_zone_state_cb, (void *) ctx);
+	if (state_hndl < 0) {
+		D("Failed to register state changed cb\n");
+		return -1;
+	}
+
+	event_hndl = vsm_add_event_callback(ctx, vasum_event_cb, (void *) ctx);
+	if (event_hndl < 0) {
+		D("Failed to register event cb\n");
+		return -1;
+	}
+
+	g_main_loop_run(mainloop);
+
+	ret = vsm_del_state_changed_callback(ctx, state_hndl);
+	if (ret != VSM_ERROR_NONE) {
+		D("Failed to deregister state changed callback\n");
+	}
+
+	ret = vsm_del_event_callback(ctx, event_hndl);
+	if (ret != VSM_ERROR_NONE) {
+		D("Failed to deregister event callback\n");
+	}
+
+	/* Cleanup context in vsm_context */
+	vsm_cleanup_context(ctx);
+
+	return 0;
+}
+
+static void create_zone_check_thread() {
+	sdb_thread_t t;
+	if (sdb_thread_create(&t, zone_check_thread, NULL)) {
+		D("cannot create_zone_check_thread.\n");
+		return;
+	}
+	D("created zone_check_thread\n");
+}
+
 static void init_sdk_requirements() {
     struct stat st;
 
@@ -1371,18 +1531,42 @@ int sdb_main(int is_daemon, int server_port)
 
 	int i;
 	if(is_container_enabled()) {
+		// register call-back to check state of zone
+		create_zone_check_thread();
+
+		char** zone_list;
 		for(i = 0; i < 5; i++) {
-			if(has_container()){
-				D("so set host mode off\n");
+
+			zone_list = get_zone_list();
+			if(zone_list != NULL){
+				// set zone mode on
+				D("set zone mode on\n");
 				hostshell_mode = 0;
+
+				// execute processes needed by each zone
+				if (zone_list) {
+					int i;
+					for (i = 0; *(zone_list + i); i++) {
+						D("Name of zone which executes required processes (in sdb_main) : %s \n", *(zone_list + i));
+						// zone name has prefix as '/', so skip it
+						if(!strncmp(*(zone_list + i), "\/", 1)) {
+							execute_required_process_in_each_zone((*(zone_list + i)+1));
+						} else {
+							execute_required_process_in_each_zone(*(zone_list + i));
+						}
+						free(*(zone_list + i));
+					}
+					free(zone_list);
+				}
 				break;
+			} else {
+				D("not found any zone, set host mode on\n");
+				hostshell_mode = 1;
+				sdb_sleep_ms(100);
 			}
-			D("not found any zone, so set host mode on\n");
-			hostshell_mode = 1;
-			sdb_sleep_ms(100);
 		}
 	} else {
-		D("not found vsm package, so set host mode on\n");
+		D("not found vsm package, set host mode on\n");
 		hostshell_mode = 1;
 	}
 

@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.24
+Version:    2.2.25
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -12,6 +12,8 @@ BuildRequires: capi-system-info-devel
 BuildRequires: vconf-devel
 BuildRequires: smack-devel
 #BuildRequires: sec-product-features
+BuildRequires: pkgconfig(vasum)
+BuildRequires: pkgconfig(glib-2.0)
 Requires(post): pkgmgr
 Requires(post): pkgmgr-server
 Requires(post): wrt
@@ -71,5 +73,8 @@ chsmack -t /home/developer
 /usr/bin/profile_command
 
 %changelog
+* Mon Apr 21 2015 - Shingil Kang <shingil.kang@samsung.com>
+- Execute debug-launchpad when zone is started
+
 * Mon Apr 18 2015 - Shingil Kang <shingil.kang@samsung.com>
 - Change "sdb forward" command to be zone-aware

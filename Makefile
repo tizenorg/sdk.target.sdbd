@@ -34,8 +34,8 @@ SDBD_SRC_FILES := \
 SDBD_CFLAGS := -O2 -g -DSDB_HOST=0 -Wall -Wno-unused-parameter
 SDBD_CFLAGS += -D_XOPEN_SOURCE -D_GNU_SOURCE -D_SEC_FEATURE_CONTAINER_ENABLE
 SDBD_CFLAGS += -DHAVE_FORKEXEC -fPIE -D_DROP_PRIVILEGE -D_FILE_OFFSET_BITS=64
-SDBD_LFLAGS := -lcapi-system-info -lvconf -lsmack
-IFLAGS := -Iinclude -Isrc -I/usr/include/system -I/usr/include/vconf
+SDBD_LFLAGS := -lcapi-system-info -lvconf -lsmack -lglib-2.0 -lvasum
+IFLAGS := -Iinclude -Isrc -I/usr/include/system -I/usr/include/vconf -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
 OBJDIR := bin
 INSTALLDIR := usr/sbin
 
