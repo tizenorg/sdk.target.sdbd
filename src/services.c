@@ -538,7 +538,7 @@ static void subproc_waiter_service(int fd, void *cookie)
         pid_t p = waitpid(pid, &status, 0);
         if (p == pid) {
             D("fd=%d, post waitpid(pid=%d) status=%04x\n", fd, p, status);
-            
+
             if (WIFEXITED(status)) {
                 D("*** Exit code %d\n", WEXITSTATUS(status));
                 break;
@@ -600,13 +600,15 @@ static void get_env(char *key, char **env)
     fclose(fp);
 }
 
-static int create_subproc_thread(const char *name)
+static int create_subproc_thread(const char *name, int lines, int columns)
 {
     stinfo *sti;
     sdb_thread_t t;
     int ret_fd;
     pid_t pid;
     char *value = NULL;
+    char lines_str[20] = {'\0',};
+    char columns_str[20] = {'\0',};
     char *trim_value = NULL;
     char path[PATH_MAX];
     memset(path, 0, sizeof(path));
@@ -616,6 +618,8 @@ static int create_subproc_thread(const char *name)
     char *envp[] = {
         "TERM=linux", /* without this, some programs based on screen can't work, e.g. top */
         "DISPLAY=:0", /* without this, some programs based on without launchpad can't work */
+        NULL,
+        NULL,
         NULL,
         NULL,
         NULL
@@ -642,6 +646,14 @@ static int create_subproc_thread(const char *name)
      }
 
     D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
+
+    if (lines > 0 && columns > 0) {
+        snprintf(lines_str, sizeof(lines_str), "LINES=%d", lines);
+        snprintf(columns_str, sizeof(columns_str), "COLUMNS=%d", columns);
+        envp[4] = lines_str;
+        envp[5] = columns_str;
+        D("shell size env:%s,%s\n", envp[4], envp[5]);
+    }
 
     if(name) { // in case of shell execution directly
         char *args[] = {
@@ -774,7 +786,7 @@ static int create_syncproc_thread()
 #define INFOBUF_MAXLEN 64
 #define INFO_VERSION "2.2.0"
 typedef struct platform_info {
-    
+
     char platform_info_version[INFOBUF_MAXLEN];
     char model_name[INFOBUF_MAXLEN]; // Emulator
     char platform_name[INFOBUF_MAXLEN]; // Tizen
@@ -908,9 +920,14 @@ int service_to_fd(const char *name)
         ret = create_service_thread(log_service, get_log_file_path(name + 4));
     }*/ else if(!HOST && !strncmp(name, "shell:", 6)) {
         if(name[6]) {
-            ret = create_subproc_thread(name + 6);
+            ret = create_subproc_thread(name + 6, 0, 0);
         } else {
-            ret = create_subproc_thread(0);
+            ret = create_subproc_thread(NULL, 0, 0);
+        }
+    } else if(!strncmp(name, "eshell:", 7)) {
+        int lines, columns;
+        if (sscanf(name+7, "%d:%d", &lines, &columns) == 2) {
+            ret = create_subproc_thread(NULL, lines, columns);
         }
     } else if(!strncmp(name, "sync:", 5)) {
         //ret = create_service_thread(file_sync_service, NULL);
