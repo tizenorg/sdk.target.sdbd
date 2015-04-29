@@ -24,6 +24,7 @@
 SDB_MUTEX(dns_lock)
 SDB_MUTEX(socket_list_lock)
 SDB_MUTEX(transport_lock)
+SDB_MUTEX(zone_check_lock);
 #if SDB_HOST
 SDB_MUTEX(local_transports_lock)
 #endif

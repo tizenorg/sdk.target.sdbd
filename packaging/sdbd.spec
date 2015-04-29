@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.25
+Version:    2.2.26
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -73,6 +73,10 @@ chsmack -t /home/developer
 /usr/bin/profile_command
 
 %changelog
+* Mon Apr 30 2015 - Shingil Kang <shingil.kang@samsung.com>
+- Fix a bug for sdb 'push' into /opt, /var, /root, /home in foreground zone shell mode
+- Change to apply connection mode (zone/host/denied) in boot time
+
 * Mon Apr 21 2015 - Shingil Kang <shingil.kang@samsung.com>
 - Execute debug-launchpad when zone is started
 

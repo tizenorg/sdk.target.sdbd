@@ -42,15 +42,16 @@
 #include <system_info_internal.h>
 #include <vconf.h>
 #include "utils.h"
-
 #define PROC_CMDLINE_PATH "/proc/cmdline"
 #define USB_SERIAL_PATH "/sys/class/usb_mode/usb0/iSerial"
 
+SDB_MUTEX_DEFINE(zone_check_lock);
 #if SDB_TRACE
 SDB_MUTEX_DEFINE( D_lock );
 #endif
 
 int HOST = 0;
+int initial_zone_mode_check = 0;
 
 int is_emulator(void) {
     if (access(USB_NODE_FILE, F_OK) == 0) {
@@ -61,10 +62,18 @@ int is_emulator(void) {
 }
 
 int is_container_enabled(void) {
-    if ((access(CMD_ATTACH, F_OK) == 0) || (access(CMD_FOREGROUND, F_OK) == 0)) {
-        return 1;
-    } else {
-        return 0;
+	bool value;
+	int ret;
+	ret = system_info_get_platform_bool("tizen.org/feature/container", &value);
+	if (ret != SYSTEM_INFO_ERROR_NONE) {
+		D("failed to get container information: %d\n", errno);
+		return 0;
+	} else {
+		D("tizen container: %d\n", value);
+		if (value == true)
+			return 1;
+		else
+			return 0;
 	}
 }
 
@@ -630,6 +639,9 @@ void handle_packet(apacket *p, atransport *t)
     case A_OPEN: /* OPEN(local-id, 0, "destination") */
         if (is_pwlocked() && t->connection_state == CS_PWLOCK) { // in case of already locked before get A_CNXN
             D("open failed due to password locked before get A_CNXN:%d\n", t->connection_state);
+            send_close(0, p->msg.arg0, t);
+        } else if (hostshell_mode == 2){
+            D("open failed due to denied mode\n");
             send_close(0, p->msg.arg0, t);
         } else {
             if(t->connection_state != CS_OFFLINE) {
@@ -1338,9 +1350,22 @@ static int vasum_zone_state_cb( vsm_zone_h zone, vsm_zone_state_t state, void * 
 	D("Zone state is changed : Name[%s] , Before State[%s], Changed State[%s]\n",
 			zone_name , state_string[state], state_string[state]);
 
-	// if state of zone is "RUNNING", execute required process in zone.
-	if(state == 2)
+
+	if(state == 2) {
+		sdb_mutex_lock(&zone_check_lock);
+		// if state of zone is "RUNNING", execute required process in zone.
 		execute_required_process_in_each_zone(zone_name);
+
+		// in the case sdbd is started up before zone, check zone/host mode
+		if(!initial_zone_mode_check) {
+			D("set zone mode on when zone is started up\n");
+			initial_zone_mode_check = 1;
+			hostshell_mode = 0;
+		}
+		sdb_mutex_unlock(&zone_check_lock);
+	}
+
+
 	return 0;
 }
 
@@ -1374,9 +1399,20 @@ static void *zone_check_thread(void *x) {
 
 	mainloop = g_main_loop_new(NULL, FALSE);
 
-	ctx = vsm_create_context();
-	if (ctx == NULL) {
-		D("Failed to init vasum context\n");
+	int i;
+	for(i = 0; i < 10; i++) {
+		D("Try to get vasum context : try %d\n", i);
+		ctx = vsm_create_context();
+		if (ctx != NULL) {
+			D("Got vasum context\n");
+			break;
+		}
+		if(i == 9) {
+			D("Failed to get vasum context, exit vasum zone check thread\n");
+			return;
+		}
+		D("Failed get vasum context\n");
+		sdb_sleep_ms(100);
 	}
 
 	/* Get vasum event file descriptor from vsm context */
@@ -1529,28 +1565,31 @@ int sdb_main(int is_daemon, int server_port)
         }
     }
 
-	int i;
-	if(is_container_enabled()) {
+    hostshell_mode = 2;
+	if (is_container_enabled()) {
+		D("container feature permitted\n");
+
 		// register call-back to check state of zone
 		create_zone_check_thread();
 
+		// check if zone is started before sdbd, in the case sdbd does not get notified.
 		char** zone_list;
-		for(i = 0; i < 5; i++) {
-
-			zone_list = get_zone_list();
-			if(zone_list != NULL){
-				// set zone mode on
-				D("set zone mode on\n");
+		zone_list = get_zone_list();
+		if (zone_list != NULL) {
+			D("set zone mode on\n");
+			sdb_mutex_lock(&zone_check_lock);
+			if(!initial_zone_mode_check) {
+				initial_zone_mode_check = 1;
 				hostshell_mode = 0;
-
 				// execute processes needed by each zone
 				if (zone_list) {
 					int i;
 					for (i = 0; *(zone_list + i); i++) {
 						D("Name of zone which executes required processes (in sdb_main) : %s \n", *(zone_list + i));
-						// zone name has prefix as '/', so skip it
-						if(!strncmp(*(zone_list + i), "\/", 1)) {
-							execute_required_process_in_each_zone((*(zone_list + i)+1));
+						// if zone name has prefix as '/', remove it
+						if (!strncmp(*(zone_list + i), "\/", 1)) {
+							execute_required_process_in_each_zone(
+									(*(zone_list + i) + 1));
 						} else {
 							execute_required_process_in_each_zone(*(zone_list + i));
 						}
@@ -1558,15 +1597,15 @@ int sdb_main(int is_daemon, int server_port)
 					}
 					free(zone_list);
 				}
-				break;
-			} else {
-				D("not found any zone, set host mode on\n");
-				hostshell_mode = 1;
-				sdb_sleep_ms(100);
 			}
+			sdb_mutex_unlock(&zone_check_lock);
+		} else {
+			D("not found any zone yet, denied mode on\n");
+			sdb_sleep_ms(500);
 		}
 	} else {
-		D("not found vsm package, set host mode on\n");
+		D("container feature not permitted, set host mode on\n");
+		initial_zone_mode_check = 1;
 		hostshell_mode = 1;
 	}
 

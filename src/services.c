@@ -466,7 +466,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
             }
         }
 
-        if (hostshell_mode) {
+        if (hostshell_mode == 1) {
             if (should_drop_privileges()) {
                 if (argv[2] != NULL && verify_root_commands(argv[2])) {
                 // do nothing
