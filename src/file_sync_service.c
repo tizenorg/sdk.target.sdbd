@@ -575,6 +575,29 @@ static int verify_sync_rule(const char* path) {
     return 0;
 }
 
+static pid_t get_zone_init_pid(const char *name) {
+    char filename[PATH_MAX];
+    FILE *fp;
+    pid_t ret = -1;
+
+    snprintf(filename, sizeof(filename),
+            "/sys/fs/cgroup/devices/lxc/%s/cgroup.procs", name);
+
+    fp = fopen(filename, "r");
+
+    if (fp != NULL) {
+        if (fscanf(fp, "%d", &ret) < 0) {
+            D("Failed to read %s\n", filename);
+            ret = -2;
+        }
+        fclose(fp);
+    } else {
+        D("Unable to access %s\n", filename);
+        ret = errno;
+    }
+    return ret;
+}
+
 void file_sync_service(int fd, void *cookie)
 {
     syncmsg msg;
@@ -610,22 +633,22 @@ void file_sync_service(int fd, void *cookie)
     } else if (pid > 0) {
         sdb_close(s[1]);
 
-        if (!hostshell_mode) {
+        if (hostshell_mode == 0) {
             FILE *fp;
             fp = popen("/usr/bin/vsm-foreground", "r");
             fgets(name_vsm, 1025, fp);
             pclose(fp);
 
-			snprintf(zone_path, 1025, "/usr/bin/vsm-info -r -n %s", name_vsm);
-			fp = popen(zone_path, "r");
-			fgets(zone_path, 1025, fp);
-			pclose(fp);
-
-			//trim zone path
-			namelen = strlen(zone_path);
-			while(zone_path[--namelen]=='\n');
-			zone_path[namelen + 1] = '\0';
-       }
+            //trim zone name
+            namelen = strlen(name_vsm);
+            while (name_vsm[--namelen] == '\n')
+                ;
+            name_vsm[namelen + 1] = '\0';
+            snprintf(zone_path, 1025, "/proc/%d/root",
+                    get_zone_init_pid(name_vsm));
+            chroot(zone_path);
+            chdir("/");
+        }
 
         for(;;) {
             D("sync: waiting for command for %d sec\n", SYNC_TIMEOUT);
@@ -653,11 +676,6 @@ void file_sync_service(int fd, void *cookie)
                 break;
             }
             name[namelen] = 0;
-
-            if (!hostshell_mode) {
-                snprintf(name_vsm, 1025, "%s/%s", zone_path, name);
-                strncpy(name, name_vsm, 1024);
-            }
 
             msg.req.namelen = 0;
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
