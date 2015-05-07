@@ -57,6 +57,7 @@ struct sync_permit_rule sdk_sync_permit_rule[] = {
  */
 #define DIR_PERMISSION 0777
 
+int is_install_pkg_file = 0;
 
 static void set_syncfile_smack_label(char *src) {
     char *label_transmuted = NULL;
@@ -483,6 +484,10 @@ static int do_send(int s, int noti_fd, char *path, char *buffer)
         mode = 0644; // set default permission value in most of unix system.
         is_link = 0;
     }
+    if(is_install_pkg_file) {
+        mode = 0444;
+        is_link = 0;
+    }
 
     // sdb does not allow to check that file exists or not. After deleting old file and creating new file again unconditionally.
     sdb_unlink(path);
@@ -553,6 +558,13 @@ static int verify_sync_rule(const char* path) {
     char buf[PATH_MAX];
     int i=0;
 
+    // to prevent hijacking the pkg file.
+    if (is_pkg_file_path(path)) {
+        is_install_pkg_file = 1;
+        D("matched pkg file path: to prevent hijacking the pkg file\n");
+        return 1;
+    }
+
     for (i=0; sdk_sync_permit_rule[i].regx != NULL; i++) {
         ret = regcomp(&regex, sdk_sync_permit_rule[i].regx, REG_EXTENDED);
         if(ret){
@@ -609,6 +621,7 @@ void file_sync_service(int fd, void *cookie)
     int s[2];
     char zone_path[1025] = {0, };
     char name_vsm[1025] = {0, };
+    is_install_pkg_file = 0;
 
     if(sdb_socketpair(s)) {
         D("cannot create service socket pair\n");

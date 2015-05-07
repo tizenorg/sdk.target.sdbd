@@ -45,6 +45,7 @@ void apply_app_process();
 void set_appuser_groups(void);
 int is_root_commands(const char *command);
 int apply_sdb_rules(const char* subject, const char* object, const char* access_type);
+int is_pkg_file_path(const char* path);
 
 #ifdef __cplusplus
 }
