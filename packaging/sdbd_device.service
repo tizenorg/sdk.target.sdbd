@@ -1,6 +1,5 @@
 [Unit]
 Description=sdbd
-After=default.target
 
 [Service]
 Type=forking
