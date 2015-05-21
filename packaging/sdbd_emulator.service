@@ -1,6 +1,6 @@
 [Unit]
 Description=sdbd
-After=vsm-zone-svc.service vsm-resource-provider.service
+DefaultDependencies=false
 
 [Service]
 Type=forking
@@ -12,4 +12,3 @@ ExecStart=/usr/sbin/sdbd
 
 [Install]
 WantedBy=emulator.target
-

@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.26
+Version:    2.2.27
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -14,10 +14,10 @@ BuildRequires: smack-devel
 #BuildRequires: sec-product-features
 BuildRequires: pkgconfig(vasum)
 BuildRequires: pkgconfig(glib-2.0)
-Requires(post): pkgmgr
-Requires(post): pkgmgr-server
-Requires(post): wrt
-Requires(post): aul
+#Requires(post): pkgmgr
+#Requires(post): pkgmgr-server
+#Requires(post): wrt
+#Requires(post): aul
 Requires: default-files-tizen
 Requires: sys-assert
 Requires: debug-launchpad
@@ -73,6 +73,11 @@ chsmack -t /home/developer
 /usr/bin/profile_command
 
 %changelog
+* Thu May 21 2015 - Shingil Kang <shingil.kang@samsung.com>
+- Removed systemd dependency of zone
+- Set default dependency off
+- Removed requires(post) condition
+
 * Mon Apr 30 2015 - Shingil Kang <shingil.kang@samsung.com>
 - Fix a bug for sdb 'push' into /opt, /var, /root, /home in foreground zone shell mode
 - Change to apply connection mode (zone/host/denied) in boot time
