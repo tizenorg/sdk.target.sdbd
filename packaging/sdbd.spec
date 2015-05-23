@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.27
+Version:    2.2.28
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -73,6 +73,9 @@ chsmack -t /home/developer
 /usr/bin/profile_command
 
 %changelog
+* Thu May 23 2015 - Shingil Kang <shingil.kang@samsung.com>
+- notify_sdbd_startup_thread() added.
+
 * Thu May 21 2015 - Shingil Kang <shingil.kang@samsung.com>
 - Removed systemd dependency of zone
 - Set default dependency off
