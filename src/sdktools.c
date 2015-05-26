@@ -73,12 +73,13 @@ static int get_application_install_path(char* pkg_path) {
     int len = 0;
 
     fp = popen("/usr/bin/pkgcmd -a", "r");
-    if (fp == NULL || fp < 0) {
+    if (fp == NULL) {
         D("failed : popen pkgcmd -a\n");
         return 0;
     }
     if (!fgets(ret_str, PATH_MAX+64, fp)) {
         D("failed : fgets pkgcmd -a\n");
+        pclose(fp);
         return 0;
     }
     pclose(fp);
