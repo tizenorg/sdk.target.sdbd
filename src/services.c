@@ -861,6 +861,143 @@ static void get_platforminfo(int fd, void *cookie) {
     sdb_close(fd);
 }
 
+#define ENABLED "enabled"
+#define DISABLED "disabled"
+#define CPUARCH_ARMV6 "armv6"
+#define CPUARCH_ARMV7 "armv7"
+#define CPUARCH_X86 "x86"
+#define CAPBUF_SIZE 4096
+
+static int put_key_value_string(char* buf, int offset, int buf_size, char* key, char* value) {
+    int len = 0;
+    if ((len = snprintf(buf+offset, buf_size-offset, "%s:%s\n", key, value)) > 0) {
+        return len;
+    }
+    return 0;
+}
+
+static char* get_cpu_architecture()
+{
+    int ret = 0;
+    bool b_value = false;
+
+    ret = system_info_get_platform_bool(
+            "http://tizen.org/feature/platform.core.cpu.arch.armv6", &b_value);
+    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
+        return CPUARCH_ARMV6;
+    }
+
+    ret = system_info_get_platform_bool(
+            "http://tizen.org/feature/platform.core.cpu.arch.armv7", &b_value);
+    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
+        return CPUARCH_ARMV7;
+    }
+
+    ret = system_info_get_platform_bool(
+            "http://tizen.org/feature/platform.core.cpu.arch.x86", &b_value);
+    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
+        return CPUARCH_X86;
+    }
+
+    D("fail to get the CPU architecture of model:%d\n", errno);
+    return UNKNOWN;
+}
+
+static void get_capability(int fd, void *cookie) {
+    char cap_buffer[CAPBUF_SIZE] = {0,};
+    char *value = NULL;
+    int ret = 0;
+    uint16_t offset = 0;
+
+    // Secure Protocol
+    // TODO: get this information from platform.
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "secure_protocol", DISABLED);
+
+    // Root command support
+    ret = access("/bin/su", F_OK);
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "rootcmd_support", ret == 0 ? ENABLED : DISABLED);
+
+    // Zone support
+    ret = is_container_enabled();
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "zone_support", ret == 1 ? ENABLED : DISABLED);
+
+    // Multi-User support
+    // TODO: get this information from platform.
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "multiuser_support", DISABLED);
+
+    // CPU Architecture of model
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                "cpu_arch", get_cpu_architecture());
+
+    // Profile name
+    ret = system_info_get_platform_string("http://tizen.org/feature/profile", &value);
+    if (ret != SYSTEM_INFO_ERROR_NONE) {
+        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                "profile_name", UNKNOWN);
+        D("fail to get profile name:%d\n", errno);
+    } else {
+        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                "profile_name", value);
+        D("returns profile name:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+    // Vendor name
+    ret = system_info_get_platform_string("http://tizen.org/system/manufacturer", &value);
+    if (ret != SYSTEM_INFO_ERROR_NONE) {
+        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                "vendor_name", UNKNOWN);
+        D("fail to get the Vendor name:%d\n", errno);
+    } else {
+        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                "vendor_name", value);
+        D("returns vendor_name:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+    // Platform version
+    ret = system_info_get_platform_string("http://tizen.org/feature/platform.version", &value);
+    if (ret != SYSTEM_INFO_ERROR_NONE) {
+        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                "platform_version", UNKNOWN);
+        D("fail to get platform version:%d\n", errno);
+    } else {
+        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                "platform_version", value);
+        D("returns platform_version:%s\n", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+    // Product version
+    // TODO: get this information from platform.
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "product_version", UNKNOWN);
+
+    // Sdbd version
+    char sdbd_version[16] = {0,};
+    snprintf(sdbd_version, sizeof(sdbd_version), "%d.%d.%d",
+            SDB_VERSION_MAJOR, SDB_VERSION_MINOR, SDB_VERSION_PATCH);
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "sdbd_version", sdbd_version);
+
+    offset++; // for '\0' character
+
+    writex(fd, &offset, sizeof(uint16_t));
+    writex(fd, cap_buffer, offset);
+
+    sdb_close(fd);
+}
+
 int service_to_fd(const char *name)
 {
     int ret = -1;
@@ -967,6 +1104,8 @@ int service_to_fd(const char *name)
 
         service_name = strdup(name+6);
         ret = create_service_thread(rndis_config_service, (void *)(service_name));
+    } else if(!strncmp(name, "capability:", 11)){
+        ret = create_service_thread(get_capability, 0);
     }
     if (ret >= 0) {
         if (close_on_exec(ret) < 0) {

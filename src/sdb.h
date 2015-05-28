@@ -36,7 +36,8 @@
 #define A_VERSION 0x02000000        // SDB protocol version
 
 #define SDB_VERSION_MAJOR 2         // Used for help/version information
-#define SDB_VERSION_MINOR 1         // Used for help/version information
+#define SDB_VERSION_MINOR 2         // Used for help/version information
+#define SDB_VERSION_PATCH 31        // Used for help/version information
 
 #define SDB_SERVER_VERSION 0        // Increment this when we want to force users to start a new sdb server
 
