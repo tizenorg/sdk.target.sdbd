@@ -39,7 +39,7 @@
 #else
 #include "usb_vendors.h"
 #endif
-#include <system_info_internal.h>
+#include <system_info.h>
 #include <vconf.h>
 #include "utils.h"
 #define PROC_CMDLINE_PATH "/proc/cmdline"
@@ -517,7 +517,7 @@ int get_emulator_name(char str[], int str_size) {
 
 int get_device_name(char str[], int str_size) {
     char *value = NULL;
-    int r = system_info_get_value_string(SYSTEM_INFO_KEY_MODEL, &value);
+    int r = system_info_get_platform_string("http://tizen.org/system/model_name", &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         D("fail to get system model:%d\n", errno);
         return -1;

@@ -39,7 +39,7 @@
 #endif
 
 #include "strutils.h"
-#include <system_info_internal.h>
+#include <system_info.h>
 #include <vconf.h>
 #include <limits.h>
 
@@ -806,7 +806,7 @@ static void get_platforminfo(int fd, void *cookie) {
     char *value = NULL;
     s_strncpy(sysinfo.platform_info_version, INFO_VERSION, strlen(INFO_VERSION));
 
-    int r = system_info_get_value_string(SYSTEM_INFO_KEY_MODEL, &value);
+    int r = system_info_get_platform_string("http://tizen.org/system/model_name", &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         s_strncpy(sysinfo.model_name, UNKNOWN, strlen(UNKNOWN));
         D("fail to get system model:%d\n", errno);
@@ -818,7 +818,7 @@ static void get_platforminfo(int fd, void *cookie) {
         }
     }
 
-    r = system_info_get_value_string(SYSTEM_INFO_KEY_PLATFORM_NAME, &value);
+    r = system_info_get_platform_string("http://tizen.org/system/platform.name", &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         s_strncpy(sysinfo.platform_name, UNKNOWN, strlen(UNKNOWN));
         D("fail to get platform name:%d\n", errno);
