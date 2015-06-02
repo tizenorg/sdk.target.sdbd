@@ -45,6 +45,12 @@
 #define PROC_CMDLINE_PATH "/proc/cmdline"
 #define USB_SERIAL_PATH "/sys/class/usb_mode/usb0/iSerial"
 
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#define GUEST_IP_INTERFACE "eth0"
+
 SDB_MUTEX_DEFINE(zone_check_lock);
 #if SDB_TRACE
 SDB_MUTEX_DEFINE( D_lock );
@@ -494,10 +500,9 @@ int get_emulator_forward_port() {
     return port;
 }
 
-int get_emulator_name(char str[], int str_size) {
+static int get_cmdline_value(char *split, char str[], int str_size) {
     char cmdline[512];
     int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
-    char *name_str = "vm_name=";
 
     if (fd < 0) {
         D("fail to read /proc/cmdline\n");
@@ -505,14 +510,18 @@ int get_emulator_name(char str[], int str_size) {
     }
     if(read_line(fd, cmdline, sizeof(cmdline))) {
         D("qemu cmd: %s\n", cmdline);
-        if (get_str_cmdline(cmdline, name_str, str, str_size) < 1) {
-            D("could not get emulator name from cmdline\n");
+        if (get_str_cmdline(cmdline, split, str, str_size) < 1) {
+            D("could not get the (%s) value from cmdline\n", split);
             sdb_close(fd);
             return -1;
         }
     }
     sdb_close(fd);
     return 0;
+}
+
+int get_emulator_name(char str[], int str_size) {
+    return get_cmdline_value("vm_name=", str, str_size);
 }
 
 int get_device_name(char str[], int str_size) {
@@ -544,6 +553,40 @@ int get_device_name(char str[], int str_size) {
     sdb_close(fd);
     */
     return -1;
+}
+
+int get_emulator_hostip(char str[], int str_size) {
+    return get_cmdline_value("host_ip=", str, str_size);
+}
+
+int get_emulator_guestip(char str[], int str_size) {
+    int           s;
+    struct ifreq ifr;
+    struct sockaddr_in *sin;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if(s < 0) {
+        D("socket error\n");
+        return -1;
+    }
+
+    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", GUEST_IP_INTERFACE);
+    if(ioctl(s, SIOCGIFHWADDR, &ifr) < 0) {
+        D("ioctl hwaddr error\n");
+        sdb_close(s);
+        return -1;
+    }
+
+    if(ioctl(s, SIOCGIFADDR, &ifr) < 0) {
+        D("ioctl addr error\n");
+        sdb_close(s);
+        return -1;
+    }
+    sin = (struct sockaddr_in *)&ifr.ifr_addr;
+    snprintf(str, str_size, "%s", inet_ntoa(sin->sin_addr));
+    sdb_close(s);
+
+    return 0;
 }
 
 void parse_banner(char *banner, atransport *t)

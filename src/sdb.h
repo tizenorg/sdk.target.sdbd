@@ -18,8 +18,10 @@
 #define __SDB_H
 
 #include <limits.h>
+#include <stddef.h>
 
 #include "transport.h"  /* readx(), writex() */
+#include "fdevent.h"
 
 #define MAX_PAYLOAD 4096
 
@@ -346,6 +348,9 @@ void set_root_privileges();
 int get_emulator_forward_port(void);
 int get_emulator_name(char str[], int str_size);
 int get_device_name(char str[], int str_size);
+int get_emulator_hostip(char str[], int str_size);
+int get_emulator_guestip(char str[], int str_size);
+
 /* packet allocator */
 apacket *get_apacket(void);
 void put_apacket(apacket *p);
