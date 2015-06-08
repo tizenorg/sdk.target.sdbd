@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.29
+Version:    2.2.30
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -8,16 +8,13 @@ Source0:    %{name}-%{version}.tar.gz
 Source1001:    sdbd_device.service
 Source1002:    sdbd_emulator.service
 
-BuildRequires: capi-system-info-devel
-BuildRequires: vconf-devel
-BuildRequires: smack-devel
+BuildRequires: cmake
 #BuildRequires: sec-product-features
+BuildRequires: pkgconfig(libsmack)
+BuildRequires: pkgconfig(capi-system-info)
+BuildRequires: pkgconfig(vconf)
 BuildRequires: pkgconfig(vasum)
 BuildRequires: pkgconfig(glib-2.0)
-#Requires(post): pkgmgr
-#Requires(post): pkgmgr-server
-#Requires(post): wrt
-#Requires(post): aul
 Requires: default-files-tizen
 Requires: sys-assert
 Requires: debug-launchpad
@@ -31,10 +28,11 @@ Description: SDB daemon.
 
 %build
 %if "%{?tizen_profile_name}" == "wearable"
-make %{?jobs:-j%jobs} wearable
+cmake . -DCMAKE_INSTALL_PREFIX=%{_prefix} -DWEARABLE_PROFILE=ON
 %else
-make %{?jobs:-j%jobs}
+cmake . -DCMAKE_INSTALL_PREFIX=%{_prefix}
 %endif
+make %{?jobs:-j%jobs}
 
 %install
 mkdir -p %{buildroot}/usr/share/license
@@ -73,6 +71,9 @@ chsmack -t /home/developer
 /usr/bin/profile_command
 
 %changelog
+* Thu Jun 8 2015 - Shingil Kang <shingil.kang@samsung.com>
+- Used CMake
+
 * Thu Jun 2 2015 - Shingil Kang <shingil.kang@samsung.com>
 - Added to ask sdb server to connect emulator with bridged network.
 
