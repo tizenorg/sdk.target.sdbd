@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.30
+Version:    2.2.31
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -71,6 +71,10 @@ chsmack -t /home/developer
 /usr/bin/profile_command
 
 %changelog
+* Thu Jun 15 2015 - Shingil Kang <shingil.kang@samsung.com>
+- Added to network smack rule for emulator guest IP (10.0.2.15)
+- Removed to create sdb_port.txt file
+
 * Thu Jun 8 2015 - Shingil Kang <shingil.kang@samsung.com>
 - Used CMake
 

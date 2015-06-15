@@ -1,14 +1,15 @@
 [Unit]
 Description=sdbd
-DefaultDependencies=false
+#DefaultDependencies=false
 
 [Service]
 Type=forking
 Environment=DISPLAY=:0
 PIDFile=/tmp/.sdbd.pid
 RemainAfterExit=yes
-ExecStartPre=/bin/bash -c "/bin/echo `/bin/sed 's/^.*sdb_port=\([^, ]*\).*$/\1/g' /proc/cmdline` > /opt/home/sdb_port.txt"
+ExecStartPre=/bin/bash -c "/bin/echo '10.0.2.15/32 system::debugging_network' >> /smack/netlabel"
 ExecStart=/usr/sbin/sdbd
 
 [Install]
 WantedBy=emulator.target
+
