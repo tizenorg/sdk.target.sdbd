@@ -89,11 +89,6 @@ struct asocket {
         */
     int    closing;
 
-        /* flag: quit adbd when both ends close the
-        ** local service socket
-        */
-    int    exit_on_close;
-
         /* the asocket we are connected to
         */
 

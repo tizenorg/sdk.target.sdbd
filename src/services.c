@@ -148,17 +148,24 @@ void rootshell_service(int fd, void *cookie)
     char *mode = (char*) cookie;
 
     if (!strcmp(mode, "on")) {
-        if (rootshell_mode == 1) {
-            //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
-            // do not show message
-        } else {
-            if (access("/bin/su", F_OK) == 0) {
-                rootshell_mode = 1;
-                //allows a permitted user to execute a command as the superuser
-                snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
+        if (getuid() == 0) {
+            if (rootshell_mode == 1) {
+                //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
+                // do not show message
             } else {
-                snprintf(buf, sizeof(buf), "Permission denied\n");
+                if (access("/bin/su", F_OK) == 0) {
+                    rootshell_mode = 1;
+                    //allows a permitted user to execute a command as the superuser
+                    snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
+                } else {
+                    snprintf(buf, sizeof(buf), "Permission denied\n");
+                }
+                writex(fd, buf, strlen(buf));
             }
+        } else {
+            D("need root permission for root shell: %d\n", getuid());
+            rootshell_mode = 0;
+            snprintf(buf, sizeof(buf), "Permission denied\n");
             writex(fd, buf, strlen(buf));
         }
     } else if (!strcmp(mode, "off")) {
