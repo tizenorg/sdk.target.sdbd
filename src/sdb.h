@@ -469,7 +469,7 @@ int  local_connect_arbitrary_ports(int console_port, int sdb_port, const char *d
 void usb_init();
 void usb_cleanup();
 int usb_write(usb_handle *h, const void *data, int len);
-int usb_read(usb_handle *h, void *data, int len);
+int usb_read(usb_handle *h, void *data, unsigned len);
 int usb_close(usb_handle *h);
 void usb_kick(usb_handle *h);
 
