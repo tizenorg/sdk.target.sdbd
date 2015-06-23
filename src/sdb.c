@@ -131,19 +131,6 @@ void handle_sig_term(int sig) {
         sdb_unlink(SDB_PIDPATH);
 #endif
     char *cmd1_args[] = {"/usr/bin/killall", "/usr/bin/debug_launchpad_preloading_preinitializing_daemon", NULL};
-
-    if (!is_emulator()) {
-        int val = 0;
-        if (vconf_get_int(DEBUG_MODE_KEY, &val)) {
-            D("Failed to get debug mode\n");
-        } else {
-            if (usb_mode != 6 && val == 6) { // set mtp mode by default!.
-                vconf_set_int(DEBUG_MODE_KEY, 2);
-            }
-        }
-    } else {
-        // do nothing on a emulator
-    }
     spawn("/usr/bin/killall", cmd1_args);
     sdb_sleep_ms(1000);
 }
@@ -1514,9 +1501,6 @@ static void create_zone_check_thread() {
 
 static void init_sdk_requirements() {
     struct stat st;
-
-    // initialize usb mode
-    usb_mode = 0;
 
     if (stat(ONDEMAND_ROOT_PATH, &st) == -1) {
         return;

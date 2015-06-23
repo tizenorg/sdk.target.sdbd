@@ -327,7 +327,6 @@ char * get_log_file_path(const char * log_name);
 
 int rootshell_mode; // 0: developer, 1: root
 int hostshell_mode; // 0: foreground zone, 1: host  2: denied
-int usb_mode; // 2:mtp 6:rndis
 
 // This is the users and groups config for the platform
 
@@ -519,7 +518,6 @@ int read_line(const int fd, char* ptr, const size_t maxlen);
 #endif
 
 #define USB_NODE_FILE "/dev/samsung_sdb"
-#define DEBUG_MODE_KEY "db/usb/sel_mode"
 #define CMD_ATTACH  "/usr/bin/vsm-attach"
 #define CMD_FOREGROUND "/usr/bin/vsm-foreground"
 #define CMD_LIST "/usr/bin/vsm-list"
