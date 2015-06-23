@@ -485,7 +485,7 @@ static int do_send(int s, int noti_fd, char *path, char *buffer)
         is_link = 0;
     }
     if(is_install_pkg_file) {
-        mode = 0444;
+        mode = 0644;
         is_link = 0;
     }
 
