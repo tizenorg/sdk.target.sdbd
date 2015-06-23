@@ -47,7 +47,6 @@ SET(SDBD_SRCS
 	src/socket_network_client.c
 	src/sdktools.c
 	src/strutils.c
-	src/init.c
 	src/fileutils.c
 	)
 	
