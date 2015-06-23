@@ -22,7 +22,6 @@
             <smack request="system::debugging_network" type="w" />
             <smack request="device::input" type="rwx" />
             <smack request="*" type="rwxat" />
-            <smack request="tizen::vconf::platform::r" type="rw" />
             <smack request="tizen::vconf::platform::rw" type="r" />
             <smack request="tizen::vconf::public::r::platform::rw" type="r" />
             <smack request="tizen::vconf::setting::admin" type="r" />

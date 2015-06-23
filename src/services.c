@@ -300,48 +300,6 @@ done:
 #endif
 #endif
 
-void rndis_config_service(int fd, void *cookie)
-{
-    char buf[100];
-    int val = 0;
-    char* mode = (char*) cookie;
-
-    usb_mode = 0;
-    if (vconf_get_int(DEBUG_MODE_KEY, &val)) {
-        D("Failed to get debug mode\n");
-        sdb_close(fd);
-        free(mode);
-        return;
-    }
-    if (!strcmp(mode, "on")) {
-        if (val != 6) {
-            usb_mode = 6;
-            sdb_sleep_ms(500);
-            if (vconf_set_int(DEBUG_MODE_KEY, 6)) {
-                D("Failed to set rndis %s\n", mode);
-                snprintf(buf, sizeof(buf), "Failed to set rndis %s\n", mode);
-                writex(fd, buf, strlen(buf));
-            }
-        }
-    } else if (!strcmp(mode, "off")) {
-        if (val != 2) {
-            usb_mode = 2;
-            sdb_sleep_ms(500);
-            if (vconf_set_int(DEBUG_MODE_KEY, 2)) {
-                D("Failed to set rndis %s\n", mode);
-                snprintf(buf, sizeof(buf), "Failed to set rndis %s\n", mode);
-                writex(fd, buf, strlen(buf));
-            }
-        }
-    } else {
-        D("Unknown command option:(rndis %s)\n", mode);
-        snprintf(buf, sizeof(buf), "Unknown command option:(rndis %s)\n", mode);
-        writex(fd, buf, strlen(buf));
-    }
-    free(mode);
-    sdb_close(fd);
-}
-
 #if 0
 static void echo_service(int fd, void *cookie)
 {
@@ -1106,11 +1064,6 @@ int service_to_fd(const char *name)
 #endif
     } else if(!strncmp(name, "sysinfo:", 8)){
         ret = create_service_thread(get_platforminfo, 0);
-    } else if(!strncmp(name, "rndis:", 6)){
-        char *service_name = NULL;
-
-        service_name = strdup(name+6);
-        ret = create_service_thread(rndis_config_service, (void *)(service_name));
     } else if(!strncmp(name, "capability:", 11)){
         ret = create_service_thread(get_capability, 0);
     }
