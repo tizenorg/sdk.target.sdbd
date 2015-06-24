@@ -54,11 +54,17 @@ int socket_loopback_client(int port, int type)
     if (hostshell_mode == 0) {
         FILE *fp;
         fp = popen("/usr/bin/vsm-foreground", "r");
+        if (fp == NULL) {
+            return 0;
+        }
         fgets(name_vsm, 1025, fp);
         pclose(fp);
 
         snprintf(zone_ipaddr, 1025, "/usr/bin/vsm-info -i -n %s", name_vsm);
         fp = popen(zone_ipaddr, "r");
+        if (fp == NULL) {
+            return 0;
+        }
         fgets(zone_ipaddr, 1025, fp);
         pclose(fp);
 

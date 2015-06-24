@@ -886,6 +886,10 @@ void close_usb_devices()
 void register_socket_transport(int s, const char *serial, int port, int local, const char *device_name)
 {
     atransport *t = calloc(1, sizeof(atransport));
+    if (t == NULL) {
+        D("failed to allocate memory of transport struct\n");
+        return;
+    }
     char buff[32];
 
     if (!serial) {
@@ -1014,8 +1018,12 @@ void broadcast_transport(apacket *p)
 
 void register_usb_transport(usb_handle *usb, const char *serial, unsigned writeable)
 {
-    atransport *t = calloc(1, sizeof(atransport));
     char device_name[256];
+    atransport *t = calloc(1, sizeof(atransport));
+    if (t == NULL) {
+        D("failed to allocate memory of transport struct\n");
+        return;
+    }
 
     D("transport: %p init'ing for usb_handle %p (sn='%s')\n", t, usb,
       serial ? serial : "");

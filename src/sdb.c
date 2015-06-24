@@ -1592,7 +1592,10 @@ int sdb_main(int is_daemon, int server_port)
         }
     }
 
-    hostshell_mode = 2;
+    hostshell_mode = 1;
+
+ /* Not support zone feature yet */
+ /*
 	if (is_container_enabled()) {
 		D("container feature permitted\n");
 
@@ -1635,7 +1638,7 @@ int sdb_main(int is_daemon, int server_port)
 		initial_zone_mode_check = 1;
 		hostshell_mode = 1;
 	}
-
+*/
     if (!is_emulator()) {
         // listen on USB
         usb_init();

@@ -268,14 +268,14 @@ void inoti_service(int fd, void *arg)
             D( "inoti read failed\n");
             goto done;
         }
-
-        while ( i >= 0 && i < length ) {
-            struct inotify_event *event = ( struct inotify_event * )&buffer[i];
+        while (i >= 0 && i <= (length - EVENT_SIZE)) {
+            struct inotify_event *event = (struct inotify_event *) &buffer[i];
             if (event->len) {
-                if ( event->mask & IN_CREATE) {
+                if (event->mask & IN_CREATE) {
                     if (!(event->mask & IN_ISDIR)) {
                         char *cspath = NULL;
-                        int len = asprintf(&cspath, "%s/%s", CS_PATH, event->name);
+                        int len = asprintf(&cspath, "%s/%s", CS_PATH,
+                                event->name);
                         D( "The file %s was created.\n", cspath);
                         writex(fd, cspath, len);
                         if (cspath != NULL) {
@@ -284,7 +284,7 @@ void inoti_service(int fd, void *arg)
                     }
                 }
             }
-            if (i + EVENT_SIZE + event->len > INT_MAX ) { // in case of integer is max
+            if (i + EVENT_SIZE + event->len < event->len) { // in case of integer overflow
                 break;
             }
             i += EVENT_SIZE + event->len;
@@ -365,7 +365,7 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
 
 #if !SDB_HOST
 
-static int redirect_and_exec(int pts, const char *cmd, const char *argv[], const char *envp[])
+static void redirect_and_exec(int pts, const char *cmd, const char *argv[], const char *envp[])
 {
     dup2(pts, 0);
     dup2(pts, 1);
@@ -611,6 +611,7 @@ static int create_subproc_thread(const char *name, int lines, int columns)
          // if string is not including 'PATH=', append it.
          if(strncmp(trim_value, "PATH", 4)) {
              strncat(path , trim_value, sizeof(path) - 6);
+             free(trim_value);
              trim_value = path;
          }
          envp[3] = strdup(trim_value);

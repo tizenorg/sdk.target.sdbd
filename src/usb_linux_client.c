@@ -119,6 +119,11 @@ void usb_init()
 //  int fd;
 
     h = calloc(1, sizeof(usb_handle));
+    if (h == NULL) {
+        D("failed to allocate memory of usb_handle\n");
+        return;
+    }
+
     h->fd = -1;
     sdb_cond_init(&h->notify, 0);
     sdb_mutex_init(&h->lock, 0);

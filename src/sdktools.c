@@ -447,6 +447,10 @@ char* clone_gdbserver_label_from_app(const char* app_path) {
         strcpy(appid, "_");
     }
     new_appid = (char *)malloc(sizeof(appid)+1);
+    if (new_appid == NULL) {
+        D("failed to allocate memory of new_appid");
+        return NULL;
+    }
     strncpy(new_appid, appid, APPID_MAX_LENGTH);
     // Do not label to gdbserver executable
 /*

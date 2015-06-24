@@ -124,6 +124,9 @@ char *str_trim(const char* string)
         e--;
 
     ret = strdup(s);
+    if(ret == NULL) {
+        return NULL;
+    }
     ret[e - s + 1] = 0;
 
     return  ret;
