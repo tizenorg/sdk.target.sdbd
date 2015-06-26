@@ -84,6 +84,6 @@ ENDIF(DEFINED WEARABLE_PROFILE)
 find_package(Threads REQUIRED)
 
 ADD_EXECUTABLE(sdbd ${SDBD_SRCS})
-TARGET_LINK_LIBRARIES(sdbd -lsmack -lresolv ${CMAKE_THREAD_LIBS_INIT} ${pkgs_LDFLAGS})
+TARGET_LINK_LIBRARIES(sdbd -pie -lsmack -lresolv ${CMAKE_THREAD_LIBS_INIT} ${pkgs_LDFLAGS})
 
 install(TARGETS sdbd DESTINATION /usr/sbin)
