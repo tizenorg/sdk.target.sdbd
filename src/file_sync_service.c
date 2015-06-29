@@ -651,7 +651,7 @@ void file_sync_service(int fd, void *cookie)
             fp = popen("/usr/bin/vsm-foreground", "r");
             if (fp == NULL) {
                 D("Failed to create pipe of vsm-foreground\n");
-                return;
+                goto fail;
             }
             fgets(name_vsm, 1025, fp);
             pclose(fp);

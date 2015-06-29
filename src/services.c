@@ -583,8 +583,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     char *trim_value = NULL;
     char path[PATH_MAX];
     memset(path, 0, sizeof(path));
-    snprintf(path, sizeof(path), "%s", "PATH=");
-
 
     char *envp[] = {
         "TERM=linux", /* without this, some programs based on screen can't work, e.g. top */
@@ -606,16 +604,21 @@ static int create_subproc_thread(const char *name, int lines, int columns)
          }
          envp[2] = "HOME=/root";
      }
-     if (value != NULL) {
-         trim_value = str_trim(value);
-         // if string is not including 'PATH=', append it.
-         if(strncmp(trim_value, "PATH", 4)) {
-             strncat(path , trim_value, sizeof(path) - 6);
-             free(trim_value);
-             trim_value = path;
-         }
-         envp[3] = strdup(trim_value);
-     }
+    if (value != NULL) {
+        trim_value = str_trim(value);
+        if (trim_value != NULL) {
+            // if string is not including 'PATH=', append it.
+            if (strncmp(trim_value, "PATH", 4)) {
+                snprintf(path, sizeof(path), "PATH=%s", trim_value);
+            } else {
+                snprintf(path, sizeof(path), "%s", trim_value);
+            }
+            envp[3] = path;
+            free(trim_value);
+        } else {
+            envp[3] = value;
+        }
+    }
 
     D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
 
