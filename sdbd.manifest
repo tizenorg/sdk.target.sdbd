@@ -25,6 +25,7 @@
             <smack request="tizen::vconf::platform::rw" type="r" />
             <smack request="tizen::vconf::public::r::platform::rw" type="r" />
             <smack request="tizen::vconf::setting::admin" type="r" />
+            <smack request="procps" type="rx" />
         </request>
         <permit>
             <smack permit="system::use_internet" type="w" />
