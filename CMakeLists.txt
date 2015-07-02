@@ -55,6 +55,8 @@ pkg_check_modules(pkgs REQUIRED
     vconf
     vasum
     glib-2.0
+    dbus-1
+    dbus-glib-1
  )
  
 FOREACH(flag ${pkgs_CFLAGS})

@@ -322,6 +322,7 @@ char * get_log_file_path(const char * log_name);
 
 int rootshell_mode; // 0: developer, 1: root
 int hostshell_mode; // 0: foreground zone, 1: host  2: denied
+int booting_done; // 0: platform booting is in progess 1: platform booting is done
 
 // This is the users and groups config for the platform
 

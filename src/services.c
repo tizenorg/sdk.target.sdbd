@@ -967,6 +967,26 @@ static void get_capability(int fd, void *cookie) {
     sdb_close(fd);
 }
 
+const unsigned COMMAND_TIMEOUT = 10000;
+void get_boot(int fd, void *cookie) {
+    char buf[2] = { 0, };
+    char *mode = (char*) cookie;
+    int time = 0;
+    int interval = 1000;
+    while (time < COMMAND_TIMEOUT) {
+        if (booting_done == 1) {
+            D("get_boot:platform booting is done\n");
+            snprintf(buf, sizeof(buf), "%s", "1");
+            break;
+        }
+        D("get_boot:platform booting is in progress\n");
+        sdb_sleep_ms(interval);
+        time += interval;
+    }
+    writex(fd, buf, strlen(buf));
+    sdb_close(fd);
+}
+
 int service_to_fd(const char *name)
 {
     int ret = -1;
@@ -1070,7 +1090,12 @@ int service_to_fd(const char *name)
         ret = create_service_thread(get_platforminfo, 0);
     } else if(!strncmp(name, "capability:", 11)){
         ret = create_service_thread(get_capability, 0);
+    } else if(!strncmp(name, "boot:", 5)){
+        if (is_emulator()) {
+            ret = create_service_thread(get_boot, 0);
+        }
     }
+
     if (ret >= 0) {
         if (close_on_exec(ret) < 0) {
             D("failed to close fd exec\n");

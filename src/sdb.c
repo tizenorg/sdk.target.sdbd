@@ -1300,6 +1300,98 @@ void register_pwlock_cb() {
     }
 }
 
+#include <dbus/dbus.h>
+#include <dbus/dbus-glib.h>
+#include <dbus/dbus-glib-lowlevel.h>
+
+#define BOOTING_DONE_SIGNAL    "BootingDone"
+#define DEVICED_CORE_INTERFACE "org.tizen.system.deviced.core"
+#define SDBD_BOOT_INFO_FILE "/tmp/sdbd_boot_info"
+
+static DBusHandlerResult __sdbd_dbus_signal_filter(DBusConnection *conn,
+		DBusMessage *message, void *user_data) {
+	D("got dbus message\n");
+	const char *interface;
+
+	DBusError error;
+	dbus_error_init(&error);
+
+	interface = dbus_message_get_interface(message);
+	if (interface == NULL) {
+		D("reject by security issue - no interface\n");
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+
+	if (dbus_message_is_signal(message, DEVICED_CORE_INTERFACE,
+			BOOTING_DONE_SIGNAL)) {
+		booting_done = 1;
+		if (access(SDBD_BOOT_INFO_FILE, F_OK) == 0) {
+			D("booting is done before\n");
+		} else {
+			FILE *f = fopen(SDBD_BOOT_INFO_FILE, "w");
+			if (f != NULL) {
+				fprintf(f, "%d", 1);
+				fclose(f);
+			}
+		}
+		D("booting is done\n");
+	}
+
+	D("handled dbus message\n");
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static void *bootdone_cb(void *x) {
+	int MAX_LOCAL_BUFSZ = 128;
+	DBusError error;
+	DBusConnection *bus;
+	char rule[MAX_LOCAL_BUFSZ];
+	GMainLoop *mainloop;
+
+	g_type_init();
+
+	dbus_error_init(&error);
+	bus = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
+	if (!bus) {
+		D("Failed to connect to the D-BUS daemon: %s", error.message);
+		dbus_error_free(&error);
+		return -1;
+	}
+	dbus_connection_setup_with_g_main(bus, NULL);
+
+	snprintf(rule, MAX_LOCAL_BUFSZ, "type='signal',interface='%s'",
+			DEVICED_CORE_INTERFACE);
+	/* listening to messages */
+	dbus_bus_add_match(bus, rule, &error);
+	if (dbus_error_is_set(&error)) {
+		D("Fail to rule set: %s", error.message);
+		dbus_error_free(&error);
+		return -1;
+	}
+
+	if (dbus_connection_add_filter(bus, __sdbd_dbus_signal_filter, NULL, NULL)
+			== FALSE)
+		return -1;
+
+	D("booting signal initialized\n");
+	mainloop = g_main_loop_new(NULL, FALSE);
+	g_main_loop_run(mainloop);
+
+	D("dbus loop exited");
+
+	return 0;
+}
+
+void register_bootdone_cb() {
+	D("registerd bootdone callback\n");
+
+	sdb_thread_t t;
+	if (sdb_thread_create(&t, bootdone_cb, NULL)) {
+		D("cannot create service thread\n");
+		return;
+	}
+}
+
 int set_developer_privileges() {
     gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
     if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
@@ -1514,6 +1606,10 @@ static void init_sdk_requirements() {
     execute_required_process();
 
     register_pwlock_cb();
+
+    if (is_emulator()) {
+        register_bootdone_cb();
+    }
 }
 #endif /* !SDB_HOST */
 

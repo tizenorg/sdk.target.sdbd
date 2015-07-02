@@ -1,5 +1,5 @@
 Name:       sdbd
-Version:    2.2.31
+Version:    2.2.32
 Release:    1
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -15,6 +15,8 @@ BuildRequires: pkgconfig(capi-system-info)
 BuildRequires: pkgconfig(vconf)
 BuildRequires: pkgconfig(vasum)
 BuildRequires: pkgconfig(glib-2.0)
+BuildRequires: pkgconfig(dbus-1)
+BuildRequires: pkgconfig(dbus-glib-1)
 Requires: default-files-tizen
 Requires: sys-assert
 Requires: debug-launchpad
@@ -71,6 +73,10 @@ chsmack -t /home/developer
 /usr/bin/profile_command
 
 %changelog
+* Thu Jul 13 2015 - Shingil Kang <shingil.kang@samsung.com>
+- Supported 'boot' protocol to get status of platform booting
+- Add new protocol "capability" to get the platform capability information
+
 * Thu Jun 15 2015 - Shingil Kang <shingil.kang@samsung.com>
 - Added to network smack rule for emulator guest IP (10.0.2.15)
 - Removed to create sdb_port.txt file

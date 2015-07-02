@@ -1,6 +1,6 @@
 [Unit]
 Description=sdbd
-After=tmp.mount
+After=tmp.mount dbus.service
 #DefaultDependencies=false
 
 [Service]
