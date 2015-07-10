@@ -327,7 +327,6 @@ int hostshell_mode; // 0: foreground zone, 1: host  2: denied
 
 #define SID_ROOT        0    /* traditional unix root user */
 #define SID_TTY         5    /* group for /dev/ptmx */
-#define SID_APP         5000 /* application */
 #define SID_DEVELOPER   5100 /* developer with SDK */
 #define SID_APP_LOGGING 6509
 #define SID_SYS_LOGGING 6527
