@@ -39,7 +39,6 @@ int verify_root_commands(const char *arg1);
 int verify_app_path(const char* path);
 int regcmp(const char* pattern, const char* str);
 int is_root_commands(const char *command);
-int apply_sdb_rules(const char* subject, const char* object, const char* access_type);
 int is_pkg_file_path(const char* path);
 
 #ifdef __cplusplus

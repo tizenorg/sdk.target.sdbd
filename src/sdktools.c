@@ -20,10 +20,9 @@
 #include "utils.h"
 
 struct sudo_command root_commands[] = {
-    /* 0 */ {"da_command", "/usr/bin/da_command"},
-    /* 1 */ {"profile", "/usr/bin/profile_command"},
-    /* 2 */ {"rm1", "rm"},
-    /* 3 */ {"rm2", "/bin/rm"},
+    /* 0 */ {"profile", "/usr/bin/profile_command"},
+    /* 1 */ {"rm1", "rm"},
+    /* 2 */ {"rm2", "/bin/rm"},
     /* end */ {NULL, NULL}
 };
 
@@ -144,49 +143,15 @@ int verify_root_commands(const char *arg1) {
     }
 
     switch (index) {
-    case 0: { // in case of da_command
+    case 0: { // in case of oprofile_command
         ret = 0;
         if (!is_cmd_suffix_denied(arg1)) {
             ret = 1;
         }
-        // this is exception to allow suffix
-        if (cnt == 5 && !strcmp(tokens[1], "process")
-                && !strcmp(tokens[2], "|")
-                && !strcmp(tokens[3], "grep")
-                && !is_cmd_suffix_denied(tokens[4])) {
-                ret = 1;
-        }
         break;
     }
-    case 1: { // in case of oprofile_command
-        ret = 0;
-        if (!is_cmd_suffix_denied(arg1)) {
-            ret = 1;
-        }
-        if (!strcmp(tokens[1], "valgrind") && cnt >= 3) {
-            char *appid = NULL;
-            // the tokens[2] should be apppath
-            int rc = smack_lgetlabel(tokens[2], &appid, SMACK_LABEL_ACCESS);
-            if (rc == 0 && appid != NULL) {
-                if (apply_sdb_rules(SDBD_LABEL_NAME, appid, "rwax") < 0) {
-                    D("unable to set %s %s rules\n", SDBD_LABEL_NAME, appid);
-                } else {
-                    D("apply rule to '%s %s rwax' rules\n", SDBD_LABEL_NAME, appid);
-                }
-                if (apply_sdb_rules(appid, SDBD_LABEL_NAME, "rwax") < 0) {
-                    D("unable to set %s %s rules\n", appid, SDBD_LABEL_NAME);
-                } else {
-                    D("apply rule to '%s %s rwax' rules\n", appid, SDBD_LABEL_NAME);
-                }
-                free(appid);
-            }
-            D("standalone launch for valgrind\n");
-        }
-
-        break;
-    }
+    case 1:
     case 2:
-    case 3:
     { // in case of rm to remove the temporary package file
         if (is_cmd_suffix_denied(arg1)) {
             ret = 0;
@@ -233,24 +198,6 @@ int regcmp(const char* pattern, const char* str) {
     }
     regfree(&regex);
     return 0;
-}
-
-int apply_sdb_rules(const char* subject, const char* object, const char* access_type) {
-    struct smack_accesses *rules = NULL;
-    int ret = 0;
-
-    if (smack_accesses_new(&rules))
-        return -1;
-
-    if (smack_accesses_add(rules, subject, object, access_type)) {
-        smack_accesses_free(rules);
-        return -1;
-    }
-
-    ret = smack_accesses_apply(rules);
-    smack_accesses_free(rules);
-
-    return ret;
 }
 
 int is_root_commands(const char *command) {
