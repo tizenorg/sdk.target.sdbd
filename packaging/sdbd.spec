@@ -17,10 +17,12 @@ BuildRequires: pkgconfig(vasum)
 BuildRequires: pkgconfig(glib-2.0)
 BuildRequires: pkgconfig(dbus-1)
 BuildRequires: pkgconfig(dbus-glib-1)
+BuildRequires: pkgconfig(security-server)
 Requires: default-files-tizen
 Requires: sys-assert
 Requires: debug-launchpad
 Requires: dbus
+Requires: security-server
 
 %description
 Description: SDB daemon.

@@ -57,6 +57,7 @@ pkg_check_modules(pkgs REQUIRED
     glib-2.0
     dbus-1
     dbus-glib-1
+    security-server
  )
  
 FOREACH(flag ${pkgs_CFLAGS})

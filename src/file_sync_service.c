@@ -27,6 +27,7 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/smack.h>
+#include <security-server.h>
 #include "sysdeps.h"
 
 #define TRACE_TAG  TRACE_SYNC
@@ -50,11 +51,6 @@ static void set_syncfile_smack_label(char *src) {
     int pos = src_chr - src + 1;
     char dirname[512];
 
-    if (getuid() != 0) {
-        D("need root permission to set smack label: %d\n", getuid());
-        return;
-    }
-
     snprintf(dirname, pos, "%s", src);
 
     //D("src:[%s], dirname:[%s]\n", src, dirname);
@@ -64,8 +60,9 @@ static void set_syncfile_smack_label(char *src) {
         if (!strcmp("TRUE", label_transmuted)) {
             rc = smack_getlabel(dirname, &label, SMACK_LABEL_ACCESS);
             if (rc == 0 && label != NULL) {
-                if (smack_setlabel(src, label, SMACK_LABEL_ACCESS) == -1) {
-                    D("unable to set sync file smack label %s due to errno:%d\n", label, errno);
+                rc = security_server_label_access(src, label);
+                if (rc != SECURITY_SERVER_API_SUCCESS) {
+                    D("unable to set sync file smack label %s due to %d\n", label, errno);
                 }
                 free(label);
             }
@@ -74,8 +71,9 @@ static void set_syncfile_smack_label(char *src) {
         }
         free(label_transmuted);
     } else {
-        if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) == -1) {
-            D("unable to set sync file smack label %s due to errno:%d\n", SMACK_SYNC_FILE_LABEL, errno);
+        rc = security_server_label_access(src, SMACK_SYNC_FILE_LABEL);
+        if (rc != SECURITY_SERVER_API_SUCCESS) {
+            D("unable to set sync file smack label %s due to %d\n", SMACK_SYNC_FILE_LABEL, errno);
         }
     }
 }
