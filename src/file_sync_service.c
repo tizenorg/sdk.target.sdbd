@@ -37,24 +37,10 @@
 
 #define SYNC_TIMEOUT 15
 
-struct sync_permit_rule
-{
-    const char *name;
-    const char *regx;
-    int mode; // 0:push, 1: pull, 2: push&push
-};
-
-struct sync_permit_rule sdk_sync_permit_rule[] = {
-    /* 1 */ {"da", "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$", 1},
-    /* end */ {NULL, NULL, 0}
-};
-
 /* The typical default value for the umask is S_IWGRP | S_IWOTH (octal 022).
  * Before use the DIR_PERMISSION, the process umask value should be set 0 using umask().
  */
 #define DIR_PERMISSION 0777
-
-int is_install_pkg_file = 0;
 
 static void set_syncfile_smack_label(char *src) {
     char *label_transmuted = NULL;
@@ -481,7 +467,7 @@ static int do_send(int s, int noti_fd, char *path, char *buffer)
         mode = 0644; // set default permission value in most of unix system.
         is_link = 0;
     }
-    if(is_install_pkg_file) {
+    if (is_pkg_file_path(path)) {
         mode = 0644;
         is_link = 0;
     }
@@ -549,41 +535,6 @@ static int do_recv(int s, const char *path, char *buffer)
     return 0;
 }
 
-static int verify_sync_rule(const char* path) {
-    regex_t regex;
-    int ret;
-    char buf[PATH_MAX];
-    int i=0;
-
-    // to prevent hijacking the pkg file.
-    if (is_pkg_file_path(path)) {
-        is_install_pkg_file = 1;
-        D("matched pkg file path: to prevent hijacking the pkg file\n");
-        return 1;
-    }
-
-    for (i=0; sdk_sync_permit_rule[i].regx != NULL; i++) {
-        ret = regcomp(&regex, sdk_sync_permit_rule[i].regx, REG_EXTENDED);
-        if(ret){
-            return 0;
-        }
-        // execute regular expression
-        ret = regexec(&regex, path, 0, NULL, 0);
-        if(!ret){
-            regfree(&regex);
-            D("found matched rule(%s) from %s path\n", sdk_sync_permit_rule[i].name, path);
-            return 1;
-        } else if( ret == REG_NOMATCH ){
-            // do nothin
-        } else{
-            regerror(ret, &regex, buf, sizeof(buf));
-            D("regex match failed(%s): %s\n",sdk_sync_permit_rule[i].name, buf);
-        }
-    }
-    regfree(&regex);
-    return 0;
-}
-
 static pid_t get_zone_init_pid(const char *name) {
     char filename[PATH_MAX];
     FILE *fp;
@@ -618,7 +569,6 @@ void file_sync_service(int fd, void *cookie)
     int s[2];
     char zone_path[1025] = {0, };
     char name_vsm[1025] = {0, };
-    is_install_pkg_file = 0;
 
     if(sdb_socketpair(s)) {
         D("cannot create service socket pair\n");
@@ -694,7 +644,7 @@ void file_sync_service(int fd, void *cookie)
             msg.req.namelen = 0;
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
 
-            if (should_drop_privileges() && !verify_sync_rule(name)) {
+            if (should_drop_privileges()) {
                 set_developer_privileges();
             }
 
