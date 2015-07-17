@@ -21,8 +21,6 @@
 
 struct sudo_command root_commands[] = {
     /* 0 */ {"profile", "/usr/bin/profile_command"},
-    /* 1 */ {"rm1", "rm"},
-    /* 2 */ {"rm2", "/bin/rm"},
     /* end */ {NULL, NULL}
 };
 
@@ -146,18 +144,6 @@ int verify_root_commands(const char *arg1) {
     case 0: { // in case of oprofile_command
         ret = 0;
         if (!is_cmd_suffix_denied(arg1)) {
-            ret = 1;
-        }
-        break;
-    }
-    case 1:
-    case 2:
-    { // in case of rm to remove the temporary package file
-        if (is_cmd_suffix_denied(arg1)) {
-            ret = 0;
-            break;
-        }
-        if (is_pkg_file_path(tokens[1])) {
             ret = 1;
         }
         break;
