@@ -45,7 +45,7 @@ find_unittest()
 
 process_list()
 {
-	/bin/ps -eo pid,cmd
+	/bin/ps -ewo pid,cmd
 }
 
 get_version()
