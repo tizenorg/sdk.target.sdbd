@@ -37,6 +37,20 @@
 
 #define SYNC_TIMEOUT 15
 
+struct sync_permit_rule
+{
+    const char *name;
+    const char *regx;
+    int mode; // 0:push, 1: pull, 2: push&push
+};
+
+struct sync_permit_rule sdk_sync_permit_rule[] = {
+//    /* 0 */ {"rds", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/info/\\.sdk_delta\\.info$", 1},
+    /* 1 */ {"unitest", "^((/tmp)|(/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", 1},
+    /* 2 */ {"codecoverage", "^((/tmp)|(/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/+(.)*\\.gcda$", 1},
+    /* end */ {NULL, NULL, 0}
+};
+
 /* The typical default value for the umask is S_IWGRP | S_IWOTH (octal 022).
  * Before use the DIR_PERMISSION, the process umask value should be set 0 using umask().
  */
