@@ -446,7 +446,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 
         if (hostshell_mode == 1) {
             if (should_drop_privileges()) {
-                if (argv[2] != NULL && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
+                if (argv[2] != NULL && getuid() == 0 && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
                     // do nothing
                     D("sdb: executes root commands!!:%s\n", argv[2]);
                 } else {

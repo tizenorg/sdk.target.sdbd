@@ -1819,15 +1819,6 @@ static void load_sdbd_plugin() {
 static void init_sdk_requirements() {
     struct stat st;
 
-    if (stat(ONDEMAND_ROOT_PATH, &st) == -1) {
-        return;
-    }
-    if (st.st_uid != SID_DEVELOPER || st.st_gid != SID_DEVELOPER) {
-        char *arg_list[] = {"/bin/chown", ONDEMAND_ROOT_PATH, "-R", NULL};
-
-        spawn("/bin/chown", arg_list);
-    }
-
     execute_required_process();
 
     register_pwlock_cb();
