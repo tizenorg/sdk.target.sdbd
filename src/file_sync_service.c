@@ -31,6 +31,7 @@
 
 #define TRACE_TAG  TRACE_SYNC
 #include "sdb.h"
+#include "sdbd_plugin.h"
 #include "file_sync_service.h"
 #include "sdktools.h"
 #include "utils.h"
@@ -457,11 +458,29 @@ static int handle_send_link(int s, int noti_fd, char *path, char *buffer)
 }
 #endif /* HAVE_SYMLINKS */
 
+static int is_support_push()
+{
+    return (!strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSHPULL, strlen(SDBD_CAP_RET_PUSHPULL))
+            || !strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSH, strlen(SDBD_CAP_RET_PUSH)));
+}
+
+static int is_support_pull()
+{
+    return (!strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSHPULL, strlen(SDBD_CAP_RET_PUSHPULL))
+            || !strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PULL, strlen(SDBD_CAP_RET_PULL)));
+}
+
 static int do_send(int s, int noti_fd, char *path, char *buffer)
 {
     char *tmp;
     mode_t mode;
     int is_link, ret;
+
+    // Check the capability for file push support.
+    if(!is_support_push()) {
+        fail_message(s, "NO support file push.");
+        return -1;
+    }
 
     tmp = strrchr(path,',');
     if(tmp) {
@@ -514,6 +533,12 @@ static int do_recv(int s, const char *path, char *buffer)
 {
     syncmsg msg;
     int fd, r;
+
+    // Check the capability for file push support.
+    if (!is_support_pull()) {
+        fail_message(s, "NO support file pull.");
+        return -1;
+    }
 
     fd = sdb_open(path, O_RDONLY);
     if(fd < 0) {
