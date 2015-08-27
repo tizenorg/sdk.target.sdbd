@@ -43,6 +43,9 @@
 #include <vconf.h>
 #include <limits.h>
 
+#include <termios.h>
+#include <sys/ioctl.h>
+
 typedef struct stinfo stinfo;
 
 struct stinfo {
@@ -623,14 +626,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
 
     D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
 
-    if (lines > 0 && columns > 0) {
-        snprintf(lines_str, sizeof(lines_str), "LINES=%d", lines);
-        snprintf(columns_str, sizeof(columns_str), "COLUMNS=%d", columns);
-        envp[4] = lines_str;
-        envp[5] = columns_str;
-        D("shell size env:%s,%s\n", envp[4], envp[5]);
-    }
-
     if(name) { // in case of shell execution directly
         char *args[] = {
             SHELL_COMMAND,
@@ -675,6 +670,18 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         D("cannot create service thread\n");
         return -1;
     }
+
+    if (lines > 0 && columns > 0) {
+        D("shell size lines=%d, columns=%d\n", lines, columns);
+        struct winsize win_sz;
+        win_sz.ws_row = lines;
+        win_sz.ws_col = columns;
+
+        if (ioctl(ret_fd, TIOCSWINSZ, &win_sz) < 0) {
+            D("failed to sync window size.\n");
+        }
+    }
+
     sti = malloc(sizeof(stinfo));
     if(sti == 0) fatal("cannot allocate stinfo");
     sti->func = subproc_waiter_service;
@@ -960,12 +967,38 @@ static void get_capability(int fd, void *cookie) {
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
                                 "sdbd_version", sdbd_version);
 
+    // Window size synchronization support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "syncwinsz_support", ENABLED);
+
+
     offset++; // for '\0' character
 
     writex(fd, &offset, sizeof(uint16_t));
     writex(fd, cap_buffer, offset);
 
     sdb_close(fd);
+}
+
+static void sync_windowsize(int fd, void *cookie) {
+    int id, lines, columns;
+    char *size_info = cookie;
+    asocket *s = NULL;
+
+    if (sscanf(size_info, "%d:%d:%d", &id, &lines, &columns) == 3) {
+        D("window size information: id=%d, lines=%d, columns=%d\n", id, lines, columns);
+    }
+    if((s = find_local_socket(id))) {
+        struct winsize win_sz;
+        win_sz.ws_row = lines;
+        win_sz.ws_col = columns;
+
+        if (ioctl(s->fd, TIOCSWINSZ, &win_sz) < 0) {
+            D("failed to sync window size.\n");
+            return;
+        }
+        D("success to sync window size.\n");
+    }
 }
 
 const unsigned COMMAND_TIMEOUT = 10000;
@@ -1094,6 +1127,10 @@ int service_to_fd(const char *name)
     } else if(!strncmp(name, "boot:", 5)){
         if (is_emulator()) {
             ret = create_service_thread(get_boot, 0);
+        }
+    } else if(!strncmp(name, "shellconf:", 10)){
+        if(!strncmp(name+10, "syncwinsz:", 10)){
+            ret = create_service_thread(sync_windowsize, name+20);
         }
     }
 
