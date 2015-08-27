@@ -1395,17 +1395,17 @@ void register_bootdone_cb() {
 int set_developer_privileges() {
     gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
     if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
-        D("set groups failed (errno: %d, %s)\n", errno, strerror(errno));
+        D("set groups failed (errno: %d)\n", errno);
     }
 
     // then switch user and group to developer
     if (setgid(SID_DEVELOPER) != 0) {
-        D("set group id failed (errno: %d, %s)\n", errno, strerror(errno));
+        D("set group id failed (errno: %d)\n", errno);
         return -1;
     }
 
     if (setuid(SID_DEVELOPER) != 0) {
-        D("set user id failed (errno: %d, %s)\n", errno, strerror(errno));
+        D("set user id failed (errno: %d)\n", errno);
         return -1;
     }
 
@@ -1417,7 +1417,7 @@ int set_developer_privileges() {
         }
     }
     // TODO: use pam later
-    putenv("HOME=/home/developer");
+    setenv("HOME", "/home/developer", 1);
 
     return 1;
 }
@@ -2114,7 +2114,7 @@ int main(int argc, char **argv)
 #endif
 #if !SDB_HOST
     if (daemonize() < 0)
-        fatal("daemonize() failed: %.200s", strerror(errno));
+        fatal("daemonize() failed: errno:%d", errno);
 #endif
 
     start_device_log();

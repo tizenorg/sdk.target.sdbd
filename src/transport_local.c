@@ -448,8 +448,8 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen,
 
     done:
     if(fcntl(sockfd, F_SETFL, flags) == -1) { /* restore file status flags */
-        D("failed to restore file status flag for socket %d: %s\n",
-                 sockfd, strerror(errno));
+        D("failed to restore file status flag for socket %d\n",
+                 sockfd);
     }
 
     if (error) {

@@ -292,6 +292,7 @@ static __inline__  int  sdb_is_absolute_host_path( const char*  path )
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <string.h>
+#include <time.h>
 
 #define OS_PATH_SEPARATOR '/'
 #define OS_PATH_SEPARATOR_STR "/"
@@ -497,7 +498,10 @@ static __inline__ int  sdb_socketpair( int  sv[2] )
 
 static __inline__ void  sdb_sleep_ms( int  mseconds )
 {
-    usleep( mseconds*1000 );
+    struct timespec ts;
+    ts.tv_sec = mseconds / 1000;
+    ts.tv_nsec = (mseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
 }
 
 static __inline__ int  sdb_mkdir(const char*  path, int mode)

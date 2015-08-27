@@ -112,7 +112,9 @@ int socket_ifr_client(int port, int type, char *ifr_dev)
         return -1;
     }
 
-    addr.sin_addr.s_addr = inet_addr(inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+    char buf[1025] = {0, };
+    inet_ntop(AF_INET, &((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr, buf, sizeof(buf));
+    addr.sin_addr.s_addr = inet_addr(buf);
 
     close(s);
 
@@ -151,14 +153,14 @@ int ifconfig(char *ifname, char *address, char *netmask, int activated) {
     sin->sin_addr.s_addr = inet_addr(address);
 
     if (ioctl(sockfd, SIOCSIFADDR, &ifr) < 0) {
-        fprintf(stderr,"cannot set SIOCSIFADDR flags: %s(%s)\n", address, strerror(errno));
+        fprintf(stderr,"cannot set SIOCSIFADDR flags: %s(errno:%d)\n", address, errno);
         close(sockfd);
         return -1;
     }
 
     sin->sin_addr.s_addr = inet_addr(netmask);
     if (ioctl(sockfd, SIOCSIFNETMASK, &ifr) < 0) {
-        fprintf(stderr,"cannot set SIOCSIFNETMASK flags: %s(%s)\n", netmask, strerror(errno));
+        fprintf(stderr,"cannot set SIOCSIFNETMASK flags: %s(errno:%d)\n", netmask, errno);
         close(sockfd);
         return -1;
     }
@@ -169,7 +171,7 @@ int ifconfig(char *ifname, char *address, char *netmask, int activated) {
         ifr.ifr_flags |= ~IFF_UP;
     }
     if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {
-        fprintf(stderr,"cannot set SIOCGIFFLAGS flags: %s\n", strerror(errno));
+        fprintf(stderr,"cannot set SIOCGIFFLAGS flags: errno:%d\n", errno);
         close(sockfd);
         return -1;
     }

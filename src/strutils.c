@@ -12,10 +12,13 @@
 size_t tokenize(const char *str, const char *delim, char *tokens[], size_t max_tokens ) {
     int cnt = 0;
 
-    char tmp[PATH_MAX] = {0, };
-    snprintf(tmp, PATH_MAX, "%s", str);
+    char tmp[PATH_MAX+1];
+    char *ptr;
 
-    char *p = strtok(tmp, delim);
+    strncpy(tmp, str, PATH_MAX);
+    tmp[PATH_MAX] = '\0';
+
+    char *p = strtok_r(tmp, delim, &ptr);
     if (max_tokens < 1 || max_tokens > MAX_TOKENS) {
         max_tokens = 1;
     }
@@ -23,7 +26,7 @@ size_t tokenize(const char *str, const char *delim, char *tokens[], size_t max_t
     if (p != NULL) {
         tokens[cnt++] = strdup(p);
         while(cnt < max_tokens && p != NULL) {
-            p = strtok(NULL, delim);
+            p = strtok_r(NULL, delim, &ptr);
             if (p != NULL) {
                 tokens[cnt++] = strdup(p);
             }

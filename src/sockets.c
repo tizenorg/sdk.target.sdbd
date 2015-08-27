@@ -153,7 +153,7 @@ static int local_socket_enqueue(asocket *s, apacket *p)
             continue;
         }
         if((r == 0) || (errno != EAGAIN)) {
-            D( "LS(%d): not ready, errno=%d: %s\n", s->id, errno, strerror(errno) );
+            D( "LS(%d): not ready, errno=%d\n", s->id, errno);
             s->close(s);
             return 1; /* not ready (error) */
         } else {

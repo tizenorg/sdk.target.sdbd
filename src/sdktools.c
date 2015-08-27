@@ -355,7 +355,7 @@ int exec_app_standalone(const char* path) {
                         apply_app_process();
                         ret = 1;
                     } else {
-                        D("unable to open %s due to %s\n", SMACK_LEBEL_SUBJECT_PATH, strerror(errno));
+                        D("unable to open %s due to errno:%d\n", SMACK_LEBEL_SUBJECT_PATH, errno);
                     }
                     free(appid);
                 }
@@ -393,7 +393,8 @@ char* clone_gdbserver_label_from_app(const char* app_path) {
         s_strncpy(appid, buffer, sizeof appid);
         free(buffer);
     } else {
-        strcpy(appid, "_");
+    	appid[0] = '_';
+    	appid[1] = '\0';
     }
     new_appid = (char *)malloc(sizeof(appid)+1);
     if (new_appid == NULL) {

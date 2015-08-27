@@ -78,7 +78,7 @@ static void set_syncfile_smack_label(char *src) {
             rc = smack_getlabel(dirname, &label, SMACK_LABEL_ACCESS);
             if (rc == 0 && label != NULL) {
                 if (smack_setlabel(src, label, SMACK_LABEL_ACCESS) == -1) {
-                    D("unable to set sync file smack label %s due to %s\n", label, strerror(errno));
+                    D("unable to set sync file smack label %s due to errno:%d\n", label, errno);
                 }
                 free(label);
             }
@@ -88,7 +88,7 @@ static void set_syncfile_smack_label(char *src) {
         free(label_transmuted);
     } else {
         if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) == -1) {
-            D("unable to set sync file smack label %s due to %s\n", SMACK_SYNC_FILE_LABEL, strerror(errno));
+            D("unable to set sync file smack label %s due to errno:%d\n", SMACK_SYNC_FILE_LABEL, errno);
         }
     }
 }
@@ -110,7 +110,7 @@ static void sync_read_label_notify(int s)
     while (1) {
         int len = sdb_read(s, buffer, sizeof(buffer));
         if (len < 0) {
-            D("sync notify read error:%s\n", strerror(errno));
+            D("sync notify read errno:%d\n", errno);
             exit(-1);
         }
 
@@ -146,7 +146,7 @@ static int mkdirs(int noti_fd, char *name)
             sync_send_label_notify(noti_fd, name, 1);
         }
         if((ret < 0) && (errno != EEXIST)) {
-            D("mkdir(\"%s\") -> %s\n", name, strerror(errno));
+            D("mkdir(\"%s\") -> errno:%d\n", name, errno);
             *x = '/';
             return ret;
         }
@@ -167,7 +167,7 @@ static int do_stat(int s, const char *path)
         msg.stat.mode = 0;
         msg.stat.size = 0;
         msg.stat.time = 0;
-        D("failed to stat %s due to: %s\n", path, strerror(errno));
+        D("failed to stat %s due to: errno:%d\n", path, errno);
     } else {
         msg.stat.mode = htoll(st.st_mode);
         msg.stat.size = htoll(st.st_size);
@@ -188,6 +188,9 @@ static int do_list(int s, const char *path)
     char tmp[1024 + 256 + 1];
     char *fname;
 
+    char dirent_buffer[ sizeof(struct dirent) + 260 + 1 ]  = {0,};
+    struct dirent *dirent_r = (struct dirent*)dirent_buffer;
+
     len = strlen(path);
     memcpy(tmp, path, len);
     tmp[len] = '/';
@@ -197,11 +200,11 @@ static int do_list(int s, const char *path)
 
     d = opendir(path);
     if(d == NULL) {
-        D("failed to open dir due to: %s\n", strerror(errno));
+        D("failed to open dir due to: errno:%d\n", errno);
         goto done;
     }
 
-    while((de = readdir(d))) {
+    while((readdir_r(d, dirent_r, &de) == 0) && de) {
         int len = strlen(de->d_name);
 
             /* not supposed to be possible, but
@@ -255,7 +258,11 @@ static int fail_message(int s, const char *reason)
 
 static int fail_errno(int s)
 {
-    return fail_message(s, strerror(errno));
+	char buf[512];
+
+	strerror_r(s, buf, sizeof(buf));
+
+    return fail_message(s, buf);
 }
 
 // FIXME: should get the following paths with api later but, do it for simple and not having dependency on other packages

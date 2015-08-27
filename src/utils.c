@@ -167,6 +167,7 @@ char** str_split(char* a_str, const char a_delim) {
 	char delim[2];
 	delim[0] = a_delim;
 	delim[1] = 0;
+	char *ptr;
 
 	/* Count how many elements will be extracted. */
 	while (*tmp) {
@@ -188,12 +189,12 @@ char** str_split(char* a_str, const char a_delim) {
 
 	if (result) {
 		size_t idx = 0;
-		char* token = strtok(a_str, delim);
+		char* token = strtok_r(a_str, delim, &ptr);
 
 		while (token) {
 			//assert(idx < count);
 			*(result + idx++) = strdup(token);
-			token = strtok(0, delim);
+			token = strtok_r(0, delim, &ptr);
 		}
 		//assert(idx == count - 1);
 		*(result + idx) = 0;

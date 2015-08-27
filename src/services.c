@@ -378,7 +378,7 @@ static void redirect_and_exec(int pts, const char *cmd, const char *argv[], cons
 
 static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], const char *envp[])
 {
-    char *devname;
+    char devname[64];
     int ptm;
 
     ptm = unix_open("/dev/ptmx", O_RDWR); // | O_NOCTTY);
@@ -391,8 +391,8 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
     }
 
     if(grantpt(ptm) || unlockpt(ptm) ||
-       ((devname = (char*) ptsname(ptm)) == 0)){
-        D("[ trouble with /dev/ptmx - %s ]\n", strerror(errno));
+        ptsname_r(ptm, devname, sizeof(devname)) != 0 ){
+        D("[ trouble with /dev/ptmx - errno:%d ]\n", errno);
         sdb_close(ptm);
         return -1;
     }
@@ -469,7 +469,8 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 						}
 					}
 					// TODO: use pam later
-					putenv("HOME=/home/developer");
+					//putenv("HOME=/home/developer");
+					setenv("HOME", "/home/developer", 1);
 				}
 			}
 			*(pargv_attach++) = "--";
@@ -479,8 +480,8 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 			}
 			redirect_and_exec(pts, CMD_ATTACH, argv_attach, envp);
 		}
-		fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
-			cmd, strerror(errno), errno);
+		fprintf(stderr, "- exec '%s' failed: (errno:%d) -\n",
+			cmd, errno);
 		exit(-1);
     } else {
         // Don't set child's OOM adjustment to zero.
@@ -713,7 +714,7 @@ static int create_sync_subprocess(void (*func)(int, void *), void* cookie) {
         //waitpid(pid, &ret, 0);
     }
     if (pid < 0) {
-        D("- fork failed: %s -\n", strerror(errno));
+        D("- fork failed: errno:%d -\n", errno);
         sdb_close(s[0]);
         sdb_close(s[1]);
         D("cannot create sync service sub process\n");
