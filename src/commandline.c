@@ -801,7 +801,7 @@ static const char *find_product_out_path(const char *hint)
      */
     if (sdb_dirstart(hint) != NULL) {
         if (getcwd(path_buf, sizeof(path_buf)) == NULL) {
-            fprintf(stderr, "sdb: Couldn't get CWD: %s\n", strerror(errno));
+            fprintf(stderr, "sdb: Couldn't get CWD: errno:%d\n", errno);
             return NULL;
         }
         if (strlen(path_buf) + 1 + strlen(hint) >= sizeof(path_buf)) {

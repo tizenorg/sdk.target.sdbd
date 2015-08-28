@@ -444,7 +444,7 @@ int set_smack_rules_for_gdbserver(const char* apppath, int mode) {
                 apply_app_process();
             }
         } else {
-            D("unable to open %s due to %s\n", SMACK_LEBEL_SUBJECT_PATH, strerror(errno));
+            D("unable to open %s due to errno:%d\n", SMACK_LEBEL_SUBJECT_PATH, errno);
         }
         free(new_appid);
         return 1;

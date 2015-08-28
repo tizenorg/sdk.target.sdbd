@@ -163,7 +163,7 @@ int get_devicename_from_shdmem(int port, char *device_name)
 
     if (shared_memory == (void *)-1)
     {
-        D("faild to get shdmem key (%d) : %s\n", port, strerror(errno));
+        D("faild to get shdmem key (%d) : errno:%d\n", port, errno);
         return -1;
     }
 
@@ -413,8 +413,8 @@ int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen,
 
     flags = fcntl(sockfd, F_GETFL, 0);
     if(fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-        D("failed to set file O_NONBLOCK status flag for socket %d: %s\n",
-                     sockfd, strerror(errno));
+        D("failed to set file O_NONBLOCK status flag for socket %d: errno:%d\n",
+                     sockfd, errno);
     }
 
     error = 0;

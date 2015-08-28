@@ -105,7 +105,7 @@ static int sync_send_label_notify(int s, const char *path, int success)
 
 static void sync_read_label_notify(int s)
 {
-    char buffer[512] = {0,};
+    char buffer[512+1] = {0,};
 
     while (1) {
         int len = sdb_read(s, buffer, sizeof(buffer));
@@ -118,6 +118,7 @@ static void sync_read_label_notify(int s)
             D("sync notify child process exit\n");
             exit(-1);
         }
+        buffer[len] = '\0';
         char *path = buffer;
         path++;
         path++;

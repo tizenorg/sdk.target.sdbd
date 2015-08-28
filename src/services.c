@@ -234,7 +234,7 @@ void reboot_service(int fd, void *arg)
 
     ret = android_reboot(ANDROID_RB_RESTART2, 0, (char *) arg);
     if (ret < 0) {
-        snprintf(buf, sizeof(buf), "reboot failed: %s\n", strerror(errno));
+        snprintf(buf, sizeof(buf), "reboot failed: %s errno:%d\n", errno);
         writex(fd, buf, strlen(buf));
     }
     free(arg);
@@ -386,11 +386,11 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 
     ptm = unix_open("/dev/ptmx", O_RDWR); // | O_NOCTTY);
     if(ptm < 0){
-        D("[ cannot open /dev/ptmx - %s ]\n",strerror(errno));
+        D("[ cannot open /dev/ptmx - errno:%d ]\n",errno);
         return -1;
     }
     if (fcntl(ptm, F_SETFD, FD_CLOEXEC) < 0) {
-        D("[ cannot set cloexec to /dev/ptmx - %s ]\n",strerror(errno));
+        D("[ cannot set cloexec to /dev/ptmx - errno:%d ]\n",errno);
     }
 
     if(grantpt(ptm) || unlockpt(ptm) ||
@@ -402,7 +402,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 
     *pid = fork();
     if(*pid < 0) {
-        D("- fork failed: %s -\n", strerror(errno));
+        D("- fork failed: errno:%d -\n", errno);
         sdb_close(ptm);
         return -1;
     }
@@ -430,7 +430,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
                 sdb_close(fd);
             } else {
                // FIXME: not supposed to be here
-               D("sdb: unable to open %s due to %s\n", text, strerror(errno));
+               D("sdb: unable to open %s due to errno:%d\n", text, errno);
             }
         }
 

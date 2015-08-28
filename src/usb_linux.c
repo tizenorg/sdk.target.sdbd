@@ -437,8 +437,8 @@ int usb_write(usb_handle *h, const void *_data, int len)
 
         n = usb_bulk_write(h, data, xfer);
         if(n != xfer) {
-            D("ERROR: n = %d, errno = %d (%s)\n",
-                n, errno, strerror(errno));
+            D("ERROR: n = %d, errno = %d\n",
+                n, errno);
             return -1;
         }
 
@@ -475,8 +475,8 @@ int usb_read(usb_handle *h, void *_data, int len)
                 }
                 continue;
             }
-            D("ERROR: n = %d, errno = %d (%s)\n",
-                n, errno, strerror(errno));
+            D("ERROR: n = %d, errno = %d \n",
+                n, errno);
             return -1;
         }
 
@@ -672,8 +672,8 @@ static void register_device(const char *dev_name,
     return;
 
 fail:
-    D("[ usb open %s error=%d, err_str = %s]\n",
-        usb->fname,  errno, strerror(errno));
+    D("[ usb open %s error=%d]\n",
+        usb->fname,  errno);
     if(usb->desc >= 0) {
         sdb_close(usb->desc);
     }

@@ -152,7 +152,7 @@ void fatal_errno(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr, "error: %s: ", strerror(errno));
+    fprintf(stderr, "errno: %d: ", errno);
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     va_end(ap);
