@@ -105,10 +105,10 @@ static int sync_send_label_notify(int s, const char *path, int success)
 
 static void sync_read_label_notify(int s)
 {
-    char buffer[512+1] = {0,};
+    char buffer[512 + 1] = {0,};
 
     while (1) {
-        int len = sdb_read(s, buffer, sizeof(buffer));
+        int len = sdb_read(s, buffer, sizeof(buffer) - 1);
         if (len < 0) {
             D("sync notify read errno:%d\n", errno);
             exit(-1);
