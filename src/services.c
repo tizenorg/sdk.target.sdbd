@@ -85,6 +85,11 @@ static void dns_service(int fd, void *cookie)
 }
 #else
 
+static int is_support_interactive_shell()
+{
+    return (!strncmp(g_capabilities.intershell_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
+
 #if 0
 extern int recovery_mode;
 
@@ -436,9 +441,9 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 
         if (hostshell_mode == 1) {
             if (should_drop_privileges()) {
-                if (argv[2] != NULL && verify_root_commands(argv[2])) {
-                // do nothing
-                D("sdb: executes root commands!!:%s\n", argv[2]);
+                if (argv[2] != NULL && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
+                    // do nothing
+                    D("sdb: executes root commands!!:%s\n", argv[2]);
                 } else {
                     set_developer_privileges();
                 }
@@ -454,7 +459,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 			pargv_attach = argv_attach + 2;
 
 			if (should_drop_privileges()) {
-				if (argv[2] != NULL && verify_root_commands(argv[2])) {
+				if (argv[2] != NULL && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
 					// do nothing
 					D("sdb: executes root commands!!:%s\n", argv[2]);
 				} else {
@@ -582,8 +587,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     int ret_fd;
     pid_t pid;
     char *value = NULL;
-    char lines_str[20] = {'\0',};
-    char columns_str[20] = {'\0',};
     char *trim_value = NULL;
     char path[PATH_MAX];
     memset(path, 0, sizeof(path));
@@ -627,6 +630,29 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
 
     if(name) { // in case of shell execution directly
+        // Check the shell command validation.
+        if (!request_plugin_verification(SDBD_CMD_VERIFY_SHELLCMD, name)) {
+            D("This shell command is invalid. (%s)\n", name);
+            return -1;
+        }
+
+        // Convert the shell command.
+        char *new_cmd = NULL;
+        new_cmd = malloc(SDBD_SHELL_CMD_MAX);
+        if(new_cmd == NULL) {
+            D("Cannot allocate the shell commnad buffer.");
+            return -1;
+        }
+
+        memset(new_cmd, 0, SDBD_SHELL_CMD_MAX);
+        if(!request_plugin_cmd(SDBD_CMD_CONV_SHELLCMD, name, new_cmd, SDBD_SHELL_CMD_MAX)) {
+            D("Failed to convert the shell command. (%s)\n", name);
+            free(new_cmd);
+            return -1;
+        }
+
+        D("converted cmd : %s\n", new_cmd);
+
         char *args[] = {
             SHELL_COMMAND,
             "-c",
@@ -635,10 +661,17 @@ static int create_subproc_thread(const char *name, int lines, int columns)
             SUPER_USER,
             NULL,
         };
-        args[2] = name;
+        args[2] = new_cmd;
 
         ret_fd = create_subprocess(SHELL_COMMAND, &pid, args, envp);
+        free(new_cmd);
     } else { // in case of shell interactively
+        // Check the capability for interactive shell support.
+        if (!is_support_interactive_shell()) {
+            D("This platform dose NOT support the interactive shell\n");
+            return -1;
+        }
+
         char *args[] = {
                 SHELL_COMMAND,
                 "-",
@@ -765,18 +798,6 @@ static int create_syncproc_thread()
 
 #endif
 
-#define UNKNOWN "unknown"
-#define INFOBUF_MAXLEN 64
-#define INFO_VERSION "2.2.0"
-typedef struct platform_info {
-
-    char platform_info_version[INFOBUF_MAXLEN];
-    char model_name[INFOBUF_MAXLEN]; // Emulator
-    char platform_name[INFOBUF_MAXLEN]; // Tizen
-    char platform_version[INFOBUF_MAXLEN]; // 2.2.1
-    char profile_name[INFOBUF_MAXLEN]; // 2.2.1
-} pinfo;
-
 static void get_platforminfo(int fd, void *cookie) {
     pinfo sysinfo;
 
@@ -838,13 +859,6 @@ static void get_platforminfo(int fd, void *cookie) {
     sdb_close(fd);
 }
 
-#define ENABLED "enabled"
-#define DISABLED "disabled"
-#define CPUARCH_ARMV6 "armv6"
-#define CPUARCH_ARMV7 "armv7"
-#define CPUARCH_X86 "x86"
-#define CAPBUF_SIZE 4096
-
 static int put_key_value_string(char* buf, int offset, int buf_size, char* key, char* value) {
     int len = 0;
     if ((len = snprintf(buf+offset, buf_size-offset, "%s:%s\n", key, value)) > 0) {
@@ -853,123 +867,65 @@ static int put_key_value_string(char* buf, int offset, int buf_size, char* key, 
     return 0;
 }
 
-static char* get_cpu_architecture()
-{
-    int ret = 0;
-    bool b_value = false;
-
-    ret = system_info_get_platform_bool(
-            "http://tizen.org/feature/platform.core.cpu.arch.armv6", &b_value);
-    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
-        return CPUARCH_ARMV6;
-    }
-
-    ret = system_info_get_platform_bool(
-            "http://tizen.org/feature/platform.core.cpu.arch.armv7", &b_value);
-    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
-        return CPUARCH_ARMV7;
-    }
-
-    ret = system_info_get_platform_bool(
-            "http://tizen.org/feature/platform.core.cpu.arch.x86", &b_value);
-    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
-        return CPUARCH_X86;
-    }
-
-    D("fail to get the CPU architecture of model:%d\n", errno);
-    return UNKNOWN;
-}
-
 static void get_capability(int fd, void *cookie) {
     char cap_buffer[CAPBUF_SIZE] = {0,};
-    char *value = NULL;
-    int ret = 0;
     uint16_t offset = 0;
 
-    // Secure Protocol
-    // TODO: get this information from platform.
+    // Secure protocol support
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                                "secure_protocol", DISABLED);
+                                "secure_protocol", g_capabilities.secure_protocol);
+
+    // Interactive shell support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "intershell_support", g_capabilities.intershell_support);
+
+    // File push/pull support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "filesync_support", g_capabilities.filesync_support);
 
     // Root command support
-    ret = access("/bin/su", F_OK);
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                                "rootcmd_support", ret == 0 ? ENABLED : DISABLED);
+                                "rootcmd_support", g_capabilities.rootcmd_support);
 
     // Zone support
-    ret = is_container_enabled();
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                                "zone_support", ret == 1 ? ENABLED : DISABLED);
+                                "zone_support", g_capabilities.zone_support);
 
     // Multi-User support
-    // TODO: get this information from platform.
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                                "multiuser_support", DISABLED);
+                                "multiuser_support", g_capabilities.multiuser_support);
 
     // CPU Architecture of model
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                "cpu_arch", get_cpu_architecture());
+                                "cpu_arch", g_capabilities.cpu_arch);
 
     // Profile name
-    ret = system_info_get_platform_string("http://tizen.org/feature/profile", &value);
-    if (ret != SYSTEM_INFO_ERROR_NONE) {
-        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                "profile_name", UNKNOWN);
-        D("fail to get profile name:%d\n", errno);
-    } else {
-        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                "profile_name", value);
-        D("returns profile name:%s\n", value);
-        if (value != NULL) {
-            free(value);
-        }
-    }
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "profile_name", g_capabilities.profile_name);
 
     // Vendor name
-    ret = system_info_get_platform_string("http://tizen.org/system/manufacturer", &value);
-    if (ret != SYSTEM_INFO_ERROR_NONE) {
-        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                "vendor_name", UNKNOWN);
-        D("fail to get the Vendor name:%d\n", errno);
-    } else {
-        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                "vendor_name", value);
-        D("returns vendor_name:%s\n", value);
-        if (value != NULL) {
-            free(value);
-        }
-    }
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "vendor_name", g_capabilities.vendor_name);
 
     // Platform version
-    ret = system_info_get_platform_string("http://tizen.org/feature/platform.version", &value);
-    if (ret != SYSTEM_INFO_ERROR_NONE) {
-        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                "platform_version", UNKNOWN);
-        D("fail to get platform version:%d\n", errno);
-    } else {
-        offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                "platform_version", value);
-        D("returns platform_version:%s\n", value);
-        if (value != NULL) {
-            free(value);
-        }
-    }
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "platform_version", g_capabilities.platform_version);
 
     // Product version
-    // TODO: get this information from platform.
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                                "product_version", UNKNOWN);
+                                "product_version", g_capabilities.product_version);
 
     // Sdbd version
-    char sdbd_version[16] = {0,};
-    snprintf(sdbd_version, sizeof(sdbd_version), "%d.%d.%d",
-            SDB_VERSION_MAJOR, SDB_VERSION_MINOR, SDB_VERSION_PATCH);
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                                "sdbd_version", sdbd_version);
+                                "sdbd_version", g_capabilities.sdbd_version);
+
+    // Sdbd plugin version
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "sdbd_plugin_version", g_capabilities.sdbd_plugin_version);
 
     // Window size synchronization support
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                                "syncwinsz_support", ENABLED);
+                                "syncwinsz_support", g_capabilities.syncwinsz_support);
 
 
     offset++; // for '\0' character

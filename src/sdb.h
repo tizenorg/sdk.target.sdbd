@@ -22,6 +22,7 @@
 
 #include "transport.h"  /* readx(), writex() */
 #include "fdevent.h"
+#include "sdbd_plugin.h"
 
 #define MAX_PAYLOAD 4096
 
@@ -221,6 +222,51 @@ struct alistener
     adisconnect  disconnect;
 };
 
+#define UNKNOWN "unknown"
+#define INFOBUF_MAXLEN 64
+#define INFO_VERSION "2.2.0"
+typedef struct platform_info {
+    char platform_info_version[INFOBUF_MAXLEN];
+    char model_name[INFOBUF_MAXLEN]; // Emulator
+    char platform_name[INFOBUF_MAXLEN]; // Tizen
+    char platform_version[INFOBUF_MAXLEN]; // 2.2.1
+    char profile_name[INFOBUF_MAXLEN]; // 2.2.1
+} pinfo;
+
+#define ENABLED "enabled"
+#define DISABLED "disabled"
+#define CPUARCH_ARMV6 "armv6"
+#define CPUARCH_ARMV7 "armv7"
+#define CPUARCH_X86 "x86"
+#define CAPBUF_SIZE 4096
+#define CAPBUF_ITEMSIZE 32
+typedef struct platform_capabilities
+{
+    char secure_protocol[CAPBUF_ITEMSIZE];      // enabled or disabled
+    char intershell_support[CAPBUF_ITEMSIZE];   // enabled or disabled
+    char filesync_support[CAPBUF_ITEMSIZE];     // push or pull or pushpull or disabled
+    char rootcmd_support[CAPBUF_ITEMSIZE];      // enabled or disabled
+    char zone_support[CAPBUF_ITEMSIZE];         // enabled or disabled
+    char multiuser_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+    char syncwinsz_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+
+    char cpu_arch[CAPBUF_ITEMSIZE];             // cpu architecture (ex. x86)
+    char profile_name[CAPBUF_ITEMSIZE];         // profile name (ex. mobile)
+    char vendor_name[CAPBUF_ITEMSIZE];          // vendor name (ex. Tizen)
+
+    char platform_version[CAPBUF_ITEMSIZE];     // platform version (ex. 2.3.0)
+    char product_version[CAPBUF_ITEMSIZE];      // product version (ex. 1.0)
+    char sdbd_version[CAPBUF_ITEMSIZE];         // sdbd version
+    char sdbd_plugin_version[CAPBUF_ITEMSIZE];  // sdbd plugin version
+} pcap;
+pcap g_capabilities;
+
+#define SDBD_PLUGIN_PATH    "/usr/lib/libsdbd_plugin.so"
+#define SDBD_PLUGIN_INTF    "sdbd_plugin_cmd_proc"
+typedef int (*SDBD_PLUGIN_CMD_PROC_PTR)(const char*, const char*, sdbd_plugin_param);
+extern SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc;
+int request_plugin_cmd(const char* cmd, const char* in_buf, char *out_buf, unsigned int out_len);
+int request_plugin_verification(const char* cmd, const char* in_buf);
 
 void print_packet(const char *label, apacket *p);
 

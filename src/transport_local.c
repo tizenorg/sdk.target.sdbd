@@ -249,7 +249,7 @@ static void *client_socket_thread(void *x)
 static void *server_socket_thread(void * arg)
 {
     int serverfd, fd;
-    struct sockaddr addr;
+    struct sockaddr_in addr;
     socklen_t alen;
     int port = (int)arg;
 
@@ -277,14 +277,21 @@ static void *server_socket_thread(void * arg)
             pthread_cond_broadcast(&noti_cond);
         }
 
-        fd = sdb_socket_accept(serverfd, &addr, &alen);
+        fd = sdb_socket_accept(serverfd, (struct sockaddr *)&addr, &alen);
         if(fd >= 0) {
             D("server: new connection on fd %d\n", fd);
             if (close_on_exec(fd) < 0) {
                 D("failed to close fd exec\n");
             }
             disable_tcp_nagle(fd);
-            register_socket_transport(fd, "host", port, 1, NULL);
+
+            // Check the peer ip validation.
+            if (!is_emulator()
+                && !request_plugin_verification(SDBD_CMD_VERIFY_PEERIP, inet_ntoa(addr.sin_addr))) {
+                sdb_close(fd);
+            } else {
+                register_socket_transport(fd, "host", port, 1, NULL);
+            }
         }
     }
     D("transport: server_socket_thread() exiting\n");
