@@ -30,10 +30,19 @@ Description: SDB daemon.
 
 %build
 %if "%{?tizen_profile_name}" == "wearable"
-cmake . -DCMAKE_INSTALL_PREFIX=%{_prefix} -DWEARABLE_PROFILE=ON
+%define wearable_profile on
 %else
-cmake . -DCMAKE_INSTALL_PREFIX=%{_prefix}
+%define wearable_profile off
 %endif
+%ifarch %{ix86}
+%define target_arch x86
+%else
+%define target_arch arm
+%endif
+cmake . -DCMAKE_INSTALL_PREFIX=%{_prefix} \
+	-DWEARABLE_PROFILE=%{wearable_profile} \
+	-DTARGET_ARCH=%{target_arch}
+
 make %{?jobs:-j%jobs}
 
 %install

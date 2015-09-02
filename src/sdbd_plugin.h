@@ -31,6 +31,9 @@
 #define SDBD_CAP_TYPE_SECURE            "secure_protocol_support"
 #define SDBD_CAP_TYPE_INTER_SHELL       "interactive_shell_support"
 #define SDBD_CAP_TYPE_FILESYNC          "file_sync_support"
+#define SDBD_CAP_TYPE_USBPROTO          "usb_protocol_support"
+#define SDBD_CAP_TYPE_SOCKPROTO         "socket_protocol_support"
+#define SDBD_CAP_TYPE_ROOTONOFF         "root_onoff_support"
 #define SDBD_CAP_TYPE_PLUGIN_VER        "sdbd_plugin_version"
 #define SDBD_CAP_TYPE_PRODUCT_VER       "product_version"
 /* capability return string */

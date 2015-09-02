@@ -150,6 +150,11 @@ void restart_root_service(int fd, void *cookie)
 }
 #endif
 
+static int is_support_rootonoff()
+{
+    return (!strncmp(g_capabilities.rootonoff_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
+
 void rootshell_service(int fd, void *cookie)
 {
     char buf[100];
@@ -161,7 +166,7 @@ void rootshell_service(int fd, void *cookie)
                 //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
                 // do not show message
             } else {
-                if (access("/bin/su", F_OK) == 0) {
+                if (is_support_rootonoff()) {
                     rootshell_mode = 1;
                     //allows a permitted user to execute a command as the superuser
                     snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
@@ -187,7 +192,7 @@ void rootshell_service(int fd, void *cookie)
     	//snprintf(buf, sizeof(buf), "Already changed to hostshell mode\n");
     	// do not show message
     	} else {
-    	    if (access("/bin/su", F_OK) == 0) {
+            if (is_support_rootonoff()) {
     	        hostshell_mode = 1;
     	        snprintf(buf, sizeof(buf), "Switched to host shell mode\n");
     	    } else {
@@ -883,9 +888,17 @@ static void get_capability(int fd, void *cookie) {
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
                                 "filesync_support", g_capabilities.filesync_support);
 
+    // USB protocol support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "usbproto_support", g_capabilities.usbproto_support);
+
+    // Socket protocol support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "sockproto_support", g_capabilities.sockproto_support);
+
     // Root command support
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                                "rootcmd_support", g_capabilities.rootcmd_support);
+                                "rootonoff_support", g_capabilities.rootonoff_support);
 
     // Zone support
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,

@@ -245,10 +245,12 @@ typedef struct platform_capabilities
     char secure_protocol[CAPBUF_ITEMSIZE];      // enabled or disabled
     char intershell_support[CAPBUF_ITEMSIZE];   // enabled or disabled
     char filesync_support[CAPBUF_ITEMSIZE];     // push or pull or pushpull or disabled
-    char rootcmd_support[CAPBUF_ITEMSIZE];      // enabled or disabled
+    char rootonoff_support[CAPBUF_ITEMSIZE];    // enabled or disabled
     char zone_support[CAPBUF_ITEMSIZE];         // enabled or disabled
     char multiuser_support[CAPBUF_ITEMSIZE];    // enabled or disabled
     char syncwinsz_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+    char usbproto_support[CAPBUF_ITEMSIZE];     // enabled or disabled
+    char sockproto_support[CAPBUF_ITEMSIZE];    // enabled or disabled
 
     char cpu_arch[CAPBUF_ITEMSIZE];             // cpu architecture (ex. x86)
     char profile_name[CAPBUF_ITEMSIZE];         // profile name (ex. mobile)

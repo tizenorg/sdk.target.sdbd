@@ -65,11 +65,13 @@ void* g_sdbd_plugin_handle = NULL;
 SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc = NULL;
 
 int is_emulator(void) {
-    if (access(USB_NODE_FILE, F_OK) == 0) {
-        return 0;
-    } else {
-        return 1;
-    }
+/* XXX: If the target device supports x86 architecture,
+ *      this routine is INVALID. */
+#ifdef TARGET_ARCH_X86
+    return 1;
+#else
+    return 0;
+#endif
 }
 
 int is_container_enabled(void) {
@@ -1622,6 +1624,26 @@ static int get_plugin_capability(const char* in_buf, sdbd_plugin_param out) {
         // - disabled : SDBD_CAP_RET_DISABLED
         snprintf(out.data, out.len, "%s", SDBD_CAP_RET_PUSHPULL);
         ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, USBPROTO)) {
+        if (is_emulator()) {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
+        } else {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        }
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, SOCKPROTO)) {
+        if (is_emulator()) {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        } else {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
+        }
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, ROOTONOFF)) {
+        if (access("/bin/su", F_OK) == 0) {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        } else {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
+        }
     } else if (SDBD_CMP_CAP(in_buf, PLUGIN_VER)) {
         snprintf(out.data, out.len, "%s", UNKNOWN);
         ret = SDBD_PLUGIN_RET_SUCCESS;
@@ -1813,8 +1835,6 @@ static void init_sdk_requirements() {
     if (is_emulator()) {
         register_bootdone_cb();
     }
-
-    load_sdbd_plugin();
 }
 
 int request_plugin_verification(const char* cmd, const char* in_buf) {
@@ -1867,6 +1887,11 @@ static void init_capabilities(void) {
 
     memset(&g_capabilities, 0, sizeof(g_capabilities));
 
+    // CPU Architecture of model
+    snprintf(g_capabilities.cpu_arch, sizeof(g_capabilities.cpu_arch),
+                "%s", get_cpu_architecture());
+
+
     // Secure protocol support
     if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_SECURE,
                             g_capabilities.secure_protocol,
@@ -1897,10 +1922,34 @@ static void init_capabilities(void) {
     }
 
 
+    // USB protocol support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_USBPROTO,
+                            g_capabilities.usbproto_support,
+                            sizeof(g_capabilities.usbproto_support))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_USBPROTO);
+        snprintf(g_capabilities.usbproto_support, sizeof(g_capabilities.usbproto_support),
+                    "%s", DISABLED);
+    }
+
+
+    // Socket protocol support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_SOCKPROTO,
+                            g_capabilities.sockproto_support,
+                            sizeof(g_capabilities.sockproto_support))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_SOCKPROTO);
+        snprintf(g_capabilities.sockproto_support, sizeof(g_capabilities.sockproto_support),
+                    "%s", DISABLED);
+    }
+
+
     // Root command support
-    ret = access("/bin/su", F_OK);
-    snprintf(g_capabilities.rootcmd_support, sizeof(g_capabilities.rootcmd_support),
-                "%s", ret == 0 ? ENABLED : DISABLED);
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_ROOTONOFF,
+                            g_capabilities.rootonoff_support,
+                            sizeof(g_capabilities.rootonoff_support))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_ROOTONOFF);
+        snprintf(g_capabilities.rootonoff_support, sizeof(g_capabilities.rootonoff_support),
+                    "%s", DISABLED);
+    }
 
 
     // Zone support
@@ -1918,11 +1967,6 @@ static void init_capabilities(void) {
     // Window size synchronization support
     snprintf(g_capabilities.syncwinsz_support, sizeof(g_capabilities.syncwinsz_support),
                 "%s", ENABLED);
-
-
-    // CPU Architecture of model
-    snprintf(g_capabilities.cpu_arch, sizeof(g_capabilities.cpu_arch),
-                "%s", get_cpu_architecture());
 
 
     // Profile name
@@ -1996,16 +2040,28 @@ static void init_capabilities(void) {
 }
 #endif /* !SDB_HOST */
 
+static int is_support_usbproto()
+{
+    return (!strncmp(g_capabilities.usbproto_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
+
+static int is_support_sockproto()
+{
+    return (!strncmp(g_capabilities.sockproto_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
+
 int sdb_main(int is_daemon, int server_port)
 {
 #if !SDB_HOST
+    load_sdbd_plugin();
+    init_capabilities();
+
     init_drop_privileges();
     init_sdk_requirements();
     if (!request_plugin_verification(SDBD_CMD_VERIFY_LAUNCH, NULL)) {
         D("sdbd should be launched in develop mode.\n");
         return -1;
     }
-    init_capabilities();
 
     umask(000);
 #endif
@@ -2124,12 +2180,13 @@ int sdb_main(int is_daemon, int server_port)
 		hostshell_mode = 1;
 	}
 */
-    if (!is_emulator()) {
+    if (is_support_usbproto()) {
         // listen on USB
         usb_init();
         // listen on tcp
         //local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
-    } else {
+    }
+    if (is_support_sockproto()){
         // listen on default port
         local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
     }
