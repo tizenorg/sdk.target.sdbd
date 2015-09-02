@@ -20,8 +20,20 @@
 #include "utils.h"
 
 struct sudo_command root_commands[] = {
-    /* 0 */ {"profile", "/usr/bin/profile_command"},
-    /* end */ {NULL, NULL}
+    /* 0 */
+    { "profile", "/usr/bin/profile_command",
+        { "killmanager",
+        "runmanager",
+        "findunittest",
+        "process",
+        "getversion",
+        "killvalgrind",
+        "getprobemap",
+        NULL
+        }
+    },
+    /* end */
+    { NULL, NULL, NULL }
 };
 
 static struct command_suffix
@@ -35,6 +47,8 @@ static struct command_suffix CMD_SUFFIX_DENY_KEYWORD[] = {
         /* 1 */   {"redirect", ">"},
         /* 2 */   {"semicolon", ";"}, // separated list is executed
         /* 3 */   {"and", "&"},
+        /* 4 */   {"command_substitution1", "$"},
+        /* 5 */   {"command_substitution2", "`"},
         /* end */ {NULL, NULL}
 };
 
@@ -155,10 +169,22 @@ int verify_root_commands(const char *arg1) {
     }
 
     switch (index) {
-    case 0: { // in case of oprofile_command
+    // in case of profile_command
+    case 0: {
         ret = 0;
-        if (!is_cmd_suffix_denied(arg1)) {
-            ret = 1;
+        if (!is_cmd_suffix_denied(arg1) && (cnt == 2)) {
+            // check if command is used with permitted arguments
+            for (i = 0; root_commands[0].arguments[i] != NULL; i++) {
+                if (!strncmp(tokens[1], root_commands[0].arguments[i], strlen(tokens[1]))){
+                    D("found permitted arguments :%s\n", tokens[1]);
+                    ret = 1;
+                    break;
+                }
+
+            }
+            if (ret == 0) {
+                D("not found permitted arguments :%s\n", tokens[1]);
+            }
         }
         break;
     }
