@@ -5,11 +5,12 @@
 extern "C" {
 #endif
 
+#define PERMITTED_ARGUMENT_SIZE 20
 struct sudo_command
 {
   const char *command;
   const char *path;
-  //const char *arguments;
+  const char *arguments[PERMITTED_ARGUMENT_SIZE];
   //const char *regx;
   //int   permission; /* 0: root, 1: developer, 2: app*/
 };
