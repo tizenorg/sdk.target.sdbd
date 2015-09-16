@@ -662,8 +662,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
             SHELL_COMMAND,
             "-c",
             NULL,
-            "-l",
-            SUPER_USER,
             NULL,
         };
         args[2] = new_cmd;
