@@ -131,7 +131,7 @@ then
     if [ "" != "$attach_id" ]
     #debug attach
     then
-        cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port --attach $attach_id"
+        cmd="/usr/bin/launch_debug $launch_app_arg1 __AUL_SDK__ ATTACH __DLP_ATTACH_ARG__ --attach,:$port,$attach_id"
     #debug
     else
         if [ "" != "$result_mode" ]
