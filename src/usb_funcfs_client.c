@@ -475,7 +475,7 @@ void ffs_usb_init()
 
     h = calloc(1, sizeof(usb_handle));
     if (autoconfig(h) < 0) {
-        fatal_errno("[ can't recognize usb FunctionFS bulk device ]\n");
+        perror("[ can't recognize usb FunctionFS bulk device ]\n");
         free(h);
         return;
     }

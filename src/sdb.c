@@ -1166,9 +1166,44 @@ static void init_sdk_requirements() {
 }
 #endif /* !SDB_HOST */
 
+static void get_plugin_capability(void)
+{
+	int len;
+	char *usb_state;
+	char *sock_state;
+
+	if (is_emulator())
+		usb_state = SDBD_CAP_RET_DISABLED;
+	else
+		usb_state = SDBD_CAP_RET_ENABLED;
+
+	sock_state = SDBD_CAP_RET_ENABLED;
+
+	len = sizeof(g_capabilities.usbproto_support);
+	snprintf(g_capabilities.usbproto_support, len,
+			"%s", usb_state);
+
+	len = sizeof(g_capabilities.sockproto_support);
+	snprintf(g_capabilities.sockproto_support, len,
+			"%s", sock_state);
+}
+
+static int is_support_usbproto()
+{
+	return (!strncmp(g_capabilities.usbproto_support,
+				SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
+
+static int is_support_sockproto()
+{
+	return (!strncmp(g_capabilities.sockproto_support,
+				SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
+
 int sdb_main(int is_daemon, int server_port)
 {
 #if !SDB_HOST
+    get_plugin_capability();
     init_drop_privileges();
     init_sdk_requirements();
     umask(000);
@@ -1241,34 +1276,37 @@ int sdb_main(int is_daemon, int server_port)
         }
     }
 
-    if (!is_emulator()) {
-        /* choose the usb gadget backend */
-        if (access(USB_NODE_FILE, F_OK) == 0) {
-            /* legacy kernel-based sdb gadget */
-            usb_init =    &linux_usb_init;
-            usb_cleanup = &linux_usb_cleanup;
-            usb_write =   &linux_usb_write;
-            usb_read =    &linux_usb_read;
-            usb_close =   &linux_usb_close;
-            usb_kick =    &linux_usb_kick;
-        } else {
-            /* functionfs based gadget */
-            usb_init =    &ffs_usb_init;
-            usb_cleanup = &ffs_usb_cleanup;
-            usb_write =   &ffs_usb_write;
-            usb_read =    &ffs_usb_read;
-            usb_close =   &ffs_usb_close;
-            usb_kick =    &ffs_usb_kick;
-        }
-        // listen on USB
-        usb_init();
-    }
+	if (is_support_usbproto()) {
+	    if (!is_emulator()) {
+	        /* choose the usb gadget backend */
+	        if (access(USB_NODE_FILE, F_OK) == 0) {
+	            /* legacy kernel-based sdb gadget */
+	            usb_init =    &linux_usb_init;
+	            usb_cleanup = &linux_usb_cleanup;
+	            usb_write =   &linux_usb_write;
+	            usb_read =    &linux_usb_read;
+	            usb_close =   &linux_usb_close;
+	            usb_kick =    &linux_usb_kick;
+	        } else {
+	            /* functionfs based gadget */
+	            usb_init =    &ffs_usb_init;
+	            usb_cleanup = &ffs_usb_cleanup;
+	            usb_write =   &ffs_usb_write;
+	            usb_read =    &ffs_usb_read;
+	            usb_close =   &ffs_usb_close;
+	            usb_kick =    &ffs_usb_kick;
+	        }
+	        // listen on USB
+	        usb_init();
+	    }
+	}
 
-    /* by default don't listen on local transport but
-     * listen if suitable command line argument has been provided */
-    if (sdbd_commandline_args.sdbd_port >= 0) {
-        local_init(sdbd_commandline_args.sdbd_port);
-    }
+	if (is_support_sockproto()) {
+		/* by default don't listen on local transport but
+		 * listen if suitable command line argument has been provided */
+		if (sdbd_commandline_args.sdbd_port >= 0)
+			local_init(sdbd_commandline_args.sdbd_port);
+	}
 
 #if 0 /* tizen specific */
     D("sdb_main(): pre init_jdwp()\n");
