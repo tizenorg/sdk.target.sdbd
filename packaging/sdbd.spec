@@ -26,7 +26,8 @@ Description: SDB daemon.
 cp %{SOURCE1003} .
 
 %build
-%cmake
+%cmake \
+	-DPROFILE=%{profile}
 make %{?jobs:-j%jobs}
 
 

@@ -19,6 +19,10 @@ project (sdbd)
 option(USE_FUNCTION_FS "Use FunctionFS" NO)
 option(BUILD_UNIT_TESTS "Build unit tests" NO)
 
+if(PROFILE STREQUAL tv)
+ADD_DEFINITIONS("-DPROFILE_TV")
+endif()
+
 set(sdbd_SRCS
 	src/sdb.c
 	src/fdevent.c
