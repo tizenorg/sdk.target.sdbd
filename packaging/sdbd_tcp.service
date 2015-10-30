@@ -8,4 +8,4 @@ Environment=DISPLAY=:0
 PIDFile=/tmp/.sdbd.pid
 RemainAfterExit=yes
 SmackProcessLabel=User
-ExecStart=/usr/sbin/sdbd --listen=26101
+ExecStart=/usr/sbin/sdbd --listen-port=26101
