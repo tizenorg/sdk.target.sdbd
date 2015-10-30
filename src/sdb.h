@@ -228,6 +228,15 @@ struct alistener
     adisconnect  disconnect;
 };
 
+#define SDBD_CAP_RET_ENABLED  "enabled"
+#define SDBD_CAP_RET_DISABLED "disabled"
+#define CAPBUF_ITEMSIZE 32
+typedef struct platform_capabilities
+{
+	char usbproto_support[CAPBUF_ITEMSIZE];     // enabled or disabled
+	char sockproto_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+} pcap;
+pcap g_capabilities;
 
 void print_packet(const char *label, apacket *p);
 
