@@ -18,7 +18,8 @@ BuildRequires: pkgconfig(glib-2.0)
 BuildRequires: pkgconfig(dbus-1)
 BuildRequires: pkgconfig(dbus-glib-1)
 BuildRequires: pkgconfig(security-server)
-Requires: default-files-tizen
+Requires(post): libprivilege-control
+Requires(post): smack-utils
 Requires: sys-assert
 Requires: debug-launchpad
 Requires: dbus
