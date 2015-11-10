@@ -84,6 +84,10 @@ struct group_info g_default_groups[] = {
 };
 #define SDB_DEFAULT_GROUPS_CNT  ((sizeof(g_default_groups)/sizeof(g_default_groups[0]))-1)
 
+void* g_sdbd_plugin_handle = NULL;
+SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc = NULL;
+SDBD_PLUGIN_SERVICE_PROC_PTR sdbd_plugin_service_proc = NULL;
+
 int is_init_sdk_userinfo = 0;
 
 #if !SDB_HOST
@@ -130,9 +134,6 @@ int is_container_enabled(void) {
             return 0;
     }
 }
-
-void* g_sdbd_plugin_handle = NULL;
-SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc = NULL;
 
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
@@ -1608,6 +1609,7 @@ static int get_plugin_capability(const char* in_buf, sdbd_plugin_param out) {
         } else {
             snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
         }
+        ret = SDBD_PLUGIN_RET_SUCCESS;
     } else if (SDBD_CMP_CAP(in_buf, PLUGIN_VER)) {
         snprintf(out.data, out.len, "%s", UNKNOWN);
         ret = SDBD_PLUGIN_RET_SUCCESS;
@@ -1729,6 +1731,15 @@ int default_cmd_proc(const char* cmd,
     return ret;
 }
 
+void default_service_proc(int fd, void* cookie) {
+    D("excute service proc. FD(%d), cookie(%p)\n", fd, cookie);
+#ifdef TEST_SERVICE_PROC // For return msg test
+    char ret_msg[128] = {0,};
+    snprintf(ret_msg, sizeof(ret_msg), "default_service_proc: cookie=%s\n", cookie);
+    writex(fd, ret_msg, strlen(ret_msg)+1);
+#endif
+}
+
 int request_plugin_cmd(const char* cmd, const char* in_buf,
                         char *out_buf, unsigned int out_len)
 {
@@ -1766,21 +1777,29 @@ int request_plugin_cmd(const char* cmd, const char* in_buf,
 
 static void load_sdbd_plugin() {
     sdbd_plugin_cmd_proc = NULL;
+    sdbd_plugin_service_proc = NULL;
 
     g_sdbd_plugin_handle = dlopen(SDBD_PLUGIN_PATH, RTLD_NOW);
     if (!g_sdbd_plugin_handle) {
         D("failed to dlopen(%s). error: %s\n", SDBD_PLUGIN_PATH, dlerror());
         sdbd_plugin_cmd_proc = default_cmd_proc;
+        sdbd_plugin_service_proc = default_service_proc;
         return;
     }
 
-    sdbd_plugin_cmd_proc = dlsym(g_sdbd_plugin_handle, SDBD_PLUGIN_INTF);
+    sdbd_plugin_cmd_proc = dlsym(g_sdbd_plugin_handle, SDBD_PLUGIN_CMD_INTF);
     if (!sdbd_plugin_cmd_proc) {
-        D("failed to get the sdbd plugin interface. error: %s\n", dlerror());
+        D("failed to get the sdbd plugin cmd interface. error: %s\n", dlerror());
         dlclose(g_sdbd_plugin_handle);
         g_sdbd_plugin_handle = NULL;
         sdbd_plugin_cmd_proc = default_cmd_proc;
+        sdbd_plugin_service_proc = default_service_proc;
         return;
+    }
+
+    sdbd_plugin_service_proc = dlsym(g_sdbd_plugin_handle, SDBD_PLUGIN_SERVICE_INTF);
+    if (!sdbd_plugin_service_proc) {
+        D("This plugin does not support service proc. error: %s\n", dlerror());
     }
 
     D("using sdbd plugin interface.(%s)\n", SDBD_PLUGIN_PATH);

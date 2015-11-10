@@ -64,6 +64,9 @@
     ((strlen(cap) == (strlen(SDBD_CAP_TYPE_##type))         \
     && !strncmp(cap, SDBD_CAP_TYPE_##type, strlen(cap)))?1:0)
 
+/* prefix for service proc */
+#define SDBDPLUGIN_APICALL      "SDBDPLUGIN_APICALL:"
+
 /* out parameter structure */
 #define SDBD_SHELL_CMD_MAX      4096
 #define SDBD_PLUGIN_OUTBUF_MAX  4096

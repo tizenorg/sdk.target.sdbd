@@ -274,10 +274,13 @@ typedef struct platform_capabilities
 } pcap;
 pcap g_capabilities;
 
-#define SDBD_PLUGIN_PATH    "/usr/lib/libsdbd_plugin.so"
-#define SDBD_PLUGIN_INTF    "sdbd_plugin_cmd_proc"
+#define SDBD_PLUGIN_PATH            "/usr/lib/libsdbd_plugin.so"
+#define SDBD_PLUGIN_CMD_INTF        "sdbd_plugin_cmd_proc"
+#define SDBD_PLUGIN_SERVICE_INTF    "sdbd_plugin_service_proc"
 typedef int (*SDBD_PLUGIN_CMD_PROC_PTR)(const char*, const char*, sdbd_plugin_param);
+typedef void (*SDBD_PLUGIN_SERVICE_PROC_PTR)(int, void*);
 extern SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc;
+extern SDBD_PLUGIN_SERVICE_PROC_PTR sdbd_plugin_service_proc;
 int request_plugin_cmd(const char* cmd, const char* in_buf, char *out_buf, unsigned int out_len);
 int request_plugin_verification(const char* cmd, const char* in_buf);
 

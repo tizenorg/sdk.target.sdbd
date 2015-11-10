@@ -53,8 +53,12 @@ typedef struct stinfo stinfo;
 
 struct stinfo {
     void (*func)(int fd, void *cookie);
+
     int fd;
+    bool b_close_fd;
+
     void *cookie;
+    bool b_free_cookie;
 };
 
 
@@ -62,6 +66,15 @@ void *service_bootstrap_func(void *x)
 {
     stinfo *sti = x;
     sti->func(sti->fd, sti->cookie);
+
+    if(sti->b_close_fd == true) {
+        sdb_close(sti->fd);
+    }
+
+    if(sti->b_free_cookie == true && sti->cookie != NULL) {
+        free(sti->cookie);
+    }
+
     free(sti);
     return 0;
 }
@@ -77,14 +90,12 @@ static void dns_service(int fd, void *cookie)
 
     sdb_mutex_lock(&dns_lock);
     hp = gethostbyname(hostname);
-    free(cookie);
     if(hp == 0) {
         writex(fd, &zero, 4);
     } else {
         writex(fd, hp->h_addr, 4);
     }
     sdb_mutex_unlock(&dns_lock);
-    sdb_close(fd);
 }
 #else
 
@@ -351,7 +362,6 @@ void inoti_service(int fd, void *arg)
 done:
     inotify_rm_watch( ifd, wd );
     sdb_close(ifd);
-    sdb_close(fd);
     D( "inoti_service end\n");
 }
 #endif
@@ -407,6 +417,8 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
     sti->func = func;
     sti->cookie = cookie;
     sti->fd = s[1];
+    sti->b_close_fd = true;
+    sti->b_free_cookie = true;
 
     if(sdb_thread_create( &t, service_bootstrap_func, sti)){
         free(sti);
@@ -675,8 +687,18 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         };
         args[2] = new_cmd;
 
-        ret_fd = create_subprocess(SHELL_COMMAND, &pid, (char * const*)args, (char * const*)envp);
-        free(new_cmd);
+        if (!strncmp(new_cmd, SDBDPLUGIN_APICALL, strlen(SDBDPLUGIN_APICALL))) {
+            if (!sdbd_plugin_service_proc) {
+                D("This platform dose NOT support the service proc\n");
+                free(new_cmd);
+                return -1;
+            }
+            ret_fd = create_service_thread(sdbd_plugin_service_proc, new_cmd);
+            return ret_fd;
+        } else {
+            ret_fd = create_subprocess(SHELL_COMMAND, &pid, (char * const*)args, (char * const*)envp);
+            free(new_cmd);
+        }
     } else { // in case of shell interactively
         // Check the capability for interactive shell support.
         if (!is_support_interactive_shell()) {
@@ -732,6 +754,8 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     sti->func = subproc_waiter_service;
     sti->cookie = (void*)pid;
     sti->fd = ret_fd;
+    sti->b_close_fd = false;
+    sti->b_free_cookie = false;
 
     if(sdb_thread_create( &t, service_bootstrap_func, sti)){
         free(sti);
@@ -778,6 +802,8 @@ static int create_sync_subprocess(void (*func)(int, void *), void* cookie) {
     sti->func = subproc_waiter_service;
     sti->cookie = (void*)pid;
     sti->fd = s[0];
+    sti->b_close_fd = false;
+    sti->b_free_cookie = false;
 
     if(sdb_thread_create( &t, service_bootstrap_func, sti)){
         free(sti);
@@ -866,8 +892,6 @@ static void get_platforminfo(int fd, void *cookie) {
     }
 
     writex(fd, &sysinfo, sizeof(pinfo));
-
-    sdb_close(fd);
 }
 
 static int put_key_value_string(char* buf, int offset, int buf_size, char* key, char* value) {
@@ -963,8 +987,6 @@ static void get_capability(int fd, void *cookie) {
 
     writex(fd, &offset, sizeof(uint16_t));
     writex(fd, cap_buffer, offset);
-
-    sdb_close(fd);
 }
 
 static void sync_windowsize(int fd, void *cookie) {
@@ -1004,7 +1026,6 @@ void get_boot(int fd, void *cookie) {
         time += interval;
     }
     writex(fd, buf, strlen(buf));
-    sdb_close(fd);
 }
 
 int service_to_fd(const char *name)
@@ -1107,16 +1128,18 @@ int service_to_fd(const char *name)
         ret = create_service_thread(inoti_service, NULL);
 #endif
     } else if(!strncmp(name, "sysinfo:", 8)){
-        ret = create_service_thread(get_platforminfo, 0);
+        ret = create_service_thread(get_platforminfo, NULL);
     } else if(!strncmp(name, "capability:", 11)){
-        ret = create_service_thread(get_capability, 0);
+        ret = create_service_thread(get_capability, NULL);
     } else if(!strncmp(name, "boot:", 5)){
         if (is_emulator()) {
-            ret = create_service_thread(get_boot, 0);
+            ret = create_service_thread(get_boot, NULL);
         }
     } else if(!strncmp(name, "shellconf:", 10)){
         if(!strncmp(name+10, "syncwinsz:", 10)){
-            ret = create_service_thread(sync_windowsize, (void *)name+20);
+            char *size_info = strdup(name + 20);
+            if(!size_info) return -1;
+            ret = create_service_thread(sync_windowsize, size_info);
         }
     } else if(!strncmp(name, "tzplatformenv:", 14)) {
        char* env_variable = NULL;
@@ -1155,8 +1178,6 @@ static void wait_for_state(int fd, void* cookie)
 
     if (sinfo->serial)
         free(sinfo->serial);
-    free(sinfo);
-    sdb_close(fd);
     D("wait_for_state is done\n");
 }
 #endif
