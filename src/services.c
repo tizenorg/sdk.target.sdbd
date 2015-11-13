@@ -40,18 +40,13 @@
 
 #include "strutils.h"
 #include <system_info.h>
-<<<<<<< HEAD
 #include <tzplatform_config.h>
 
-#define SYSTEM_INFO_KEY_MODEL           "http://tizen.org/system/model_name"
-#define SYSTEM_INFO_KEY_PLATFORM_NAME   "http://tizen.org/system/platform.name"
-=======
 #include <vconf.h>
 #include <limits.h>
 
 #include <termios.h>
 #include <sys/ioctl.h>
->>>>>>> tizen_2.4
 
 typedef struct stinfo stinfo;
 
@@ -92,14 +87,11 @@ static void dns_service(int fd, void *cookie)
 }
 #else
 
-<<<<<<< HEAD
-=======
 static int is_support_interactive_shell()
 {
     return (!strncmp(g_capabilities.intershell_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
 }
 
->>>>>>> tizen_2.4
 #if 0
 extern int recovery_mode;
 
@@ -160,7 +152,6 @@ void restart_root_service(int fd, void *cookie)
 }
 #endif
 
-<<<<<<< HEAD
 void restart_tcp_service(int fd, void *cookie)
 {
     char buf[100];
@@ -179,11 +170,11 @@ void restart_tcp_service(int fd, void *cookie)
     snprintf(buf, sizeof(buf), "restarting in TCP mode port: %d\n", port);
     writex(fd, buf, strlen(buf));
     sdb_close(fd);
-=======
+}
+
 static int is_support_rootonoff()
 {
     return (!strncmp(g_capabilities.rootonoff_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
->>>>>>> tizen_2.4
 }
 
 void rootshell_service(int fd, void *cookie)
@@ -192,19 +183,6 @@ void rootshell_service(int fd, void *cookie)
     char *mode = (char*) cookie;
 
     if (!strcmp(mode, "on")) {
-<<<<<<< HEAD
-        if (rootshell_mode == 1) {
-            //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
-            // do not show message
-        } else {
-            if (access("/bin/su", F_OK) == 0) {
-                rootshell_mode = 1;
-                //allows a permitted user to execute a command as the superuser
-                snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
-            } else {
-                snprintf(buf, sizeof(buf), "Permission denied\n");
-            }
-=======
         if (getuid() == 0) {
             if (rootshell_mode == 1) {
                 //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
@@ -223,7 +201,6 @@ void rootshell_service(int fd, void *cookie)
             D("need root permission for root shell: %d\n", getuid());
             rootshell_mode = 0;
             snprintf(buf, sizeof(buf), "Permission denied\n");
->>>>>>> tizen_2.4
             writex(fd, buf, strlen(buf));
         }
     } else if (!strcmp(mode, "off")) {
@@ -232,12 +209,12 @@ void rootshell_service(int fd, void *cookie)
             snprintf(buf, sizeof(buf), "Switched to 'developer' account mode\n");
             writex(fd, buf, strlen(buf));
         }
-<<<<<<< HEAD
     } else {
-        snprintf(buf, sizeof(buf), "Unknown command option\n");
+    	snprintf(buf, sizeof(buf), "Unknown command option : %s\n", mode);
         writex(fd, buf, strlen(buf));
     }
     D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : "developer");
+    free(mode);
     sdb_close(fd);
 }
 
@@ -248,38 +225,6 @@ void restart_usb_service(int fd, void *cookie)
     property_set("service.sdb.tcp.port", "0");
     snprintf(buf, sizeof(buf), "restarting in USB mode\n");
     writex(fd, buf, strlen(buf));
-=======
-    } else if ((!strcmp(mode, "hoston")) && (is_container_enabled())) {
-        if (hostshell_mode == 1) {
-    	//snprintf(buf, sizeof(buf), "Already changed to hostshell mode\n");
-    	// do not show message
-    	} else {
-            if (is_support_rootonoff()) {
-    	        hostshell_mode = 1;
-    	        snprintf(buf, sizeof(buf), "Switched to host shell mode\n");
-    	    } else {
-    	        snprintf(buf, sizeof(buf), "Permission denied\n");
-    	    }
-    	    writex(fd, buf, strlen(buf));
-    	}
-    } else if ((!strcmp(mode, "hostoff")) && (is_container_enabled())) {
-        if (hostshell_mode == 1) {
-            if(has_container()) {
-                hostshell_mode = 0;
-                snprintf(buf, sizeof(buf), "Switched to foreground zone shell mode\n");
-                writex(fd, buf, strlen(buf));
-            } else {
-                snprintf(buf, sizeof(buf), "No foreground zone exists\n");
-                writex(fd, buf, strlen(buf));
-            }
-        }
-    } else {
-    	snprintf(buf, sizeof(buf), "Unknown command option : %s\n", mode);
-        writex(fd, buf, strlen(buf));
-    }
-    D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : "developer");
-    free(mode);
->>>>>>> tizen_2.4
     sdb_close(fd);
 }
 
@@ -307,11 +252,7 @@ void reboot_service(int fd, void *arg)
 
     ret = android_reboot(ANDROID_RB_RESTART2, 0, (char *) arg);
     if (ret < 0) {
-<<<<<<< HEAD
-        snprintf(buf, sizeof(buf), "reboot failed: %s\n", strerror(errno));
-=======
         snprintf(buf, sizeof(buf), "reboot failed: %s errno:%d\n", errno);
->>>>>>> tizen_2.4
         writex(fd, buf, strlen(buf));
     }
     free(arg);
@@ -322,11 +263,7 @@ void reboot_service(int fd, void *arg)
 #if !SDB_HOST
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
-<<<<<<< HEAD
 #define CS_PATH     tzplatform_mkpath(TZ_USER_SHARE,"crash/report")
-=======
-#define CS_PATH     "/opt/usr/share/crash/report"
->>>>>>> tizen_2.4
 
 void inoti_service(int fd, void *arg)
 {
@@ -352,16 +289,6 @@ void inoti_service(int fd, void *arg)
             D( "inoti read failed\n");
             goto done;
         }
-<<<<<<< HEAD
-
-        while ( i < length ) {
-            struct inotify_event *event = ( struct inotify_event * )&buffer[i];
-            if (event->len) {
-                if ( event->mask & IN_CREATE) {
-                    if (!(event->mask & IN_ISDIR)) {
-                        char *cspath = NULL;
-                        int len = asprintf(&cspath, "%s/%s", CS_PATH, event->name);
-=======
         while (i >= 0 && i <= (length - EVENT_SIZE)) {
             struct inotify_event *event = (struct inotify_event *) &buffer[i];
             if (event->len) {
@@ -370,7 +297,6 @@ void inoti_service(int fd, void *arg)
                         char *cspath = NULL;
                         int len = asprintf(&cspath, "%s/%s", CS_PATH,
                                 event->name);
->>>>>>> tizen_2.4
                         D( "The file %s was created.\n", cspath);
                         writex(fd, cspath, len);
                         if (cspath != NULL) {
@@ -379,12 +305,9 @@ void inoti_service(int fd, void *arg)
                     }
                 }
             }
-<<<<<<< HEAD
-=======
             if (i + EVENT_SIZE + event->len < event->len) { // in case of integer overflow
                 break;
             }
->>>>>>> tizen_2.4
             i += EVENT_SIZE + event->len;
         }
     }
@@ -463,16 +386,6 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
 
 #if !SDB_HOST
 
-<<<<<<< HEAD
-static int create_subprocess(const char *cmd, const char *arg0, const char *arg1, pid_t *pid)
-{
-#ifdef HAVE_WIN32_PROC
-    D("create_subprocess(cmd=%s, arg0=%s, arg1=%s)\n", cmd, arg0, arg1);
-    fprintf(stderr, "error: create_subprocess not implemented on Win32 (%s %s %s)\n", cmd, arg0, arg1);
-    return -1;
-#else /* !HAVE_WIN32_PROC */
-    char *devname;
-=======
 static void redirect_and_exec(int pts, const char *cmd, const char *argv[], const char *envp[])
 {
     dup2(pts, 0);
@@ -487,23 +400,10 @@ static void redirect_and_exec(int pts, const char *cmd, const char *argv[], cons
 static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], const char *envp[])
 {
     char devname[64];
->>>>>>> tizen_2.4
     int ptm;
 
     ptm = unix_open("/dev/ptmx", O_RDWR); // | O_NOCTTY);
     if(ptm < 0){
-<<<<<<< HEAD
-        D("[ cannot open /dev/ptmx - %s ]\n",strerror(errno));
-        return -1;
-    }
-    if (fcntl(ptm, F_SETFD, FD_CLOEXEC) < 0) {
-        D("[ cannot set cloexec to /dev/ptmx - %s ]\n",strerror(errno));
-    }
-
-    if(grantpt(ptm) || unlockpt(ptm) ||
-       ((devname = (char*) ptsname(ptm)) == 0)){
-        D("[ trouble with /dev/ptmx - %s ]\n", strerror(errno));
-=======
         D("[ cannot open /dev/ptmx - errno:%d ]\n",errno);
         return -1;
     }
@@ -514,18 +414,13 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
     if(grantpt(ptm) || unlockpt(ptm) ||
         ptsname_r(ptm, devname, sizeof(devname)) != 0 ){
         D("[ trouble with /dev/ptmx - errno:%d ]\n", errno);
->>>>>>> tizen_2.4
         sdb_close(ptm);
         return -1;
     }
 
     *pid = fork();
     if(*pid < 0) {
-<<<<<<< HEAD
-        D("- fork failed: %s -\n", strerror(errno));
-=======
         D("- fork failed: errno:%d -\n", errno);
->>>>>>> tizen_2.4
         sdb_close(ptm);
         return -1;
     }
@@ -541,99 +436,35 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
             exit(-1);
         }
 
-<<<<<<< HEAD
-        dup2(pts, 0);
-        dup2(pts, 1);
-        dup2(pts, 2);
-
-        sdb_close(pts);
-=======
->>>>>>> tizen_2.4
         sdb_close(ptm);
 
         // set OOM adjustment to zero
         {
             char text[64];
-<<<<<<< HEAD
-            snprintf(text, sizeof text, "/proc/%d/oom_score_adj", getpid());
-=======
+            //snprintf(text, sizeof text, "/proc/%d/oom_score_adj", getpid());
             snprintf(text, sizeof text, "/proc/%d/oom_adj", getpid());
->>>>>>> tizen_2.4
             int fd = sdb_open(text, O_WRONLY);
             if (fd >= 0) {
                 sdb_write(fd, "0", 1);
                 sdb_close(fd);
             } else {
                // FIXME: not supposed to be here
-<<<<<<< HEAD
-               D("sdb: unable to open %s due to %s\n", text, strerror(errno));
-            }
-        }
-
-        verify_commands(arg1);
-
-        execl(cmd, cmd, arg0, arg1, NULL);
-        fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
-                cmd, strerror(errno), errno);
-        exit(-1);
-=======
                D("sdb: unable to open %s due to errno:%d\n", text, errno);
             }
         }
 
-        if (hostshell_mode == 1) {
-            if (should_drop_privileges()) {
-                if (argv[2] != NULL && getuid() == 0 && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
-                    // do nothing
-                    D("sdb: executes root commands!!:%s\n", argv[2]);
-                } else {
-                    set_developer_privileges();
-                }
+        if (should_drop_privileges()) {
+            if (argv[2] != NULL && getuid() == 0 && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
+                // do nothing
+                D("sdb: executes root commands!!:%s\n", argv[2]);
+            } else {
+                set_developer_privileges();
             }
-		        redirect_and_exec(pts, cmd, argv, envp);
-		} else {
-			char **pargv, **pargv_attach, sid[16];
-			char *argv_attach[16] = {
-			   CMD_ATTACH,
-			   "-f",
-			   NULL,
-			};
-			pargv_attach = argv_attach + 2;
-
-			if (should_drop_privileges()) {
-				if (argv[2] != NULL && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
-					// do nothing
-					D("sdb: executes root commands!!:%s\n", argv[2]);
-				} else {
-					snprintf(sid, 16, "%d", SID_DEVELOPER);
-					*(pargv_attach++) = "--uid";
-					*(pargv_attach++) = sid;
-					*(pargv_attach++) = "--gid";
-					*(pargv_attach++) = sid;
-
-					if (chdir("/home/developer") < 0) {
-						D("sdbd: unable to change working directory to /home/developer\n");
-					} else {
-						if (chdir("/") < 0) {
-							D("sdbd: unable to change working directory to /\n");
-						}
-					}
-					// TODO: use pam later
-					//putenv("HOME=/home/developer");
-					setenv("HOME", "/home/developer", 1);
-				}
-			}
-			*(pargv_attach++) = "--";
-			pargv = argv;
-			while(*pargv) {
-				*(pargv_attach++) = *(pargv++);
-			}
-			redirect_and_exec(pts, CMD_ATTACH, argv_attach, envp);
-		}
-		fprintf(stderr, "- exec '%s' failed: (errno:%d) -\n",
-			cmd, errno);
-		exit(-1);
->>>>>>> tizen_2.4
+        }
+        redirect_and_exec(pts, cmd, argv, envp);
+        fprintf(stderr, "- exec '%s' failed: (errno:%d) -\n",
+                cmd, errno);
+        exit(-1);
     } else {
         // Don't set child's OOM adjustment to zero.
         // Let the child do it itself, as sometimes the parent starts
@@ -641,17 +472,6 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
         // """sdb: unable to open /proc/644/oom_adj""" seen in some logs.
         return ptm;
     }
-<<<<<<< HEAD
-#endif /* !HAVE_WIN32_PROC */
-}
-#endif  /* !SDB_HOST */
-
-#if SDB_HOST
-#define SHELL_COMMAND "/bin/sh"
-#else
-#define SHELL_COMMAND "/bin/sh" /* tizen specific */
-#endif
-=======
 }
 #endif  /* !SDB_HOST */
 
@@ -660,7 +480,6 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 #define SDK_USER      "developer"
 #define SUPER_USER    "root"
 #define LOGIN_CONFIG  "/etc/login.defs"
->>>>>>> tizen_2.4
 
 #if !SDB_HOST
 static void subproc_waiter_service(int fd, void *cookie)
@@ -673,11 +492,6 @@ static void subproc_waiter_service(int fd, void *cookie)
         pid_t p = waitpid(pid, &status, 0);
         if (p == pid) {
             D("fd=%d, post waitpid(pid=%d) status=%04x\n", fd, p, status);
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> tizen_2.4
             if (WIFEXITED(status)) {
                 D("*** Exit code %d\n", WEXITSTATUS(status));
                 break;
@@ -699,9 +513,6 @@ static void subproc_waiter_service(int fd, void *cookie)
     }
 }
 
-<<<<<<< HEAD
-static int create_subproc_thread(const char *name)
-=======
 static void get_env(char *key, char **env)
 {
     FILE *fp;
@@ -743,19 +554,11 @@ static void get_env(char *key, char **env)
 }
 
 static int create_subproc_thread(const char *name, int lines, int columns)
->>>>>>> tizen_2.4
 {
     stinfo *sti;
     sdb_thread_t t;
     int ret_fd;
     pid_t pid;
-<<<<<<< HEAD
-
-    if(name) {
-        ret_fd = create_subprocess(SHELL_COMMAND, "-c", name, &pid);
-    } else {
-        ret_fd = create_subprocess(SHELL_COMMAND, "-", 0, &pid);
-=======
     char *value = NULL;
     char *trim_value = NULL;
     char path[PATH_MAX];
@@ -864,7 +667,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
             ret_fd = create_subprocess(LOGIN_COMMAND, &pid, args, envp);
         }
 #endif
->>>>>>> tizen_2.4
     }
     D("create_subprocess() ret_fd=%d pid=%d\n", ret_fd, pid);
 
@@ -872,8 +674,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         D("cannot create service thread\n");
         return -1;
     }
-<<<<<<< HEAD
-=======
 
     if (lines > 0 && columns > 0) {
         D("shell size lines=%d, columns=%d\n", lines, columns);
@@ -886,7 +686,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         }
     }
 
->>>>>>> tizen_2.4
     sti = malloc(sizeof(stinfo));
     if(sti == 0) fatal("cannot allocate stinfo");
     sti->func = subproc_waiter_service;
@@ -926,11 +725,7 @@ static int create_sync_subprocess(void (*func)(int, void *), void* cookie) {
         //waitpid(pid, &ret, 0);
     }
     if (pid < 0) {
-<<<<<<< HEAD
-        D("- fork failed: %s -\n", strerror(errno));
-=======
         D("- fork failed: errno:%d -\n", errno);
->>>>>>> tizen_2.4
         sdb_close(s[0]);
         sdb_close(s[1]);
         D("cannot create sync service sub process\n");
@@ -974,32 +769,13 @@ static int create_syncproc_thread()
 
 #endif
 
-<<<<<<< HEAD
-#define UNKNOWN "unknown"
-#define INFOBUF_MAXLEN 64
-#define INFO_VERSION "2.2.0"
-typedef struct platform_info {
-    
-    char platform_info_version[INFOBUF_MAXLEN];
-    char model_name[INFOBUF_MAXLEN]; // Emulator
-    char platform_name[INFOBUF_MAXLEN]; // Tizen
-    char platform_version[INFOBUF_MAXLEN]; // 2.2.1
-    char profile_name[INFOBUF_MAXLEN]; // 2.2.1
-} pinfo;
-
-=======
->>>>>>> tizen_2.4
 static void get_platforminfo(int fd, void *cookie) {
     pinfo sysinfo;
 
     char *value = NULL;
     s_strncpy(sysinfo.platform_info_version, INFO_VERSION, strlen(INFO_VERSION));
 
-<<<<<<< HEAD
-    int r = system_info_get_platform_string(SYSTEM_INFO_KEY_MODEL, &value);
-=======
     int r = system_info_get_platform_string("http://tizen.org/system/model_name", &value);
->>>>>>> tizen_2.4
     if (r != SYSTEM_INFO_ERROR_NONE) {
         s_strncpy(sysinfo.model_name, UNKNOWN, strlen(UNKNOWN));
         D("fail to get system model:%d\n", errno);
@@ -1011,11 +787,7 @@ static void get_platforminfo(int fd, void *cookie) {
         }
     }
 
-<<<<<<< HEAD
-    r = system_info_get_platform_string(SYSTEM_INFO_KEY_PLATFORM_NAME, &value);
-=======
     r = system_info_get_platform_string("http://tizen.org/system/platform.name", &value);
->>>>>>> tizen_2.4
     if (r != SYSTEM_INFO_ERROR_NONE) {
         s_strncpy(sysinfo.platform_name, UNKNOWN, strlen(UNKNOWN));
         D("fail to get platform name:%d\n", errno);
@@ -1058,8 +830,6 @@ static void get_platforminfo(int fd, void *cookie) {
     sdb_close(fd);
 }
 
-<<<<<<< HEAD
-=======
 static int put_key_value_string(char* buf, int offset, int buf_size, char* key, char* value) {
     int len = 0;
     if ((len = snprintf(buf+offset, buf_size-offset, "%s:%s\n", key, value)) > 0) {
@@ -1186,7 +956,6 @@ void get_boot(int fd, void *cookie) {
     sdb_close(fd);
 }
 
->>>>>>> tizen_2.4
 int service_to_fd(const char *name)
 {
     int ret = -1;
@@ -1195,11 +964,6 @@ int service_to_fd(const char *name)
         int port = atoi(name + 4);
         name = strchr(name + 4, ':');
         if(name == 0) {
-<<<<<<< HEAD
-            ret = socket_loopback_client(port, SOCK_STREAM);
-            if (ret >= 0)
-                disable_tcp_nagle(ret);
-=======
             if (is_emulator()){
                 ret = socket_ifr_client(port , SOCK_STREAM, "eth0");
             } else {
@@ -1216,7 +980,6 @@ int service_to_fd(const char *name)
             if (ret >= 0) {
                 disable_tcp_nagle(ret);
             }
->>>>>>> tizen_2.4
         } else {
 #if SDB_HOST
             sdb_mutex_lock(&dns_lock);
@@ -1258,11 +1021,6 @@ int service_to_fd(const char *name)
         ret = create_service_thread(log_service, get_log_file_path(name + 4));
     }*/ else if(!HOST && !strncmp(name, "shell:", 6)) {
         if(name[6]) {
-<<<<<<< HEAD
-            ret = create_subproc_thread(name + 6);
-        } else {
-            ret = create_subproc_thread(0);
-=======
             ret = create_subproc_thread(name + 6, 0, 0);
         } else {
             ret = create_subproc_thread(NULL, 0, 0);
@@ -1271,7 +1029,6 @@ int service_to_fd(const char *name)
         int lines, columns;
         if (sscanf(name+7, "%d:%d", &lines, &columns) == 2) {
             ret = create_subproc_thread(NULL, lines, columns);
->>>>>>> tizen_2.4
         }
     } else if(!strncmp(name, "sync:", 5)) {
         //ret = create_service_thread(file_sync_service, NULL);
@@ -1291,31 +1048,15 @@ int service_to_fd(const char *name)
     } else if(!strncmp(name, "restore:", 8)) {
         ret = backup_service(RESTORE, NULL);
     }*/ else if(!strncmp(name, "root:", 5)) {
-<<<<<<< HEAD
-        ret = create_service_thread(rootshell_service, (void *)(name+5));
-    } else if(!strncmp(name, "tcpip:", 6)) {
-        int port;
-        /*if (sscanf(name + 6, "%d", &port) == 0) {
-            port = 0;
-        }*/
-        port = DEFAULT_SDB_LOCAL_TRANSPORT_PORT;
-        ret = create_service_thread(restart_tcp_service, (void *)port);
-    } else if(!strncmp(name, "usb:", 4)) {
-        ret = create_service_thread(restart_usb_service, NULL);
-=======
         char* service_name = NULL;
 
         service_name = strdup(name+5);
         ret = create_service_thread(rootshell_service, (void *)(service_name));
->>>>>>> tizen_2.4
     } else if(!strncmp(name, "cs:", 5)) {
         ret = create_service_thread(inoti_service, NULL);
 #endif
     } else if(!strncmp(name, "sysinfo:", 8)){
         ret = create_service_thread(get_platforminfo, 0);
-<<<<<<< HEAD
-    }
-=======
     } else if(!strncmp(name, "capability:", 11)){
         ret = create_service_thread(get_capability, 0);
     } else if(!strncmp(name, "boot:", 5)){
@@ -1328,7 +1069,6 @@ int service_to_fd(const char *name)
         }
     }
 
->>>>>>> tizen_2.4
     if (ret >= 0) {
         if (close_on_exec(ret) < 0) {
             D("failed to close fd exec\n");
