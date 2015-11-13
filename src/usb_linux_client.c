@@ -37,6 +37,14 @@ struct usb_handle
     sdb_mutex_t lock;
 };
 
+<<<<<<< HEAD
+=======
+void usb_cleanup()
+{
+    // nothing to do here
+}
+
+>>>>>>> tizen_2.4
 static void *usb_open_thread(void *x)
 {
     struct usb_handle *usb = (struct usb_handle *)x;
@@ -77,45 +85,75 @@ static void *usb_open_thread(void *x)
     return 0;
 }
 
+<<<<<<< HEAD
 // Public host/client interface
 
 int linux_usb_write(usb_handle *h, const void *data, int len)
+=======
+int usb_write(usb_handle *h, const void *data, int len)
+>>>>>>> tizen_2.4
 {
     int n;
 
     D("about to write (fd=%d, len=%d)\n", h->fd, len);
     n = sdb_write(h->fd, data, len);
     if(n != len) {
+<<<<<<< HEAD
         D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
             h->fd, n, errno, strerror(errno));
+=======
+        D("ERROR: fd = %d, n = %d, errno = %d\n",
+            h->fd, n, errno);
+>>>>>>> tizen_2.4
         return -1;
     }
     D("[ done fd=%d ]\n", h->fd);
     return 0;
 }
 
+<<<<<<< HEAD
 int linux_usb_read(usb_handle *h, void *data, int len)
+=======
+int usb_read(usb_handle *h, void *data, unsigned len)
+>>>>>>> tizen_2.4
 {
     int n;
 
     D("about to read (fd=%d, len=%d)\n", h->fd, len);
     n = sdb_read(h->fd, data, len);
     if(n != len) {
+<<<<<<< HEAD
         D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
             h->fd, n, errno, strerror(errno));
+=======
+        D("ERROR: fd = %d, n = %d, errno = %d\n",
+            h->fd, n, errno);
+>>>>>>> tizen_2.4
         return -1;
     }
     D("[ done fd=%d ]\n", h->fd);
     return 0;
 }
 
+<<<<<<< HEAD
 void linux_usb_init()
+=======
+void usb_init()
+>>>>>>> tizen_2.4
 {
     usb_handle *h;
     sdb_thread_t tid;
 //  int fd;
 
     h = calloc(1, sizeof(usb_handle));
+<<<<<<< HEAD
+=======
+    if (h == NULL) {
+        D("failed to allocate memory of usb_handle\n");
+        return;
+    }
+
+>>>>>>> tizen_2.4
     h->fd = -1;
     sdb_cond_init(&h->notify, 0);
     sdb_mutex_init(&h->lock, 0);
@@ -139,7 +177,11 @@ void linux_usb_init()
     }
 }
 
+<<<<<<< HEAD
 void linux_usb_kick(usb_handle *h)
+=======
+void usb_kick(usb_handle *h)
+>>>>>>> tizen_2.4
 {
     D("usb_kick\n");
     sdb_mutex_lock(&h->lock);
@@ -151,13 +193,20 @@ void linux_usb_kick(usb_handle *h)
     sdb_mutex_unlock(&h->lock);
 }
 
+<<<<<<< HEAD
 int linux_usb_close(usb_handle *h)
+=======
+int usb_close(usb_handle *h)
+>>>>>>> tizen_2.4
 {
     // nothing to do here
     return 0;
 }
+<<<<<<< HEAD
 
 void linux_usb_cleanup()
 {
     // nothing to do here
 }
+=======
+>>>>>>> tizen_2.4

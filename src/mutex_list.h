@@ -24,6 +24,10 @@
 SDB_MUTEX(dns_lock)
 SDB_MUTEX(socket_list_lock)
 SDB_MUTEX(transport_lock)
+<<<<<<< HEAD
+=======
+SDB_MUTEX(zone_check_lock);
+>>>>>>> tizen_2.4
 #if SDB_HOST
 SDB_MUTEX(local_transports_lock)
 #endif

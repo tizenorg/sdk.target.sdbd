@@ -67,4 +67,16 @@ char*   buff_add  (char*  buff, char*  buffEnd, const char*  format, ... );
     char   _buff[_size], *_cursor=_buff, *_end = _cursor + (_size)
 
 char *str_trim(const char* string);
+<<<<<<< HEAD
+=======
+
+/*
+ * spawn a process and returns the process id of the new spawned process.
+ * it is working as async.
+ */
+int spawn(char* program, char** arg_list);
+
+char** str_split(char* a_str, const char a_delim);
+
+>>>>>>> tizen_2.4
 #endif /* _SDB_UTILS_H */

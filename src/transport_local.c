@@ -19,7 +19,10 @@
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
+<<<<<<< HEAD
 #include <netdb.h>
+=======
+>>>>>>> tizen_2.4
 
 #include "sysdeps.h"
 #include <sys/types.h>
@@ -33,9 +36,12 @@
 #define  TRACE_TAG  TRACE_TRANSPORT
 #include "sdb.h"
 #include "strutils.h"
+<<<<<<< HEAD
 #if !SDB_HOST
 #include "commandline_sdbd.h"
 #endif
+=======
+>>>>>>> tizen_2.4
 
 #ifdef HAVE_BIG_ENDIAN
 #define H4(x)	(((x) & 0xFF000000) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | (((x) & 0x000000FF) << 24)
@@ -167,15 +173,25 @@ int get_devicename_from_shdmem(int port, char *device_name)
 
     if (shared_memory == (void *)-1)
     {
+<<<<<<< HEAD
         D("faild to get shdmem key (%d) : %s\n", port, strerror(errno));
+=======
+        D("faild to get shdmem key (%d) : errno:%d\n", port, errno);
+>>>>>>> tizen_2.4
         return -1;
     }
 
     vms = strstr((char*)shared_memory, VMS_PATH);
     if (vms != NULL)
+<<<<<<< HEAD
         strncpy(device_name, vms+strlen(VMS_PATH), DEVICENAME_MAX);
     else
         strncpy(device_name, DEFAULT_DEVICENAME, DEVICENAME_MAX);
+=======
+        s_strncpy(device_name, vms+strlen(VMS_PATH), DEVICENAME_MAX);
+    else
+        s_strncpy(device_name, DEFAULT_DEVICENAME, DEVICENAME_MAX);
+>>>>>>> tizen_2.4
 
 #else /* _WIN32*/
     HANDLE hMapFile;
@@ -202,9 +218,15 @@ int get_devicename_from_shdmem(int port, char *device_name)
 
     vms = strstr((char*)pBuf, VMS_PATH);
     if (vms != NULL)
+<<<<<<< HEAD
         strncpy(device_name, vms+strlen(VMS_PATH), DEVICENAME_MAX);
     else
         strncpy(device_name, DEFAULT_DEVICENAME, DEVICENAME_MAX);
+=======
+        s_strncpy(device_name, vms+strlen(VMS_PATH), DEVICENAME_MAX);
+    else
+        s_strncpy(device_name, DEFAULT_DEVICENAME, DEVICENAME_MAX);
+>>>>>>> tizen_2.4
     CloseHandle(hMapFile);
 #endif
     D("init device name %s on port %d\n", device_name, port);
@@ -253,7 +275,11 @@ static void *client_socket_thread(void *x)
 static void *server_socket_thread(void * arg)
 {
     int serverfd, fd;
+<<<<<<< HEAD
     struct sockaddr addr;
+=======
+    struct sockaddr_in addr;
+>>>>>>> tizen_2.4
     socklen_t alen;
     int port = (int)arg;
 
@@ -261,6 +287,10 @@ static void *server_socket_thread(void * arg)
     serverfd = -1;
     for(;;) {
         if(serverfd == -1) {
+<<<<<<< HEAD
+=======
+            // socket_inaddr_any_server returns -1 if there is any error
+>>>>>>> tizen_2.4
             serverfd = socket_inaddr_any_server(port, SOCK_STREAM);
             if(serverfd < 0) {
                 D("server: cannot bind socket yet\n");
@@ -280,14 +310,29 @@ static void *server_socket_thread(void * arg)
             pthread_cond_broadcast(&noti_cond);
         }
 
+<<<<<<< HEAD
         fd = sdb_socket_accept(serverfd, &addr, &alen);
+=======
+        fd = sdb_socket_accept(serverfd, (struct sockaddr *)&addr, &alen);
+>>>>>>> tizen_2.4
         if(fd >= 0) {
             D("server: new connection on fd %d\n", fd);
             if (close_on_exec(fd) < 0) {
                 D("failed to close fd exec\n");
             }
             disable_tcp_nagle(fd);
+<<<<<<< HEAD
             register_socket_transport(fd, "host", port, 1, NULL);
+=======
+
+            // Check the peer ip validation.
+            if (!is_emulator()
+                && !request_plugin_verification(SDBD_CMD_VERIFY_PEERIP, inet_ntoa(addr.sin_addr))) {
+                sdb_close(fd);
+            } else {
+                register_socket_transport(fd, "host", port, 1, NULL);
+            }
+>>>>>>> tizen_2.4
         }
     }
     D("transport: server_socket_thread() exiting\n");
@@ -407,6 +452,7 @@ static const char _ok_resp[]    = "ok";
 #endif  // !SDB_HOST
 #endif
 
+<<<<<<< HEAD
 /*!
  * static int send_msg_to_host_from_guest(const char *hostname, int host_port, char *request, int sock_type)
  * @brief Sends \c request to host using specified protocol
@@ -480,15 +526,110 @@ static int send_msg_to_host_from_guest(const char *hostname, int host_port, char
         return -1;
     }
     sdb_close(sock);
+=======
+int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen,
+        int nsec) {
+    int flags, n, error;
+    socklen_t len;
+    fd_set rset, wset;
+    struct timeval tval;
+
+    flags = fcntl(sockfd, F_GETFL, 0);
+    if(fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        D("failed to set file O_NONBLOCK status flag for socket %d: errno:%d\n",
+                     sockfd, errno);
+    }
+
+    error = 0;
+    if ((n = connect(sockfd, (struct sockaddr *) saptr, salen)) < 0)
+        if (errno != EINPROGRESS)
+            return (-1);
+
+    /* Do whatever we want while the connect is taking place. */
+
+    if (n == 0)
+        goto done;
+    /* connect completed immediately */
+
+    FD_ZERO(&rset);
+    FD_SET(sockfd, &rset);
+    wset = rset;
+    tval.tv_sec = nsec;
+    tval.tv_usec = 0;
+    if ((n = select(sockfd + 1, &rset, &wset, NULL, nsec ? &tval : NULL))
+            == 0) {
+        sdb_close(sockfd); /* timeout */
+        errno = ETIMEDOUT;
+        return (-1);
+    }
+    if (FD_ISSET(sockfd, &rset) || FD_ISSET(sockfd, &wset)) {
+        len = sizeof(error);
+        if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
+            return (-1); /* Solaris pending error */
+    } else
+        D("select error: sockfd not set\n");
+
+    done:
+    if(fcntl(sockfd, F_SETFL, flags) == -1) { /* restore file status flags */
+        D("failed to restore file status flag for socket %d\n",
+                 sockfd);
+    }
+
+    if (error) {
+        sdb_close(sockfd); /* just in case */
+        errno = error;
+        return (-1);
+    }
+    return (0);
+}
+
+static int send_msg_to_localhost_from_guest(const char *host_ip, int local_port, char *request, int sock_type) {
+    int                  ret, s;
+    struct sockaddr_in   server;
+    int connect_timeout = 1;
+    memset( &server, 0, sizeof(server) );
+    server.sin_family      = AF_INET;
+    server.sin_port        = htons(local_port);
+    server.sin_addr.s_addr = inet_addr(host_ip);
+
+    D("try to send notification to host(%s:%d) using %s:[%s]\n", host_ip, local_port, (sock_type == 0) ? "tcp" : "udp", request);
+
+    if (sock_type == 0) {
+        s = socket(AF_INET, SOCK_STREAM, 0);
+    } else {
+        s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
+    if (s < 0) {
+        D("could not create socket\n");
+        return -1;
+    }
+    ret = connect_nonb(s, (struct sockaddr*) &server, sizeof(server), connect_timeout);
+    if (ret < 0) {
+        D("could not connect to server\n");
+        sdb_close(s);
+        return -1;
+    }
+    if (writex(s, request, strlen(request)) != 0) {
+        D("could not send notification request to host\n");
+        sdb_close(s);
+        return -1;
+    }
+    sdb_close(s);
+>>>>>>> tizen_2.4
     D("sent notification request to host\n");
 
     return 0;
 }
 
+<<<<<<< HEAD
+=======
+/*
+>>>>>>> tizen_2.4
 static void notify_sdbd_startup() {
     char                 buffer[512];
     char                 request[512];
 
+<<<<<<< HEAD
     SdbdCommandlineArgs *sdbd_args = &sdbd_commandline_args; /* alias */
 
     // send the request to sdbserver
@@ -498,11 +639,21 @@ static void notify_sdbd_startup() {
 
 
     if (sdbd_port <= 0 || vm_name == NULL) {
+=======
+    // send the request to sdbserver
+    char vm_name[256]={0,};
+    int base_port = get_emulator_forward_port();
+    int r = get_emulator_name(vm_name, sizeof vm_name);
+    int time = 0;
+    int try_limit_time = 60; // It would take 20 or more trials in slow VMs
+    if (base_port < 0 || r < 0) {
+>>>>>>> tizen_2.4
         return;
     }
 
     // tell qemu sdbd is just started with udp
     char sensord_buf[16];
+<<<<<<< HEAD
     snprintf(sensord_buf, sizeof sensord_buf, "2\n");
     if (send_msg_to_host_from_guest(sdbd_args->sensors.host, sensors_port, sensord_buf, IPPROTO_UDP) < 0) {
         D("could not send sensord noti request\n");
@@ -514,6 +665,95 @@ static void notify_sdbd_startup() {
 
     if (send_msg_to_host_from_guest(sdbd_args->sdb.host, sdbd_args->sdb.port, buffer, IPPROTO_TCP) < 0) {
         D("could not send sdbd noti request. it might sdb server has not been started yet.\n");
+=======
+    while (time < try_limit_time) {
+        snprintf(sensord_buf, sizeof sensord_buf, "2\n");
+        if (send_msg_to_localhost_from_guest(base_port + 3, sensord_buf, 1) < 0) {
+            D("could not send sensord noti request, try again %dth\n", time+1);
+        } else {
+            // tell sdb server emulator's vms name
+            snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
+            snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request );
+
+            if (send_msg_to_localhost_from_guest(DEFAULT_SDB_PORT, buffer, 0) <0) {
+                D("could not send sdbd noti request. it might sdb server has not been started yet.\n");
+            } else {
+                break;
+            }
+
+        }
+        time ++;
+        sleep(1);
+    }
+}
+*/
+
+// send the "emulator" request to sdbserver
+static void notify_sdbd_startup_thread() {
+    char                 buffer[512];
+    char                 request[512];
+
+    char vm_name[256]={0,};
+    char host_ip[256] = {0,};
+    char guest_ip[256] = {0,};
+    int base_port = get_emulator_forward_port();
+    int r = get_emulator_name(vm_name, sizeof vm_name);
+    int time = 0;
+    //int try_limit_time = -1; // try_limit_time < 0 if unlimited
+    if (base_port < 0 || r < 0) {
+        return;
+    }
+    if (get_emulator_hostip(host_ip, sizeof host_ip) == -1) {
+       D("failed to get emulator host ip\n");
+       return;
+    }
+    // XXX: Known issue - log collision
+    while (1) {
+        // Trial limitation reached. terminate notify thread.
+        /*if (0 <= try_limit_time && try_limit_time <= time) {
+            break;
+        }*/
+        // If there is any connected (via TCP/IP) SDB server, sleep 10 secs
+        if (get_connected_count(kTransportLocal) > 0) {
+            if (time >= 0) {
+                time = 0;
+                D("notify_sdbd_startup() success after %d trial(s)\n", time);
+            }
+            sleep(10);
+            continue;
+        }
+
+        if (get_emulator_guestip(guest_ip, sizeof guest_ip) == -1) {
+			D("failed to get emulator guest ip\n");
+			goto sleep_and_continue;
+		}
+
+        // tell qemu sdbd is just started with udp
+        if (send_msg_to_localhost_from_guest(host_ip, base_port + 3, "2\n", 1) < 0) {
+            D("could not send sensord noti request, try again %dth\n", time+1);
+            goto sleep_and_continue;
+        }
+
+        // tell sdb server emulator's vms name
+        // TODO: should we use host:emulator request? let's talk about this!
+
+        if (!strncmp(host_ip, QEMU_FORWARD_IP, sizeof host_ip)) {
+            snprintf(request, sizeof request, "host:emulator:%d:%s",base_port + 1, vm_name);
+        } else {
+            snprintf(request, sizeof request, "host:connect:%s:%d", guest_ip, DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
+        }
+        snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request );
+
+        if (send_msg_to_localhost_from_guest(host_ip, DEFAULT_SDB_PORT, buffer, 0) <0) {
+            D("could not send sdbd noti request. it might sdb server has not been started yet.\n");
+            goto sleep_and_continue;
+        }
+        //LOGI("sdbd noti request sent.\n");
+
+sleep_and_continue:
+        time++;
+        sleep(1);
+>>>>>>> tizen_2.4
     }
 }
 
@@ -560,7 +800,15 @@ void local_init(int port)
         sdb_mutex_lock(&register_noti_lock);
         pthread_cond_wait(&noti_cond, &register_noti_lock);
 
+<<<<<<< HEAD
         notify_sdbd_startup();
+=======
+        // thread start
+        if(sdb_thread_create(&thr, notify_sdbd_startup_thread, NULL)) {
+            fatal("cannot create notify_sdbd_startup_thread");
+            //notify_sdbd_startup(); // defensive code
+        }
+>>>>>>> tizen_2.4
         sdb_mutex_unlock(&register_noti_lock);
     }
 }

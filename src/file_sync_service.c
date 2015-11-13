@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+<<<<<<< HEAD
 #include "sysdeps.h"
 #include "smack.h"
 #include <tzplatform_config.h>
@@ -55,11 +56,27 @@ struct sync_permit_rule sdk_sync_permit_rule[] = {
     /* end */ {NULL, NULL, 0}
 };
 
+=======
+#include <sys/smack.h>
+#include <security-server.h>
+#include "sysdeps.h"
+
+#define TRACE_TAG  TRACE_SYNC
+#include "sdb.h"
+#include "sdbd_plugin.h"
+#include "file_sync_service.h"
+#include "sdktools.h"
+#include "utils.h"
+
+#define SYNC_TIMEOUT 15
+
+>>>>>>> tizen_2.4
 /* The typical default value for the umask is S_IWGRP | S_IWOTH (octal 022).
  * Before use the DIR_PERMISSION, the process umask value should be set 0 using umask().
  */
 #define DIR_PERMISSION 0777
 
+<<<<<<< HEAD
 void init_sdk_sync_permit_rule_regx(void)
 {
     asprintf(&sdk_sync_permit_rule[0].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
@@ -68,6 +85,8 @@ void init_sdk_sync_permit_rule_regx(void)
 
 }
 
+=======
+>>>>>>> tizen_2.4
 static void set_syncfile_smack_label(char *src) {
     char *label_transmuted = NULL;
     char *label = NULL;
@@ -75,11 +94,14 @@ static void set_syncfile_smack_label(char *src) {
     int pos = src_chr - src + 1;
     char dirname[512];
 
+<<<<<<< HEAD
     if (getuid() != 0) {
         D("need root permission to set smack label: %d\n", getuid());
         return;
     }
 
+=======
+>>>>>>> tizen_2.4
     snprintf(dirname, pos, "%s", src);
 
     //D("src:[%s], dirname:[%s]\n", src, dirname);
@@ -89,8 +111,14 @@ static void set_syncfile_smack_label(char *src) {
         if (!strcmp("TRUE", label_transmuted)) {
             rc = smack_getlabel(dirname, &label, SMACK_LABEL_ACCESS);
             if (rc == 0 && label != NULL) {
+<<<<<<< HEAD
                 if (smack_setlabel(src, label, SMACK_LABEL_ACCESS) == -1) {
                     D("unable to set sync file smack label %s due to %s\n", label, strerror(errno));
+=======
+                rc = security_server_label_access(src, label);
+                if (rc != SECURITY_SERVER_API_SUCCESS) {
+                    D("unable to set sync file smack label %s due to %d\n", label, errno);
+>>>>>>> tizen_2.4
                 }
                 free(label);
             }
@@ -99,8 +127,14 @@ static void set_syncfile_smack_label(char *src) {
         }
         free(label_transmuted);
     } else {
+<<<<<<< HEAD
         if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) == -1) {
             D("unable to set sync file smack label %s due to %s\n", SMACK_SYNC_FILE_LABEL, strerror(errno));
+=======
+        rc = security_server_label_access(src, SMACK_SYNC_FILE_LABEL);
+        if (rc != SECURITY_SERVER_API_SUCCESS) {
+            D("unable to set sync file smack label %s due to %d\n", SMACK_SYNC_FILE_LABEL, errno);
+>>>>>>> tizen_2.4
         }
     }
 }
@@ -117,12 +151,21 @@ static int sync_send_label_notify(int s, const char *path, int success)
 
 static void sync_read_label_notify(int s)
 {
+<<<<<<< HEAD
     char buffer[512] = {0,};
 
     while (1) {
         int len = sdb_read(s, buffer, sizeof(buffer));
         if (len < 0) {
             D("sync notify read error:%s\n", strerror(errno));
+=======
+    char buffer[512 + 1] = {0,};
+
+    while (1) {
+        int len = sdb_read(s, buffer, sizeof(buffer) - 1);
+        if (len < 0) {
+            D("sync notify read errno:%d\n", errno);
+>>>>>>> tizen_2.4
             exit(-1);
         }
 
@@ -130,6 +173,10 @@ static void sync_read_label_notify(int s)
             D("sync notify child process exit\n");
             exit(-1);
         }
+<<<<<<< HEAD
+=======
+        buffer[len] = '\0';
+>>>>>>> tizen_2.4
         char *path = buffer;
         path++;
         path++;
@@ -158,7 +205,11 @@ static int mkdirs(int noti_fd, char *name)
             sync_send_label_notify(noti_fd, name, 1);
         }
         if((ret < 0) && (errno != EEXIST)) {
+<<<<<<< HEAD
             D("mkdir(\"%s\") -> %s\n", name, strerror(errno));
+=======
+            D("mkdir(\"%s\") -> errno:%d\n", name, errno);
+>>>>>>> tizen_2.4
             *x = '/';
             return ret;
         }
@@ -179,7 +230,11 @@ static int do_stat(int s, const char *path)
         msg.stat.mode = 0;
         msg.stat.size = 0;
         msg.stat.time = 0;
+<<<<<<< HEAD
         D("failed to stat %s due to: %s\n", path, strerror(errno));
+=======
+        D("failed to stat %s due to: errno:%d\n", path, errno);
+>>>>>>> tizen_2.4
     } else {
         msg.stat.mode = htoll(st.st_mode);
         msg.stat.size = htoll(st.st_size);
@@ -200,6 +255,12 @@ static int do_list(int s, const char *path)
     char tmp[1024 + 256 + 1];
     char *fname;
 
+<<<<<<< HEAD
+=======
+    char dirent_buffer[ sizeof(struct dirent) + 260 + 1 ]  = {0,};
+    struct dirent *dirent_r = (struct dirent*)dirent_buffer;
+
+>>>>>>> tizen_2.4
     len = strlen(path);
     memcpy(tmp, path, len);
     tmp[len] = '/';
@@ -209,11 +270,19 @@ static int do_list(int s, const char *path)
 
     d = opendir(path);
     if(d == NULL) {
+<<<<<<< HEAD
         D("failed to open dir due to: %s\n", strerror(errno));
         goto done;
     }
 
     while((de = readdir(d))) {
+=======
+        D("failed to open dir due to: errno:%d\n", errno);
+        goto done;
+    }
+
+    while((readdir_r(d, dirent_r, &de) == 0) && de) {
+>>>>>>> tizen_2.4
         int len = strlen(de->d_name);
 
             /* not supposed to be possible, but
@@ -222,7 +291,11 @@ static int do_list(int s, const char *path)
             continue;
         }
 
+<<<<<<< HEAD
         strcpy(fname, de->d_name);
+=======
+        s_strncpy(fname, de->d_name, sizeof tmp);
+>>>>>>> tizen_2.4
         if(lstat(tmp, &st) == 0) {
             msg.dent.mode = htoll(st.st_mode);
             msg.dent.size = htoll(st.st_size);
@@ -267,7 +340,80 @@ static int fail_message(int s, const char *reason)
 
 static int fail_errno(int s)
 {
+<<<<<<< HEAD
     return fail_message(s, strerror(errno));
+=======
+	char buf[512];
+
+	strerror_r(s, buf, sizeof(buf));
+
+    return fail_message(s, buf);
+}
+
+// FIXME: should get the following paths with api later but, do it for simple and not having dependency on other packages
+#define VAR_ABS_PATH        "/opt/var"
+#define VSM_ZONE_PATH       "/var/lib/lxc/"
+#define VSM_ZONE_ROOTFS     "rootfs/"
+#define CMD_MEDIADB_UPDATE "/usr/bin/mediadb-update"
+#define MEDIA_CONTENTS_PATH1 "/opt/media"
+#define MEDIA_CONTENTS_PATH2 "/opt/usr/media"
+#define MEDIA_CONTENTS_PATH3 "/opt/storage/sdcard"
+
+static void sync_mediadb(char *path) {
+	int is_inzone = 0;
+
+    if (access(CMD_MEDIADB_UPDATE, F_OK) != 0) {
+        D("%s: command not found\n", CMD_MEDIADB_UPDATE);
+        return;
+    }
+
+    if (strstr(path, VAR_ABS_PATH) == path) {
+        path += 4;
+    }
+    if (strstr(path, VSM_ZONE_PATH) == path) {
+        path += sizeof(VSM_ZONE_PATH) - 1;
+        while (*(path++) != '/');
+        while (*(path++) == '/');
+        path--;
+
+		if (strstr(path, VSM_ZONE_ROOTFS) == path) {
+			path += sizeof(VSM_ZONE_ROOTFS) - 1;
+			while (*(path++) == '/');
+			path -= 2;
+			is_inzone = 1;
+        }
+     }
+
+    if (strstr(path, MEDIA_CONTENTS_PATH1) != NULL) {
+    	if (is_inzone) {
+    	    char *arg_list[] = {CMD_ATTACH, "-f", "--", CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH1, NULL};
+    	    spawn(CMD_ATTACH, arg_list);
+    	} else {
+    	    char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH1, NULL};
+            spawn(CMD_MEDIADB_UPDATE, arg_list);
+            D("media db update done to %s\n", MEDIA_CONTENTS_PATH1);
+    	}
+    } else if (strstr(path, MEDIA_CONTENTS_PATH2) != NULL) {
+    	if (is_inzone) {
+    	    char *arg_list[] = {CMD_ATTACH, "-f", "--", CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH2, NULL};
+    	    spawn(CMD_ATTACH, arg_list);
+    	} else {
+    	    char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH2, NULL};
+    	    spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	}
+        D("media db update done to %s\n", MEDIA_CONTENTS_PATH2);
+    } else if (strstr(path, MEDIA_CONTENTS_PATH3) != NULL) {
+    	if (is_inzone) {
+    	    char *arg_list[] = {CMD_ATTACH, "-f", "--", CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH3, NULL};
+    	    spawn(CMD_ATTACH, arg_list);
+    	} else {
+    	    char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH3, NULL};
+    	    spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	}
+        D("media db update done to %s\n", MEDIA_CONTENTS_PATH3);
+    }
+    return;
+>>>>>>> tizen_2.4
 }
 
 static int handle_send_file(int s, int noti_fd, char *path, mode_t mode, char *buffer)
@@ -344,6 +490,10 @@ static int handle_send_file(int s, int noti_fd, char *path, mode_t mode, char *b
         return -1;
     }
     sync_send_label_notify(noti_fd, path, 1);
+<<<<<<< HEAD
+=======
+    sync_mediadb(path);
+>>>>>>> tizen_2.4
     return 0;
 
 fail:
@@ -403,12 +553,36 @@ static int handle_send_link(int s, int noti_fd, char *path, char *buffer)
 }
 #endif /* HAVE_SYMLINKS */
 
+<<<<<<< HEAD
+=======
+static int is_support_push()
+{
+    return (!strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSHPULL, strlen(SDBD_CAP_RET_PUSHPULL))
+            || !strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSH, strlen(SDBD_CAP_RET_PUSH)));
+}
+
+static int is_support_pull()
+{
+    return (!strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSHPULL, strlen(SDBD_CAP_RET_PUSHPULL))
+            || !strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PULL, strlen(SDBD_CAP_RET_PULL)));
+}
+
+>>>>>>> tizen_2.4
 static int do_send(int s, int noti_fd, char *path, char *buffer)
 {
     char *tmp;
     mode_t mode;
     int is_link, ret;
 
+<<<<<<< HEAD
+=======
+    // Check the capability for file push support.
+    if(!is_support_push()) {
+        fail_message(s, "NO support file push.");
+        return -1;
+    }
+
+>>>>>>> tizen_2.4
     tmp = strrchr(path,',');
     if(tmp) {
         *tmp = 0;
@@ -427,6 +601,13 @@ static int do_send(int s, int noti_fd, char *path, char *buffer)
         mode = 0644; // set default permission value in most of unix system.
         is_link = 0;
     }
+<<<<<<< HEAD
+=======
+    if (is_pkg_file_path(path)) {
+        mode = 0644;
+        is_link = 0;
+    }
+>>>>>>> tizen_2.4
 
     // sdb does not allow to check that file exists or not. After deleting old file and creating new file again unconditionally.
     sdb_unlink(path);
@@ -457,6 +638,15 @@ static int do_recv(int s, const char *path, char *buffer)
     syncmsg msg;
     int fd, r;
 
+<<<<<<< HEAD
+=======
+    // Check the capability for file push support.
+    if (!is_support_pull()) {
+        fail_message(s, "NO support file pull.");
+        return -1;
+    }
+
+>>>>>>> tizen_2.4
     fd = sdb_open(path, O_RDONLY);
     if(fd < 0) {
         if(fail_errno(s)) return -1;
@@ -491,6 +681,7 @@ static int do_recv(int s, const char *path, char *buffer)
     return 0;
 }
 
+<<<<<<< HEAD
 static int verify_sync_rule(const char* path) {
     regex_t regex;
     int ret;
@@ -521,6 +712,29 @@ static int verify_sync_rule(const char* path) {
        free(sdk_sync_permit_rule[i].regx);
     }
     return 0;
+=======
+static pid_t get_zone_init_pid(const char *name) {
+    char filename[PATH_MAX];
+    FILE *fp;
+    pid_t ret = -1;
+
+    snprintf(filename, sizeof(filename),
+            "/sys/fs/cgroup/devices/lxc/%s/cgroup.procs", name);
+
+    fp = fopen(filename, "r");
+
+    if (fp != NULL) {
+        if (fscanf(fp, "%d", &ret) < 0) {
+            D("Failed to read %s\n", filename);
+            ret = -2;
+        }
+        fclose(fp);
+    } else {
+        D("Unable to access %s\n", filename);
+        ret = errno;
+    }
+    return ret;
+>>>>>>> tizen_2.4
 }
 
 void file_sync_service(int fd, void *cookie)
@@ -532,6 +746,11 @@ void file_sync_service(int fd, void *cookie)
     struct timeval timeout;
     int rv;
     int s[2];
+<<<<<<< HEAD
+=======
+    char zone_path[1025] = {0, };
+    char name_vsm[1025] = {0, };
+>>>>>>> tizen_2.4
 
     if(sdb_socketpair(s)) {
         D("cannot create service socket pair\n");
@@ -555,6 +774,31 @@ void file_sync_service(int fd, void *cookie)
         sync_read_label_notify(s[1]);
     } else if (pid > 0) {
         sdb_close(s[1]);
+<<<<<<< HEAD
+=======
+
+        if (hostshell_mode == 0) {
+            FILE *fp;
+            fp = popen("/usr/bin/vsm-foreground", "r");
+            if (fp == NULL) {
+                D("Failed to create pipe of vsm-foreground\n");
+                goto fail;
+            }
+            fgets(name_vsm, 1025, fp);
+            pclose(fp);
+
+            //trim zone name
+            namelen = strlen(name_vsm);
+            while (name_vsm[--namelen] == '\n')
+                ;
+            name_vsm[namelen + 1] = '\0';
+            snprintf(zone_path, 1025, "/proc/%d/root",
+                    get_zone_init_pid(name_vsm));
+            chroot(zone_path);
+            chdir("/");
+        }
+
+>>>>>>> tizen_2.4
         for(;;) {
             D("sync: waiting for command for %d sec\n", SYNC_TIMEOUT);
 
@@ -585,7 +829,11 @@ void file_sync_service(int fd, void *cookie)
             msg.req.namelen = 0;
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
 
+<<<<<<< HEAD
             if (should_drop_privileges() && !verify_sync_rule(name)) {
+=======
+            if (should_drop_privileges()) {
+>>>>>>> tizen_2.4
                 set_developer_privileges();
             }
 

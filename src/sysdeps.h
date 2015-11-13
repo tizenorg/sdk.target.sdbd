@@ -278,7 +278,10 @@ static __inline__  int  sdb_is_absolute_host_path( const char*  path )
 
 #include "fdevent.h"
 #include "sockets.h"
+<<<<<<< HEAD
 #include "properties.h"
+=======
+>>>>>>> tizen_2.4
 // tizen specific #include <cutils/misc.h>
 #include <stdio.h>
 #include <signal.h>
@@ -293,6 +296,10 @@ static __inline__  int  sdb_is_absolute_host_path( const char*  path )
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <string.h>
+<<<<<<< HEAD
+=======
+#include <time.h>
+>>>>>>> tizen_2.4
 
 #define OS_PATH_SEPARATOR '/'
 #define OS_PATH_SEPARATOR_STR "/"
@@ -498,7 +505,14 @@ static __inline__ int  sdb_socketpair( int  sv[2] )
 
 static __inline__ void  sdb_sleep_ms( int  mseconds )
 {
+<<<<<<< HEAD
     usleep( mseconds*1000 );
+=======
+    struct timespec ts;
+    ts.tv_sec = mseconds / 1000;
+    ts.tv_nsec = (mseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+>>>>>>> tizen_2.4
 }
 
 static __inline__ int  sdb_mkdir(const char*  path, int mode)
@@ -527,6 +541,11 @@ static __inline__  int  sdb_is_absolute_host_path( const char*  path )
     return path[0] == '/';
 }
 
+<<<<<<< HEAD
+=======
+#include "strutils.h"
+
+>>>>>>> tizen_2.4
 static __inline__  char* ansi_to_utf8(const char *str)
 {
     // Not implement!
@@ -536,7 +555,11 @@ static __inline__  char* ansi_to_utf8(const char *str)
 
     len = strlen(str);
     utf8 = (char *)calloc(len+1, sizeof(char));
+<<<<<<< HEAD
     strcpy(utf8, str);
+=======
+    s_strncpy(utf8, str, strlen(str));
+>>>>>>> tizen_2.4
     return utf8;
 }
 

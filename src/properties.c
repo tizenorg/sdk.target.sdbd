@@ -237,8 +237,13 @@ static int connectToServer(const char* fileName)
     if (cc < 0) {
         // ENOENT means socket file doesn't exist
         // ECONNREFUSED means socket exists but nobody is listening
+<<<<<<< HEAD
         D("AF_UNIX connect failed for '%s': %s\n",
             fileName, strerror(errno));
+=======
+        D("AF_UNIX connect failed for '%s': errno:%d\n",
+            fileName, errno);
+>>>>>>> tizen_2.4
         sdb_close(sock);
         return -1;
     }

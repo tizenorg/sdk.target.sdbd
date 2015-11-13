@@ -12,10 +12,20 @@
 size_t tokenize(const char *str, const char *delim, char *tokens[], size_t max_tokens ) {
     int cnt = 0;
 
+<<<<<<< HEAD
     char tmp[PATH_MAX];
 
     strncpy(tmp, str, PATH_MAX);
     char *p = strtok(tmp, delim);
+=======
+    char tmp[PATH_MAX+1];
+    char *ptr;
+
+    strncpy(tmp, str, PATH_MAX);
+    tmp[PATH_MAX] = '\0';
+
+    char *p = strtok_r(tmp, delim, &ptr);
+>>>>>>> tizen_2.4
     if (max_tokens < 1 || max_tokens > MAX_TOKENS) {
         max_tokens = 1;
     }
@@ -23,7 +33,11 @@ size_t tokenize(const char *str, const char *delim, char *tokens[], size_t max_t
     if (p != NULL) {
         tokens[cnt++] = strdup(p);
         while(cnt < max_tokens && p != NULL) {
+<<<<<<< HEAD
             p = strtok(NULL, delim);
+=======
+            p = strtok_r(NULL, delim, &ptr);
+>>>>>>> tizen_2.4
             if (p != NULL) {
                 tokens[cnt++] = strdup(p);
             }
@@ -69,6 +83,7 @@ int read_line(const int fd, char* ptr, const unsigned int maxlen)
  * strncpy(ntbs, source, sizeof(ntbs)-1);
  * ntbs[sizeof(ntbs)-1] = '\0'
  */
+<<<<<<< HEAD
 char *s_strncpy(char *dest, const char *source, size_t n) {
     char *start = dest;
 
@@ -78,8 +93,25 @@ char *s_strncpy(char *dest, const char *source, size_t n) {
     if (n) {
         while (--n) {
             *dest++ = '\0';
+=======
+
+char *s_strncpy(char *dest, const char *source, size_t n) {
+
+    char *start = dest;
+
+    while(n && (*dest++ = *source++)) {
+        n--;
+    }
+
+    if (n) {
+        while (--n) {
+            *dest++ = '\0'; 
+>>>>>>> tizen_2.4
         }
     }
     return start;
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> tizen_2.4

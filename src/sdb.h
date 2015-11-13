@@ -18,6 +18,7 @@
 #define __SDB_H
 
 #include <limits.h>
+<<<<<<< HEAD
 #include <stdlib.h>
 
 #include "transport.h"  /* readx(), writex() */
@@ -26,6 +27,13 @@
 #include "commandline_sdbd.h"
 #endif
 #include <tzplatform_config.h>
+=======
+#include <stddef.h>
+
+#include "transport.h"  /* readx(), writex() */
+#include "fdevent.h"
+#include "sdbd_plugin.h"
+>>>>>>> tizen_2.4
 
 #define MAX_PAYLOAD 4096
 
@@ -35,11 +43,21 @@
 #define A_OKAY 0x59414b4f
 #define A_CLSE 0x45534c43
 #define A_WRTE 0x45545257
+<<<<<<< HEAD
 
 #define A_VERSION 0x01000000        // SDB protocol version
 
 #define SDB_VERSION_MAJOR 2         // Used for help/version information
 #define SDB_VERSION_MINOR 1         // Used for help/version information
+=======
+#define A_STAT 0x54415453
+
+#define A_VERSION 0x02000000        // SDB protocol version
+
+#define SDB_VERSION_MAJOR 2         // Used for help/version information
+#define SDB_VERSION_MINOR 2         // Used for help/version information
+#define SDB_VERSION_PATCH 31        // Used for help/version information
+>>>>>>> tizen_2.4
 
 #define SDB_SERVER_VERSION 0        // Increment this when we want to force users to start a new sdb server
 
@@ -92,11 +110,14 @@ struct asocket {
         */
     int    closing;
 
+<<<<<<< HEAD
         /* flag: quit adbd when both ends close the
         ** local service socket
         */
     int    exit_on_close;
 
+=======
+>>>>>>> tizen_2.4
         /* the asocket we are connected to
         */
 
@@ -228,6 +249,56 @@ struct alistener
     adisconnect  disconnect;
 };
 
+<<<<<<< HEAD
+=======
+#define UNKNOWN "unknown"
+#define INFOBUF_MAXLEN 64
+#define INFO_VERSION "2.2.0"
+typedef struct platform_info {
+    char platform_info_version[INFOBUF_MAXLEN];
+    char model_name[INFOBUF_MAXLEN]; // Emulator
+    char platform_name[INFOBUF_MAXLEN]; // Tizen
+    char platform_version[INFOBUF_MAXLEN]; // 2.2.1
+    char profile_name[INFOBUF_MAXLEN]; // 2.2.1
+} pinfo;
+
+#define ENABLED "enabled"
+#define DISABLED "disabled"
+#define CPUARCH_ARMV6 "armv6"
+#define CPUARCH_ARMV7 "armv7"
+#define CPUARCH_X86 "x86"
+#define CAPBUF_SIZE 4096
+#define CAPBUF_ITEMSIZE 32
+typedef struct platform_capabilities
+{
+    char secure_protocol[CAPBUF_ITEMSIZE];      // enabled or disabled
+    char intershell_support[CAPBUF_ITEMSIZE];   // enabled or disabled
+    char filesync_support[CAPBUF_ITEMSIZE];     // push or pull or pushpull or disabled
+    char rootonoff_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+    char zone_support[CAPBUF_ITEMSIZE];         // enabled or disabled
+    char multiuser_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+    char syncwinsz_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+    char usbproto_support[CAPBUF_ITEMSIZE];     // enabled or disabled
+    char sockproto_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+
+    char cpu_arch[CAPBUF_ITEMSIZE];             // cpu architecture (ex. x86)
+    char profile_name[CAPBUF_ITEMSIZE];         // profile name (ex. mobile)
+    char vendor_name[CAPBUF_ITEMSIZE];          // vendor name (ex. Tizen)
+
+    char platform_version[CAPBUF_ITEMSIZE];     // platform version (ex. 2.3.0)
+    char product_version[CAPBUF_ITEMSIZE];      // product version (ex. 1.0)
+    char sdbd_version[CAPBUF_ITEMSIZE];         // sdbd version
+    char sdbd_plugin_version[CAPBUF_ITEMSIZE];  // sdbd plugin version
+} pcap;
+pcap g_capabilities;
+
+#define SDBD_PLUGIN_PATH    "/usr/lib/libsdbd_plugin.so"
+#define SDBD_PLUGIN_INTF    "sdbd_plugin_cmd_proc"
+typedef int (*SDBD_PLUGIN_CMD_PROC_PTR)(const char*, const char*, sdbd_plugin_param);
+extern SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc;
+int request_plugin_cmd(const char* cmd, const char* in_buf, char *out_buf, unsigned int out_len);
+int request_plugin_verification(const char* cmd, const char* in_buf);
+>>>>>>> tizen_2.4
 
 void print_packet(const char *label, apacket *p);
 
@@ -262,6 +333,10 @@ int sdb_main(int is_daemon, int server_port);
 void init_transport_registration(void);
 int  list_transports(char *buf, size_t  bufsize);
 void update_transports(void);
+<<<<<<< HEAD
+=======
+void broadcast_transport(apacket *p);
+>>>>>>> tizen_2.4
 
 asocket*  create_device_tracker(void);
 
@@ -326,21 +401,35 @@ void log_service(int fd, void *cookie);
 void remount_service(int fd, void *cookie);
 char * get_log_file_path(const char * log_name);
 
+<<<<<<< HEAD
 int rootshell_mode;// 0: developer, 1: root
+=======
+int rootshell_mode; // 0: developer, 1: root
+int hostshell_mode; // 0: foreground zone, 1: host  2: denied
+int booting_done; // 0: platform booting is in progess 1: platform booting is done
+>>>>>>> tizen_2.4
 
 // This is the users and groups config for the platform
 
 #define SID_ROOT        0    /* traditional unix root user */
 #define SID_TTY         5    /* group for /dev/ptmx */
+<<<<<<< HEAD
 #define SID_APP         tzplatform_getuid(TZ_USER_NAME) /* application */
 #define SID_DEVELOPER   tzplatform_getuid(TZ_SDK_USER_NAME) /* developer with SDK */
 #define GID_DEVELOPER   100 /* developer will be member of users with SDK */
+=======
+#define SID_DEVELOPER   5100 /* developer with SDK */
+>>>>>>> tizen_2.4
 #define SID_APP_LOGGING 6509
 #define SID_SYS_LOGGING 6527
 #define SID_INPUT       1004
 
 #endif
 
+<<<<<<< HEAD
+=======
+int is_pwlocked(void);
+>>>>>>> tizen_2.4
 int should_drop_privileges(void);
 int set_developer_privileges();
 void set_root_privileges();
@@ -348,6 +437,12 @@ void set_root_privileges();
 int get_emulator_forward_port(void);
 int get_emulator_name(char str[], int str_size);
 int get_device_name(char str[], int str_size);
+<<<<<<< HEAD
+=======
+int get_emulator_hostip(char str[], int str_size);
+int get_emulator_guestip(char str[], int str_size);
+
+>>>>>>> tizen_2.4
 /* packet allocator */
 apacket *get_apacket(void);
 void put_apacket(apacket *p);
@@ -451,7 +546,10 @@ void sdb_qemu_trace(const char* fmt, ...);
 #  define QEMU_FORWARD_IP "10.0.2.2"
 
 #define DEFAULT_SDB_LOCAL_TRANSPORT_PORT 26101 /* tizen specific */
+<<<<<<< HEAD
 #define DEFAULT_SENSORS_LOCAL_TRANSPORT_PORT 26103 /* tizen specific */
+=======
+>>>>>>> tizen_2.4
 
 #define SDB_CLASS              0xff
 #define SDB_SUBCLASS           0x20 //0x42 /* tizen specific */
@@ -463,6 +561,7 @@ int  local_connect(int  port, const char *device_name);
 int  local_connect_arbitrary_ports(int console_port, int sdb_port, const char *device_name);
 
 /* usb host/client interface */
+<<<<<<< HEAD
 #if SDB_HOST
 void usb_init();
 void usb_cleanup();
@@ -496,6 +595,14 @@ int linux_usb_close(usb_handle *h);
 void linux_usb_kick(usb_handle *h);
 
 #endif
+=======
+void usb_init();
+void usb_cleanup();
+int usb_write(usb_handle *h, const void *data, int len);
+int usb_read(usb_handle *h, void *data, unsigned len);
+int usb_close(usb_handle *h);
+void usb_kick(usb_handle *h);
+>>>>>>> tizen_2.4
 
 /* used for USB device detection */
 #if SDB_HOST
@@ -515,19 +622,34 @@ int connection_state(atransport *t);
 #define CS_RECOVERY   4
 #define CS_NOPERM     5 /* Insufficient permissions to communicate with the device */
 #define CS_SIDELOAD   6
+<<<<<<< HEAD
 
 extern int HOST;
 extern int SHELL_EXIT_NOTIFY_FD;
 #if !SDB_HOST
 extern SdbdCommandlineArgs sdbd_commandline_args;
 #endif
+=======
+#define CS_PWLOCK     10
+
+extern int HOST;
+extern int SHELL_EXIT_NOTIFY_FD;
+>>>>>>> tizen_2.4
 
 #define CHUNK_SIZE (64*1024)
 
 int sendfailmsg(int fd, const char *reason);
 int handle_host_request(char *service, transport_type ttype, char* serial, int reply_fd, asocket *s);
+<<<<<<< HEAD
 
 int is_emulator(void);
+=======
+int copy_packet(apacket* dest, apacket* src);
+
+int is_emulator(void);
+int is_container_enabled(void);
+int has_container(void);
+>>>>>>> tizen_2.4
 #define DEFAULT_DEVICENAME "unknown"
 
 #if SDB_HOST /* tizen-specific */
@@ -541,5 +663,12 @@ int read_line(const int fd, char* ptr, const size_t maxlen);
 #endif
 #endif
 
+<<<<<<< HEAD
 #define USB_FUNCFS_SDB_PATH "/dev/usbgadget/sdb"
 #define USB_NODE_FILE "/dev/samsung_sdb"
+=======
+#define USB_NODE_FILE "/dev/samsung_sdb"
+#define CMD_ATTACH  "/usr/bin/vsm-attach"
+#define CMD_FOREGROUND "/usr/bin/vsm-foreground"
+#define CMD_LIST "/usr/bin/vsm-list"
+>>>>>>> tizen_2.4

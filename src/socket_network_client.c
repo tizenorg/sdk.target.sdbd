@@ -38,6 +38,7 @@
  */
 int socket_network_client(const char *host, int port, int type)
 {
+<<<<<<< HEAD
     struct hostent *hp;
     struct sockaddr_in addr;
     int s;
@@ -45,12 +46,41 @@ int socket_network_client(const char *host, int port, int type)
     hp = gethostbyname(host);
     if(hp == 0) return -1;
     
+=======
+    struct hostent hostbuf, *hp;
+    struct sockaddr_in addr;
+    int s;
+    size_t hstbuflen = 1024;
+    int res, herr;
+    char *tmphstbuf;
+
+    tmphstbuf = malloc(hstbuflen);
+    if (tmphstbuf == NULL) {
+        return -1;
+    }
+
+    while ((res = gethostbyname_r(host, &hostbuf, tmphstbuf, hstbuflen, &hp, &herr)) == ERANGE) {
+        // enlarge the buffer
+        hstbuflen *= 2;
+        tmphstbuf = realloc(tmphstbuf, hstbuflen);
+        if (tmphstbuf == NULL) {
+            return -1;
+        }
+    }
+    if (res || hp == NULL) {
+        if (tmphstbuf != NULL) {
+            free(tmphstbuf);
+        }
+        return -1;
+    }
+>>>>>>> tizen_2.4
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = hp->h_addrtype;
     addr.sin_port = htons(port);
     memcpy(&addr.sin_addr, hp->h_addr, hp->h_length);
 
     s = socket(hp->h_addrtype, type, 0);
+<<<<<<< HEAD
     if(s < 0) return -1;
 
     if(connect(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
@@ -58,6 +88,26 @@ int socket_network_client(const char *host, int port, int type)
         return -1;
     }
 
+=======
+    if(s < 0) {
+        if (tmphstbuf != NULL) {
+            free(tmphstbuf);
+        }
+        return -1;
+    }
+
+    if(connect(s, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+        close(s);
+
+        if (tmphstbuf != NULL) {
+            free(tmphstbuf);
+        }
+        return -1;
+    }
+    if (tmphstbuf != NULL) {
+        free(tmphstbuf);
+    }
+>>>>>>> tizen_2.4
     return s;
 
 }

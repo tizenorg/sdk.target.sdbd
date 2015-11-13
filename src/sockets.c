@@ -25,6 +25,10 @@
 
 #define  TRACE_TAG  TRACE_SOCKETS
 #include "sdb.h"
+<<<<<<< HEAD
+=======
+#include "strutils.h"
+>>>>>>> tizen_2.4
 
 SDB_MUTEX_DEFINE( socket_list_lock );
 
@@ -152,7 +156,11 @@ static int local_socket_enqueue(asocket *s, apacket *p)
             continue;
         }
         if((r == 0) || (errno != EAGAIN)) {
+<<<<<<< HEAD
             D( "LS(%d): not ready, errno=%d: %s\n", s->id, errno, strerror(errno) );
+=======
+            D( "LS(%d): not ready, errno=%d\n", s->id, errno);
+>>>>>>> tizen_2.4
             s->close(s);
             return 1; /* not ready (error) */
         } else {
@@ -199,7 +207,10 @@ static void local_socket_close(asocket *s)
 static void local_socket_destroy(asocket  *s)
 {
     apacket *p, *n;
+<<<<<<< HEAD
     int exit_on_close = s->exit_on_close;
+=======
+>>>>>>> tizen_2.4
 
     D("LS(%d): destroying fde.fd=%d\n", s->id, s->fde.fd);
 
@@ -216,11 +227,14 @@ static void local_socket_destroy(asocket  *s)
     }
     remove_socket(s);
     free(s);
+<<<<<<< HEAD
 
     if (exit_on_close) {
         D("local_socket_destroy: exiting\n");
         exit(1);
     }
+=======
+>>>>>>> tizen_2.4
 }
 
 
@@ -428,6 +442,7 @@ asocket *create_local_service_socket(const char *name)
     s = create_local_socket(fd);
     D("LS(%d): bound to '%s' via %d\n", s->id, name, fd);
 
+<<<<<<< HEAD
 #if !SDB_HOST
     if ((!strncmp(name, "root:", 5) && getuid() != 0)
         || !strncmp(name, "usb:", 4)
@@ -437,6 +452,8 @@ asocket *create_local_service_socket(const char *name)
     }
 #endif
 
+=======
+>>>>>>> tizen_2.4
     return s;
 }
 
@@ -554,7 +571,11 @@ void connect_to_remote(asocket *s, const char *destination)
     p->msg.command = A_OPEN;
     p->msg.arg0 = s->id;
     p->msg.data_length = len;
+<<<<<<< HEAD
     strcpy((char*) p->data, destination);
+=======
+    s_strncpy((char*) p->data, destination, len);
+>>>>>>> tizen_2.4
     send_packet(p, s->transport);
 }
 

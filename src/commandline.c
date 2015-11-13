@@ -36,7 +36,10 @@
 #include "sdb.h"
 #include "sdb_client.h"
 #include "file_sync_service.h"
+<<<<<<< HEAD
 #include <tzplatform_config.h>
+=======
+>>>>>>> tizen_2.4
 
 static int do_cmd(transport_type ttype, char* serial, char *cmd, ...);
 
@@ -802,7 +805,11 @@ static const char *find_product_out_path(const char *hint)
      */
     if (sdb_dirstart(hint) != NULL) {
         if (getcwd(path_buf, sizeof(path_buf)) == NULL) {
+<<<<<<< HEAD
             fprintf(stderr, "sdb: Couldn't get CWD: %s\n", strerror(errno));
+=======
+            fprintf(stderr, "sdb: Couldn't get CWD: errno:%d\n", errno);
+>>>>>>> tizen_2.4
             return NULL;
         }
         if (strlen(path_buf) + 1 + strlen(hint) >= sizeof(path_buf)) {
@@ -1466,7 +1473,11 @@ int sdb_command2(const char* cmd) {
 
 int install_app_sdb(const char *srcpath) {
     D("Install start\n");
+<<<<<<< HEAD
     const char * APP_DEST = tzplatform_mkpath(TZ_SYS_RW_APP,"PKGS/%s");
+=======
+    const char * APP_DEST = "/opt/apps/PKGS/%s";
+>>>>>>> tizen_2.4
     const char* filename = sdb_dirstop(srcpath);
     char destination[PATH_MAX];
 
