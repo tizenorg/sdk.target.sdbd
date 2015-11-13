@@ -19,10 +19,7 @@
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
-<<<<<<< HEAD
 #include <netdb.h>
-=======
->>>>>>> tizen_2.4
 
 #include "sysdeps.h"
 #include <sys/types.h>
@@ -36,12 +33,9 @@
 #define  TRACE_TAG  TRACE_TRANSPORT
 #include "sdb.h"
 #include "strutils.h"
-<<<<<<< HEAD
 #if !SDB_HOST
 #include "commandline_sdbd.h"
 #endif
-=======
->>>>>>> tizen_2.4
 
 #ifdef HAVE_BIG_ENDIAN
 #define H4(x)	(((x) & 0xFF000000) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | (((x) & 0x000000FF) << 24)
@@ -173,25 +167,15 @@ int get_devicename_from_shdmem(int port, char *device_name)
 
     if (shared_memory == (void *)-1)
     {
-<<<<<<< HEAD
         D("faild to get shdmem key (%d) : %s\n", port, strerror(errno));
-=======
-        D("faild to get shdmem key (%d) : errno:%d\n", port, errno);
->>>>>>> tizen_2.4
         return -1;
     }
 
     vms = strstr((char*)shared_memory, VMS_PATH);
     if (vms != NULL)
-<<<<<<< HEAD
-        strncpy(device_name, vms+strlen(VMS_PATH), DEVICENAME_MAX);
-    else
-        strncpy(device_name, DEFAULT_DEVICENAME, DEVICENAME_MAX);
-=======
         s_strncpy(device_name, vms+strlen(VMS_PATH), DEVICENAME_MAX);
     else
         s_strncpy(device_name, DEFAULT_DEVICENAME, DEVICENAME_MAX);
->>>>>>> tizen_2.4
 
 #else /* _WIN32*/
     HANDLE hMapFile;
@@ -218,15 +202,9 @@ int get_devicename_from_shdmem(int port, char *device_name)
 
     vms = strstr((char*)pBuf, VMS_PATH);
     if (vms != NULL)
-<<<<<<< HEAD
-        strncpy(device_name, vms+strlen(VMS_PATH), DEVICENAME_MAX);
-    else
-        strncpy(device_name, DEFAULT_DEVICENAME, DEVICENAME_MAX);
-=======
         s_strncpy(device_name, vms+strlen(VMS_PATH), DEVICENAME_MAX);
     else
         s_strncpy(device_name, DEFAULT_DEVICENAME, DEVICENAME_MAX);
->>>>>>> tizen_2.4
     CloseHandle(hMapFile);
 #endif
     D("init device name %s on port %d\n", device_name, port);
@@ -275,11 +253,7 @@ static void *client_socket_thread(void *x)
 static void *server_socket_thread(void * arg)
 {
     int serverfd, fd;
-<<<<<<< HEAD
-    struct sockaddr addr;
-=======
     struct sockaddr_in addr;
->>>>>>> tizen_2.4
     socklen_t alen;
     int port = (int)arg;
 
@@ -287,10 +261,7 @@ static void *server_socket_thread(void * arg)
     serverfd = -1;
     for(;;) {
         if(serverfd == -1) {
-<<<<<<< HEAD
-=======
             // socket_inaddr_any_server returns -1 if there is any error
->>>>>>> tizen_2.4
             serverfd = socket_inaddr_any_server(port, SOCK_STREAM);
             if(serverfd < 0) {
                 D("server: cannot bind socket yet\n");
@@ -310,20 +281,13 @@ static void *server_socket_thread(void * arg)
             pthread_cond_broadcast(&noti_cond);
         }
 
-<<<<<<< HEAD
-        fd = sdb_socket_accept(serverfd, &addr, &alen);
-=======
         fd = sdb_socket_accept(serverfd, (struct sockaddr *)&addr, &alen);
->>>>>>> tizen_2.4
         if(fd >= 0) {
             D("server: new connection on fd %d\n", fd);
             if (close_on_exec(fd) < 0) {
                 D("failed to close fd exec\n");
             }
             disable_tcp_nagle(fd);
-<<<<<<< HEAD
-            register_socket_transport(fd, "host", port, 1, NULL);
-=======
 
             // Check the peer ip validation.
             if (!is_emulator()
@@ -332,7 +296,6 @@ static void *server_socket_thread(void * arg)
             } else {
                 register_socket_transport(fd, "host", port, 1, NULL);
             }
->>>>>>> tizen_2.4
         }
     }
     D("transport: server_socket_thread() exiting\n");

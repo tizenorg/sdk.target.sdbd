@@ -45,13 +45,6 @@ static void  dump_hex( const unsigned char*  ptr, size_t  len )
 
     if (len2 > MAX_DUMP_HEX_LEN) len2 = MAX_DUMP_HEX_LEN;
 
-<<<<<<< HEAD
-    for (nn = 0; nn < len2; nn++) {
-        sprintf(pb, "%02x", ptr[nn]);
-        pb += 2;
-    }
-    sprintf(pb++, " ");
-=======
     int pbSize = sizeof(buffer);
     for (nn = 0; nn < len2; nn++) {
         snprintf(pb, pbSize,  "%02x", ptr[nn]);
@@ -59,7 +52,6 @@ static void  dump_hex( const unsigned char*  ptr, size_t  len )
         pbSize -= 2;
     }
     *pb++ = ' ';
->>>>>>> tizen_2.4
 
     for (nn = 0; nn < len2; nn++) {
         int  c = ptr[nn];
@@ -160,11 +152,7 @@ read_packet(int  fd, const char* name, apacket** ppacket)
             len -= r;
             p   += r;
         } else {
-<<<<<<< HEAD
-            D("%s: read_packet (fd=%d), error ret=%d errno=%d: %s\n", name, fd, r, errno, strerror(errno));
-=======
             D("%s: read_packet (fd=%d), error ret=%d errno=%d\n", name, fd, r, errno);
->>>>>>> tizen_2.4
             if((r < 0) && (errno == EINTR)) continue;
             return -1;
         }
@@ -201,11 +189,7 @@ write_packet(int  fd, const char* name, apacket** ppacket)
             len -= r;
             p += r;
         } else {
-<<<<<<< HEAD
-            D("%s: write_packet (fd=%d) error ret=%d errno=%d: %s\n", name, fd, r, errno, strerror(errno));
-=======
             D("%s: write_packet (fd=%d) error ret=%d errno=%d\n", name, fd, r, errno);
->>>>>>> tizen_2.4
             if((r < 0) && (errno == EINTR)) continue;
             return -1;
         }
@@ -551,13 +535,8 @@ transport_read_action(int  fd, struct tmsg*  m)
             p   += r;
         } else {
             if((r < 0) && (errno == EINTR)) continue;
-<<<<<<< HEAD
-            D("transport_read_action: on fd %d, error %d: %s\n",
-              fd, errno, strerror(errno));
-=======
             D("transport_read_action: on fd %d, error %d\n",
               fd, errno);
->>>>>>> tizen_2.4
             return -1;
         }
     }
@@ -578,13 +557,8 @@ transport_write_action(int  fd, struct tmsg*  m)
             p   += r;
         } else {
             if((r < 0) && (errno == EINTR)) continue;
-<<<<<<< HEAD
-            D("transport_write_action: on fd %d, error %d: %s\n",
-              fd, errno, strerror(errno));
-=======
             D("transport_write_action: on fd %d, error %d\n",
               fd, errno);
->>>>>>> tizen_2.4
             return -1;
         }
     }
@@ -914,13 +888,10 @@ void close_usb_devices()
 void register_socket_transport(int s, const char *serial, int port, int local, const char *device_name)
 {
     atransport *t = calloc(1, sizeof(atransport));
-<<<<<<< HEAD
-=======
     if (t == NULL) {
         D("failed to allocate memory of transport struct\n");
         return;
     }
->>>>>>> tizen_2.4
     char buff[32];
 
     if (!serial) {
@@ -1012,11 +983,7 @@ void unregister_all_tcp_transports()
 
 #endif
 
-<<<<<<< HEAD
-int get_connected_device_count(transport_type type) /* tizen specific */
-=======
 int get_connected_count(transport_type type) /* tizen specific */
->>>>>>> tizen_2.4
 {
     int cnt = 0;
     atransport *t;
@@ -1083,11 +1050,7 @@ void register_usb_transport(usb_handle *usb, const char *serial, unsigned writea
     }
 
     /* tizen specific */
-<<<<<<< HEAD
-    sprintf(device_name, "device-%d",get_connected_device_count(kTransportUsb)+1);
-=======
     snprintf(device_name, sizeof(device_name), "device-%d",get_connected_count(kTransportUsb)+1);
->>>>>>> tizen_2.4
     t->device_name = strdup(device_name);
     register_transport(t);
 }
@@ -1125,11 +1088,7 @@ int readx(int fd, void *ptr, size_t len)
             p += r;
         } else {
             if (r < 0) {
-<<<<<<< HEAD
-                D("readx: fd=%d error %d: %s\n", fd, errno, strerror(errno));
-=======
                 D("readx: fd=%d error %d\n", fd, errno);
->>>>>>> tizen_2.4
                 if (errno == EINTR)
                     continue;
             } else {
@@ -1162,11 +1121,7 @@ int writex(int fd, const void *ptr, size_t len)
             p += r;
         } else {
             if (r < 0) {
-<<<<<<< HEAD
-                D("writex: fd=%d error %d: %s\n", fd, errno, strerror(errno));
-=======
                 D("writex: fd=%d error %d\n", fd, errno);
->>>>>>> tizen_2.4
                 if (errno == EINTR)
                     continue;
             } else {

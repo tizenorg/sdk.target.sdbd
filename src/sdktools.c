@@ -7,15 +7,9 @@
 #include <regex.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-<<<<<<< HEAD
-
-#include "sysdeps.h"
+//#include <sys/smack.h>
 #include "smack.h"
-=======
-#include <sys/smack.h>
-
 #include "sysdeps.h"
->>>>>>> tizen_2.4
 #include "sdktools.h"
 
 #define  TRACE_TAG  TRACE_SERVICES

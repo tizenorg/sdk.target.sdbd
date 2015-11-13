@@ -16,11 +16,7 @@
 // libs/cutils/socket_loopback_client.c
 
 #include "sockets.h"
-<<<<<<< HEAD
-
-=======
 #include <stdio.h>
->>>>>>> tizen_2.4
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -32,68 +28,25 @@
 #include <sys/select.h>
 #include <sys/types.h>
 #include <netinet/in.h>
-<<<<<<< HEAD
-#endif
-
-=======
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <arpa/inet.h>
 #endif
 
 #include "strutils.h"
-extern int hostshell_mode;
->>>>>>> tizen_2.4
 /* Connect to port on the loopback IP interface. type is
- * SOCK_STREAM or SOCK_DGRAM. 
+ * SOCK_STREAM or SOCK_DGRAM.
  * return is a file descriptor or -1 on error
  */
 int socket_loopback_client(int port, int type)
 {
-<<<<<<< HEAD
-=======
-    char zone_ipaddr[1025] = {0, };
-    char name_vsm[1025] = {0, };
-    int namelen;
->>>>>>> tizen_2.4
     struct sockaddr_in addr;
     int s;
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-<<<<<<< HEAD
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-=======
-
-    if (hostshell_mode == 0) {
-        FILE *fp;
-        fp = popen("/usr/bin/vsm-foreground", "r");
-        if (fp == NULL) {
-            return 0;
-        }
-        fgets(name_vsm, 1025, fp);
-        pclose(fp);
-
-        snprintf(zone_ipaddr, 1025, "/usr/bin/vsm-info -i -n %s", name_vsm);
-        fp = popen(zone_ipaddr, "r");
-        if (fp == NULL) {
-            return 0;
-        }
-        fgets(zone_ipaddr, 1025, fp);
-        pclose(fp);
-
-        //trim zone ipaddr
-        namelen = strlen(zone_ipaddr);
-        while (zone_ipaddr[--namelen] == '\n')
-            ;
-        zone_ipaddr[namelen + 1] = '\0';
-
-        addr.sin_addr.s_addr = inet_addr(zone_ipaddr);
-    } else {
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    }
->>>>>>> tizen_2.4
 
     s = socket(AF_INET, type, 0);
     if(s < 0) return -1;
@@ -104,11 +57,6 @@ int socket_loopback_client(int port, int type)
     }
 
     return s;
-<<<<<<< HEAD
-
-}
-
-=======
 }
 
 int socket_ifr_client(int port, int type, char *ifr_dev)
@@ -200,4 +148,3 @@ int ifconfig(char *ifname, char *address, char *netmask, int activated) {
     close(sockfd);
     return 0;
 }
->>>>>>> tizen_2.4

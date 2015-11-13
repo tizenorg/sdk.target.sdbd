@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-/* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*-
- *
-=======
 /*
->>>>>>> tizen_2.4
  * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
@@ -31,25 +26,19 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <grp.h>
-<<<<<<< HEAD
 #include <netdb.h>
 #include <tzplatform_config.h>
-=======
 #include <pthread.h>
 #include <dlfcn.h>
->>>>>>> tizen_2.4
 
 #include "sysdeps.h"
 #include "sdb.h"
 #include "strutils.h"
-<<<<<<< HEAD
 #if !SDB_HOST
 #include "commandline_sdbd.h"
 #endif
-=======
 #include "utils.h"
 #include "sdktools.h"
->>>>>>> tizen_2.4
 
 #if !SDB_HOST
 #include <linux/prctl.h>
@@ -58,10 +47,6 @@
 #include "usb_vendors.h"
 #endif
 #include <system_info.h>
-<<<<<<< HEAD
-#define PROC_CMDLINE_PATH "/proc/cmdline"
-#define SYSTEM_INFO_KEY_MODEL           "http://tizen.org/system/model_name"
-=======
 #include <vconf.h>
 #include "utils.h"
 #define PROC_CMDLINE_PATH "/proc/cmdline"
@@ -74,13 +59,11 @@
 #define GUEST_IP_INTERFACE "eth0"
 
 SDB_MUTEX_DEFINE(zone_check_lock);
->>>>>>> tizen_2.4
 #if SDB_TRACE
 SDB_MUTEX_DEFINE( D_lock );
 #endif
 
 int HOST = 0;
-<<<<<<< HEAD
 #define HOME_DEV_PATH tzplatform_getenv(TZ_SDK_HOME)
 #define DEV_NAME tzplatform_getenv(TZ_SDK_USER_NAME)
 #if !SDB_HOST
@@ -102,81 +85,9 @@ int is_emulator(void) {
 #endif
 }
 
-=======
-int initial_zone_mode_check = 0;
-
 void* g_sdbd_plugin_handle = NULL;
 SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc = NULL;
 
-int is_emulator(void) {
-/* XXX: If the target device supports x86 architecture,
- *      this routine is INVALID. */
-#ifdef TARGET_ARCH_X86
-    return 1;
-#else
-    return 0;
-#endif
-}
-
-int is_container_enabled(void) {
-	bool value;
-	int ret;
-	ret = system_info_get_platform_bool("tizen.org/feature/container", &value);
-	if (ret != SYSTEM_INFO_ERROR_NONE) {
-		D("failed to get container information: %d\n", errno);
-		return 0;
-	} else {
-		D("tizen container: %d\n", value);
-		if (value == true)
-			return 1;
-		else
-			return 0;
-	}
-}
-
-int has_container(void) {
-    FILE *fp;
-    char name_vsm[1025] = {0, };
-    char empty_vsm[1025] = {0, };
-    fp = popen(CMD_LIST, "r");
-    if(fp == NULL) {
-        D("Failed to create pipe of %s \n", CMD_LIST);
-        return 0;
-    }
-    fgets(name_vsm, 1025, fp);
-    pclose(fp);
-
-    D("zone list :%s\n", name_vsm);
-    // check zone list
-    if((name_vsm[0] == '\n')  || !strncmp(name_vsm, empty_vsm, 1025))
-        return 0;
-    else
-        return 1;
-}
-
-char** get_zone_list() {
-    FILE *fp;
-    char name_vsm[1025] = {0, };
-    char empty_vsm[1025] = {0, };
-    fp = popen(CMD_LIST, "r");
-    if(fp == NULL) {
-        D("Failed to create pipe of %s \n", CMD_LIST);
-        return 0;
-    }
-    fgets(name_vsm, 1025, fp);
-    pclose(fp);
-
-    D("zone list :%s\n", name_vsm);
-
-    if((name_vsm[0] == '\n')  || !strncmp(name_vsm, empty_vsm, 1025))
-        return NULL;
-    else {
-        char** tokens = str_split(name_vsm, '\n');
-        return tokens;
-    }
-}
-
->>>>>>> tizen_2.4
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
     if (access(SDB_PIDPATH, F_OK) == 0)
@@ -214,11 +125,7 @@ void fatal_errno(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-<<<<<<< HEAD
-    fprintf(stderr, "error: %s: ", strerror(errno));
-=======
     fprintf(stderr, "errno: %d: ", errno);
->>>>>>> tizen_2.4
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     va_end(ap);
@@ -434,11 +341,7 @@ static void send_close(unsigned local, unsigned remote, atransport *t)
     p->msg.arg1 = remote;
     send_packet(p, t);
 }
-<<<<<<< HEAD
-static int device_status = 0; // 0:online, 1: password locked later
-=======
 
->>>>>>> tizen_2.4
 static void send_connect(atransport *t)
 {
     D("Calling send_connect \n");
@@ -449,14 +352,11 @@ static void send_connect(atransport *t)
 
     char device_name[256]={0,};
     int r = 0;
-<<<<<<< HEAD
-=======
     int status = 0;
     if (is_pwlocked()) {
         status = 1;
         t->connection_state = CS_PWLOCK;
     }
->>>>>>> tizen_2.4
 
     if (is_emulator()) {
         r = get_emulator_name(device_name, sizeof device_name);
@@ -464,15 +364,9 @@ static void send_connect(atransport *t)
         r = get_device_name(device_name, sizeof device_name);
     }
     if (r < 0) {
-<<<<<<< HEAD
-        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, DEFAULT_DEVICENAME, device_status);
-    } else {
-        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, device_name, device_status);
-=======
         snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, DEFAULT_DEVICENAME, status);
     } else {
         snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, device_name, status);
->>>>>>> tizen_2.4
     }
 
     D("CNXN data:%s\n", (char*)cp->data);
@@ -486,8 +380,6 @@ static void send_connect(atransport *t)
 #endif
 }
 
-<<<<<<< HEAD
-=======
 static void send_device_status()
 {
     D("broadcast device status\n");
@@ -503,7 +395,6 @@ static void send_device_status()
     put_apacket(cp);
 }
 
->>>>>>> tizen_2.4
 static char *connection_state_name(atransport *t)
 {
     if (t == NULL) {
@@ -539,12 +430,8 @@ static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
         return -1;
     }
 
-<<<<<<< HEAD
-    s_strncpy(str, s + strlen(dest), len);
-=======
     strncpy(str, s + strlen(dest), len);
     str[len]='\0';
->>>>>>> tizen_2.4
     return len;
 }
 
@@ -654,8 +541,6 @@ int get_device_name(char str[], int str_size) {
     return -1;
 }
 
-<<<<<<< HEAD
-=======
 int get_emulator_hostip(char str[], int str_size) {
     return get_cmdline_value("host_ip=", str, str_size);
 }
@@ -690,7 +575,6 @@ int get_emulator_guestip(char str[], int str_size) {
     return 0;
 }
 
->>>>>>> tizen_2.4
 void parse_banner(char *banner, atransport *t)
 {
     char *type, *product, *end;
@@ -782,24 +666,8 @@ void handle_packet(apacket *p, atransport *t)
         break;
 
     case A_OPEN: /* OPEN(local-id, 0, "destination") */
-<<<<<<< HEAD
-        if(t->connection_state != CS_OFFLINE) {
-            char *name = (char*) p->data;
-            name[p->msg.data_length > 0 ? p->msg.data_length - 1 : 0] = 0;
-            s = create_local_service_socket(name);
-            if(s == 0) {
-                send_close(0, p->msg.arg0, t);
-            } else {
-                s->peer = create_remote_socket(p->msg.arg0, t);
-                s->peer->peer = s;
-                send_ready(s->id, s->peer->id, t);
-                s->ready(s);
-=======
         if (is_pwlocked() && t->connection_state == CS_PWLOCK) { // in case of already locked before get A_CNXN
             D("open failed due to password locked before get A_CNXN:%d\n", t->connection_state);
-            send_close(0, p->msg.arg0, t);
-        } else if (hostshell_mode == 2){
-            D("open failed due to denied mode\n");
             send_close(0, p->msg.arg0, t);
         } else {
             if(t->connection_state != CS_OFFLINE) {
@@ -814,7 +682,6 @@ void handle_packet(apacket *p, atransport *t)
                     send_ready(s->id, s->peer->id, t);
                     s->ready(s);
                 }
->>>>>>> tizen_2.4
             }
         }
         break;
@@ -1075,19 +942,15 @@ static BOOL WINAPI ctrlc_handler(DWORD type)
 
 static void sdb_cleanup(void)
 {
-<<<<<<< HEAD
     clear_sdbd_commandline_args(&sdbd_commandline_args);
     usb_cleanup();
 //    if(required_pid > 0) {
 //        kill(required_pid, SIGKILL);
 //    }
-=======
     if (g_sdbd_plugin_handle) {
         dlclose(g_sdbd_plugin_handle);
         g_sdbd_plugin_handle = NULL;
     }
-    usb_cleanup();
->>>>>>> tizen_2.4
 }
 
 void start_logging(void)
@@ -1373,8 +1236,6 @@ static void init_drop_privileges() {
 #endif
 }
 
-<<<<<<< HEAD
-=======
 int is_pwlocked(void) {
     int pwlock_status = 0;
     int pwlock_type = 0;
@@ -1409,7 +1270,6 @@ int is_pwlocked(void) {
     return 0; // unlocked!
 }
 
->>>>>>> tizen_2.4
 int should_drop_privileges() {
     if (rootshell_mode == 1) { // if root, then don't drop
         return 0;
@@ -1417,17 +1277,6 @@ int should_drop_privileges() {
     return 1;
 }
 
-<<<<<<< HEAD
-int set_developer_privileges() {
-    gid_t groups[] = { GID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
-    if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
-        D("set groups failed (errno: %d, %s)\n", errno, strerror(errno));
-    }
-
-    // then switch user and group to developer
-    if (setgid(GID_DEVELOPER) != 0) {
-        D("set group id failed (errno: %d, %s)\n", errno, strerror(errno));
-=======
 static void *pwlock_tmp_cb(void *x)
 {
     int status = is_pwlocked();
@@ -1556,33 +1405,22 @@ int set_developer_privileges() {
     // then switch user and group to developer
     if (setgid(SID_DEVELOPER) != 0) {
         D("set group id failed (errno: %d)\n", errno);
->>>>>>> tizen_2.4
         return -1;
     }
 
     if (setuid(SID_DEVELOPER) != 0) {
-<<<<<<< HEAD
-        D("set user id failed (errno: %d, %s)\n", errno, strerror(errno));
+        D("set user id failed (errno: %d)\n", errno);
         return -1;
     }
 
     if (chdir(HOME_DEV_PATH) < 0) {
         D("sdbd: unable to change working directory to %s\n", HOME_DEV_PATH);
-=======
-        D("set user id failed (errno: %d)\n", errno);
-        return -1;
-    }
-
-    if (chdir("/home/developer") < 0) {
-        D("sdbd: unable to change working directory to /home/developer\n");
->>>>>>> tizen_2.4
     } else {
         if (chdir("/") < 0) {
             D("sdbd: unable to change working directory to /\n");
         }
     }
     // TODO: use pam later
-<<<<<<< HEAD
     char * env = malloc(strlen("HOME=") + strlen(HOME_DEV_PATH) + 1);
     if(env == 0) fatal("failed to allocate for env string");
     strcpy(env, "HOME=");
@@ -1593,179 +1431,11 @@ int set_developer_privileges() {
     return 1;
 }
 #define ONDEMAND_ROOT_PATH tzplatform_getenv(TZ_SDK_HOME)
-=======
-    setenv("HOME", "/home/developer", 1);
-
-    return 1;
-}
-#define ONDEMAND_ROOT_PATH "/home/developer"
 
 static void execute_required_process() {
     char *cmd_args[] = {"/usr/bin/debug_launchpad_preloading_preinitializing_daemon",NULL};
 
     spawn("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", cmd_args);
-}
-
-#include <stdio.h>
-#include <glib.h>
-#include <vasum.h>
-
-static const char *const state_string[] = {
-	"STOPPED",
-	"STARTING",
-	"RUNNING",
-	"STOPPING",
-	"ABORTING",
-	"FREEZING",
-	"THAWED",
-};
-
-static const char *const event_string[] = {
-	"NONE",
-	"CREATED",
-	"DESTROYED",
-	"SWITCHED",
-};
-
-static void execute_required_process_in_each_zone(char* zone_name) {
-	D("Name of zone which executes required processes : %s \n", zone_name);
-
-	// debug-launchpad need to be executed in each zone
-	char zone_name_with_option[100] = {0,};
-	snprintf(zone_name_with_option, sizeof(zone_name_with_option), "--name=%s", zone_name);
-	char *arg_list[] = {CMD_ATTACH, zone_name_with_option, "--", "/usr/bin/debug_launchpad_preloading_preinitializing_daemon", NULL};
-	spawn(CMD_ATTACH, arg_list);
-}
-
-static int vasum_zone_state_cb( vsm_zone_h zone, vsm_zone_state_t state, void * userdata)
-{
-	char * zone_name;
-	vsm_zone_state_t before_state, new_state;
-
-	zone_name = vsm_get_zone_name(zone);
-	before_state = vsm_get_zone_state(zone);
-	new_state = state;
-
-	D("Zone state is changed : Name[%s] , Before State[%s], Changed State[%s]\n",
-			zone_name , state_string[state], state_string[state]);
-
-
-	if(state == 2) {
-		sdb_mutex_lock(&zone_check_lock);
-		// if state of zone is "RUNNING", execute required process in zone.
-		execute_required_process_in_each_zone(zone_name);
-
-		// in the case sdbd is started up before zone, check zone/host mode
-		if(!initial_zone_mode_check) {
-			D("set zone mode on when zone is started up\n");
-			initial_zone_mode_check = 1;
-			hostshell_mode = 0;
-		}
-		sdb_mutex_unlock(&zone_check_lock);
-	}
-
-
-	return 0;
-}
-
-static int vasum_event_cb( vsm_zone_h zone, vsm_zone_event_t event, void * userdata)
-{
-	char * zone_name;
-
-	zone_name = vsm_get_zone_name(zone);
-
-	D("Zone got event : Name[%s], Event[%s]\n", zone_name, event_string[event]);
-
-	return 0;
-}
-
-static gboolean vasum_context_callback(GIOChannel * channel, GIOCondition condition,
-		void *data)
-{
-	vsm_context_h ctx = (vsm_context_h)data;
-	/* Call handler function for update vsm_context */
-	vsm_enter_eventloop(ctx, 0, 0);
-	return TRUE;
-}
-
-
-static void *zone_check_thread(void *x) {
-	GMainLoop *mainloop;
-	vsm_context_h ctx;
-	int fd, ret;
-	int state_hndl = 0;
-	int event_hndl = 0;
-
-	mainloop = g_main_loop_new(NULL, FALSE);
-
-	int i;
-	for(i = 0; i < 10; i++) {
-		D("Try to get vasum context : try %d\n", i);
-		ctx = vsm_create_context();
-		if (ctx != NULL) {
-			D("Got vasum context\n");
-			break;
-		}
-		if(i == 9) {
-			D("Failed to get vasum context, exit vasum zone check thread\n");
-			return;
-		}
-		D("Failed get vasum context\n");
-		sdb_sleep_ms(100);
-	}
-
-	/* Get vasum event file descriptor from vsm context */
-	fd = vsm_get_poll_fd(ctx);
-	if (fd < 0) {
-		D("Failed to get poll fd\n");
-	}
-
-	GIOChannel *channel = g_io_channel_unix_new(fd);
-	if (channel == NULL) {
-		D("Failed to allocate channel allocation\n");
-		return;
-	}
-
-	/* Bind vasum context to g_main_loop watch handler */
-	g_io_add_watch(channel, G_IO_IN, vasum_context_callback, ctx);
-
-	state_hndl = vsm_add_state_changed_callback(ctx, vasum_zone_state_cb, (void *) ctx);
-	if (state_hndl < 0) {
-		D("Failed to register state changed cb\n");
-		return -1;
-	}
-
-	event_hndl = vsm_add_event_callback(ctx, vasum_event_cb, (void *) ctx);
-	if (event_hndl < 0) {
-		D("Failed to register event cb\n");
-		return -1;
-	}
-
-	g_main_loop_run(mainloop);
-
-	ret = vsm_del_state_changed_callback(ctx, state_hndl);
-	if (ret != VSM_ERROR_NONE) {
-		D("Failed to deregister state changed callback\n");
-	}
-
-	ret = vsm_del_event_callback(ctx, event_hndl);
-	if (ret != VSM_ERROR_NONE) {
-		D("Failed to deregister event callback\n");
-	}
-
-	/* Cleanup context in vsm_context */
-	vsm_cleanup_context(ctx);
-
-	return 0;
-}
-
-static void create_zone_check_thread() {
-	sdb_thread_t t;
-	if (sdb_thread_create(&t, zone_check_thread, NULL)) {
-		D("cannot create_zone_check_thread.\n");
-		return;
-	}
-	D("created zone_check_thread\n");
 }
 
 /* default plugin proc */
@@ -1981,12 +1651,10 @@ static void load_sdbd_plugin() {
 
     D("using sdbd plugin interface.(%s)\n", SDBD_PLUGIN_PATH);
 }
->>>>>>> tizen_2.4
 
 static void init_sdk_requirements() {
     struct stat st;
 
-<<<<<<< HEAD
     // set env variable for temporary
     // TODO: should use pam instead later!!
     if (!getenv("TERM")) {
@@ -2008,15 +1676,6 @@ static void init_sdk_requirements() {
         }
     }
 
-}
-#endif /* !SDB_HOST */
-
-int sdb_main(int is_daemon, int server_port)
-{
-#if !SDB_HOST
-    init_drop_privileges();
-    init_sdk_requirements();
-=======
     execute_required_process();
 
     register_pwlock_cb();
@@ -2025,6 +1684,7 @@ int sdb_main(int is_daemon, int server_port)
         register_bootdone_cb();
     }
 }
+#endif /* !SDB_HOST */
 
 int request_plugin_verification(const char* cmd, const char* in_buf) {
     char out_buf[32] = {0,};
@@ -2252,7 +1912,6 @@ int sdb_main(int is_daemon, int server_port)
         return -1;
     }
 
->>>>>>> tizen_2.4
     umask(000);
 #endif
 
@@ -2298,11 +1957,7 @@ int sdb_main(int is_daemon, int server_port)
             exit(1);
         }
         /* then switch user and group to "developer" */
-<<<<<<< HEAD
         if (setgid(GID_DEVELOPER) != 0) {
-=======
-        if (setgid(SID_DEVELOPER) != 0) {
->>>>>>> tizen_2.4
             fprintf(stderr, "set group id failed errno: %d\n", errno);
             exit(1);
         }
@@ -2356,53 +2011,6 @@ int sdb_main(int is_daemon, int server_port)
     if (sdbd_commandline_args.sdbd_port >= 0) {
         local_init(sdbd_commandline_args.sdbd_port);
 =======
-    hostshell_mode = 1;
-
- /* Not support zone feature yet */
- /*
-	if (is_container_enabled()) {
-		D("container feature permitted\n");
-
-		// register call-back to check state of zone
-		create_zone_check_thread();
-
-		// check if zone is started before sdbd, in the case sdbd does not get notified.
-		char** zone_list;
-		zone_list = get_zone_list();
-		if (zone_list != NULL) {
-			D("set zone mode on\n");
-			sdb_mutex_lock(&zone_check_lock);
-			if(!initial_zone_mode_check) {
-				initial_zone_mode_check = 1;
-				hostshell_mode = 0;
-				// execute processes needed by each zone
-				if (zone_list) {
-					int i;
-					for (i = 0; *(zone_list + i); i++) {
-						D("Name of zone which executes required processes (in sdb_main) : %s \n", *(zone_list + i));
-						// if zone name has prefix as '/', remove it
-						if (!strncmp(*(zone_list + i), "\/", 1)) {
-							execute_required_process_in_each_zone(
-									(*(zone_list + i) + 1));
-						} else {
-							execute_required_process_in_each_zone(*(zone_list + i));
-						}
-						free(*(zone_list + i));
-					}
-					free(zone_list);
-				}
-			}
-			sdb_mutex_unlock(&zone_check_lock);
-		} else {
-			D("not found any zone yet, denied mode on\n");
-			sdb_sleep_ms(500);
-		}
-	} else {
-		D("container feature not permitted, set host mode on\n");
-		initial_zone_mode_check = 1;
-		hostshell_mode = 1;
-	}
-*/
     if (is_support_usbproto()) {
         // listen on USB
         usb_init();
@@ -2451,11 +2059,7 @@ void connect_device(char* host, char* buffer, int buffer_size)
     char hostbuf[100];
     char serial[100];
 
-<<<<<<< HEAD
-    strncpy(hostbuf, host, sizeof(hostbuf) - 1);
-=======
     s_strncpy(hostbuf, host, sizeof(hostbuf) - 1);
->>>>>>> tizen_2.4
     if (portstr) {
         if (portstr - host >= sizeof(hostbuf)) {
             snprintf(buffer, buffer_size, "bad host name %s", host);
@@ -2546,8 +2150,6 @@ void connect_emulator(char* port_spec, char* buffer, int buffer_size)
 }
 #endif
 
-<<<<<<< HEAD
-=======
 int copy_packet(apacket* dest, apacket* src) {
 
     if(dest == NULL) {
@@ -2573,7 +2175,6 @@ int copy_packet(apacket* dest, apacket* src) {
     return 0;
 }
 
->>>>>>> tizen_2.4
 int handle_host_request(char *service, transport_type ttype, char* serial, int reply_fd, asocket *s)
 {
     atransport *transport = NULL;
@@ -2789,7 +2390,6 @@ int main(int argc, char **argv)
         recovery_mode = 1;
     }
 #endif
-<<<<<<< HEAD
 
     apply_sdbd_commandline_defaults(&sdbd_commandline_args);
     int parse_ret = parse_sdbd_commandline(&sdbd_commandline_args, argc, argv);
@@ -2811,12 +2411,7 @@ int main(int argc, char **argv)
 
 #if !SDB_HOST
     if (daemonize() < 0)
-        fatal("daemonize() failed: %.200s", strerror(errno));
-=======
-#if !SDB_HOST
-    if (daemonize() < 0)
         fatal("daemonize() failed: errno:%d", errno);
->>>>>>> tizen_2.4
 #endif
 
     start_device_log();

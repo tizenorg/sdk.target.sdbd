@@ -216,11 +216,7 @@ static int write_data_file(int fd, const char *path, syncsendbuf *sbuf)
 
     lfd = sdb_open(path, O_RDONLY);
     if(lfd < 0) {
-<<<<<<< HEAD
-        fprintf(stderr,"cannot open '%s': %s\n", path, strerror(errno));
-=======
         fprintf(stderr,"cannot open '%s': errno:%d\n", path, errno);
->>>>>>> tizen_2.4
         return -1;
     }
 
@@ -235,11 +231,7 @@ static int write_data_file(int fd, const char *path, syncsendbuf *sbuf)
         if(ret < 0) {
             if(errno == EINTR)
                 continue;
-<<<<<<< HEAD
-            fprintf(stderr,"cannot read '%s': %s\n", path, strerror(errno));
-=======
             fprintf(stderr,"cannot read '%s': errno:%d\n", path, errno);
->>>>>>> tizen_2.4
             break;
         }
 
@@ -287,11 +279,7 @@ static int write_data_link(int fd, const char *path, syncsendbuf *sbuf)
 
     len = readlink(path, sbuf->data, SYNC_DATA_MAX-1);
     if(len < 0) {
-<<<<<<< HEAD
-        fprintf(stderr, "error reading link '%s': %s\n", path, strerror(errno));
-=======
         fprintf(stderr, "error reading link '%s': errno:%d\n", path, errno);
->>>>>>> tizen_2.4
         return -1;
     }
     sbuf->data[len] = '\0';
@@ -336,11 +324,7 @@ static int sync_send(int fd, const char *lpath, const char *rpath,
         // this requires that we read the entire file into memory.
         lfd = sdb_open(lpath, O_RDONLY);
         if(lfd < 0) {
-<<<<<<< HEAD
-            fprintf(stderr,"cannot open '%s': %s\n", lpath, strerror(errno));
-=======
             fprintf(stderr,"cannot open '%s': errno:%d\n", lpath, errno);
->>>>>>> tizen_2.4
             return -1;
         }
 
@@ -485,11 +469,7 @@ int sync_recv(int fd, const char *rpath, const char *lpath)
         mkdirs((char *)lpath);
         lfd = sdb_creat(lpath, 0644);
         if(lfd < 0) {
-<<<<<<< HEAD
-            fprintf(stderr,"cannot create '%s': %s\n", lpath, strerror(errno));
-=======
             fprintf(stderr,"cannot create '%s': errno:%d\n", lpath, errno);
->>>>>>> tizen_2.4
             return -1;
         }
         goto handle_data;
@@ -519,11 +499,7 @@ int sync_recv(int fd, const char *rpath, const char *lpath)
         }
 
         if(writex(lfd, buffer, len)) {
-<<<<<<< HEAD
-            fprintf(stderr,"cannot write '%s': %s\n", rpath, strerror(errno));
-=======
             fprintf(stderr,"cannot write '%s': errno:%d\n", rpath, errno);
->>>>>>> tizen_2.4
             sdb_close(lfd);
             return -1;
         }
@@ -638,11 +614,7 @@ static int local_build_list(copyinfo **filelist,
 
     d = opendir(lpath);
     if(d == 0) {
-<<<<<<< HEAD
-        fprintf(stderr,"cannot open '%s': %s\n", lpath, strerror(errno));
-=======
         fprintf(stderr,"cannot open '%s': errno:%d\n", lpath, errno);
->>>>>>> tizen_2.4
         return -1;
     }
 
@@ -672,11 +644,7 @@ static int local_build_list(copyinfo **filelist,
         } else {
             ci = mkcopyinfo(lpath, rpath, name, 0);
             if(lstat(ci->src, &st)) {
-<<<<<<< HEAD
-                fprintf(stderr,"cannot stat '%s': %s\n", ci->src, strerror(errno));
-=======
                 fprintf(stderr,"cannot stat '%s': errno:%d\n", ci->src, errno);
->>>>>>> tizen_2.4
                 closedir(d);
 
                 return -1;
@@ -790,11 +758,7 @@ int do_sync_push(const char *lpath, const char *rpath, int verifyApk, int isUtf8
     }
 
     if(stat(lpath, &st)) {
-<<<<<<< HEAD
-        fprintf(stderr,"cannot stat '%s': %s\n", lpath, strerror(errno));
-=======
         fprintf(stderr,"cannot stat '%s': errno:%d\n", lpath, errno);
->>>>>>> tizen_2.4
         sync_quit(fd);
         return 1;
     }
