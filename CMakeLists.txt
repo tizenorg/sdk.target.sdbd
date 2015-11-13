@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Copyright (c) 2014 Samsung Electronics Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the License);
@@ -20,31 +19,6 @@ project (sdbd)
 option(USE_FUNCTION_FS "Use FunctionFS" NO)
 option(BUILD_UNIT_TESTS "Build unit tests" NO)
 
-set(sdbd_SRCS
-=======
-# Copyright (c) 2015 Samsung Electronics Co., Ltd All Rights Reserved
-#
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
-#
-#        http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License.
-#
-# @file        CMakeLists.txt
-# @author
-# @brief
-#
-
-############################# Check minimum CMake version #####################
-
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
-PROJECT(sdbd)
 
 ############################# cmake packages ##################################
 
@@ -53,7 +27,6 @@ INCLUDE(FindPkgConfig)
 ############################# compiler flags ##################################
 
 SET(SDBD_SRCS
->>>>>>> tizen_2.4
 	src/sdb.c
 	src/fdevent.c
 	src/transport.c
@@ -62,10 +35,7 @@ SET(SDBD_SRCS
 	src/sockets.c
 	src/services.c
 	src/file_sync_service.c
-<<<<<<< HEAD
-=======
 	src/usb_linux_client.c
->>>>>>> tizen_2.4
 	src/utils.c
 	src/socket_inaddr_any_server.c
 	src/socket_local_client.c
@@ -73,7 +43,6 @@ SET(SDBD_SRCS
 	src/socket_loopback_client.c
 	src/socket_loopback_server.c
 	src/socket_network_client.c
-<<<<<<< HEAD
 	src/properties.c
 	src/sdktools.c
 	src/strutils.c
@@ -85,69 +54,15 @@ SET(SDBD_SRCS
 	src/usb_funcfs_client.c
 )
 
-include_directories(src)
-
-add_executable(sdbd ${sdbd_SRCS})
-
-set_property(
-	TARGET sdbd
-	PROPERTY COMPILE_DEFINITIONS
-	SDB_HOST=0
-	_DROP_PRIVILEGE
-	_FILE_OFFSET_BITS=64
-)
-
-set_property(
-	TARGET sdbd
-	APPEND PROPERTY COMPILE_DEFINITIONS
-	_XOPEN_SOURCE
-	_GNU_SOURCE
-	HAVE_FORKEXEC
-)
-
-if(USE_FUNCTION_FS)
-	set_property(
-		TARGET sdbd
-		APPEND PROPERTY COMPILE_DEFINITIONS
-		USB_FUNCFS
-	)
-endif()
-
 include(FindPkgConfig)
 
-# Get capi-system-info
-pkg_check_modules(CAPI_SYSTEM_INFO REQUIRED capi-system-info libtzplatform-config)
-include_directories(${CAPI_SYSTEM_INFO_INCLUDE_DIRS})
-
-# Get pthreads
-find_package(Threads REQUIRED)
-
-# Add libraries (-l...)
-target_link_libraries (sdbd ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS})
-
-install(TARGETS sdbd DESTINATION /usr/sbin)
-install(FILES script/sdbd DESTINATION /etc/init.d)
-
-
-# Optionally build unit tests binary -- could be helpful during further development
-if(BUILD_UNIT_TESTS)
-	enable_testing()
-	add_subdirectory(test)
-endif()
-=======
-	src/sdktools.c
-	src/strutils.c
-	src/fileutils.c
-	)
-	
 pkg_check_modules(pkgs REQUIRED
+    libtzplatform-config
     capi-system-info
     vconf
-    vasum
     glib-2.0
     dbus-1
     dbus-glib-1
-    security-server
  )
  
 FOREACH(flag ${pkgs_CFLAGS})
@@ -185,5 +100,36 @@ find_package(Threads REQUIRED)
 ADD_EXECUTABLE(sdbd ${SDBD_SRCS})
 TARGET_LINK_LIBRARIES(sdbd -pie -lsmack -lresolv -ldl ${CMAKE_THREAD_LIBS_INIT} ${pkgs_LDFLAGS})
 
+set_property(
+	TARGET sdbd
+	PROPERTY COMPILE_DEFINITIONS
+	SDB_HOST=0
+	_DROP_PRIVILEGE
+	_FILE_OFFSET_BITS=64
+)
+
+set_property(
+	TARGET sdbd
+	APPEND PROPERTY COMPILE_DEFINITIONS
+	_XOPEN_SOURCE
+	_GNU_SOURCE
+	HAVE_FORKEXEC
+)
+
+if(USE_FUNCTION_FS)
+	set_property(
+		TARGET sdbd
+		APPEND PROPERTY COMPILE_DEFINITIONS
+		USB_FUNCFS
+	)
+endif()
+
 install(TARGETS sdbd DESTINATION /usr/sbin)
->>>>>>> tizen_2.4
+install(FILES script/sdbd DESTINATION /etc/init.d)
+
+
+# Optionally build unit tests binary -- could be helpful during further development
+if(BUILD_UNIT_TESTS)
+	enable_testing()
+	add_subdirectory(test)
+endif()
