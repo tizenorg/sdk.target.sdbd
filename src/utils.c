@@ -18,14 +18,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-<<<<<<< HEAD
-=======
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <errno.h>
->>>>>>> tizen_2.4
 
 #define STRING_MAXLEN 1024
 char*
@@ -127,18 +124,13 @@ char *str_trim(const char* string)
         e--;
 
     ret = strdup(s);
-<<<<<<< HEAD
-=======
     if(ret == NULL) {
         return NULL;
     }
->>>>>>> tizen_2.4
     ret[e - s + 1] = 0;
 
     return  ret;
 }
-<<<<<<< HEAD
-=======
 
 int spawn(char* program, char** arg_list)
 {
@@ -211,4 +203,3 @@ char** str_split(char* a_str, const char a_delim) {
 	return result;
 }
 
->>>>>>> tizen_2.4
