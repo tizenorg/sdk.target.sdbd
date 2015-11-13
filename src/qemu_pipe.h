@@ -67,11 +67,7 @@ qemu_pipe_open(const char*  pipeName)
 
     fd = open("/dev/qemu_pipe", O_RDWR);
     if (fd < 0) {
-<<<<<<< HEAD
-        D("%s: Could not open /dev/qemu_pipe: %s", __FUNCTION__, strerror(errno));
-=======
         D("%s: Could not open /dev/qemu_pipe: errno:%d", __FUNCTION__, errno);
->>>>>>> tizen_2.4
         //errno = ENOSYS;
         return -1;
     }
@@ -80,11 +76,7 @@ qemu_pipe_open(const char*  pipeName)
 
     ret = TEMP_FAILURE_RETRY(write(fd, buff, buffLen+1));
     if (ret != buffLen+1) {
-<<<<<<< HEAD
-        D("%s: Could not connect to %s pipe service: %s", __FUNCTION__, pipeName, strerror(errno));
-=======
         D("%s: Could not connect to %s pipe service: errno:%d", __FUNCTION__, pipeName, errno);
->>>>>>> tizen_2.4
         if (ret == 0) {
             errno = ECONNRESET;
         } else if (ret > 0) {

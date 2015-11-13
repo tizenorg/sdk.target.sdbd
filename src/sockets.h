@@ -83,31 +83,24 @@ static inline int android_get_control_socket(const char *name)
 // Normal filesystem namespace
 #define ANDROID_SOCKET_NAMESPACE_FILESYSTEM 2
 
-<<<<<<< HEAD
-=======
 #define SDB_FORWARD_IFNAME "lo:sdb"
 #define SDB_FORWARD_INTERNAL_IP "192.168.129.3"
 #define SDB_FORWARD_INTERNAL_MASK "255.255.255.0"
 
->>>>>>> tizen_2.4
 extern int socket_loopback_client(int port, int type);
 extern int socket_network_client(const char *host, int port, int type);
 extern int socket_loopback_server(int port, int type);
 extern int socket_local_server(const char *name, int namespaceId, int type);
 extern int socket_local_server_bind(int s, const char *name, int namespaceId);
-extern int socket_local_client_connect(int fd, 
+extern int socket_local_client_connect(int fd,
         const char *name, int namespaceId, int type);
 extern int socket_local_client(const char *name, int namespaceId, int type);
 extern int socket_inaddr_any_server(int port, int type);
-<<<<<<< HEAD
-    
-=======
-int socket_ifr_client(int port, int type, char *ifr_dev);
+
 int socket_ifr_client(int port, int type, char *ifr_dev);
 int ifconfig(char *ifname, char *address, char *netmask, int activated);
->>>>>>> tizen_2.4
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __CUTILS_SOCKETS_H */ 
+#endif /* __CUTILS_SOCKETS_H */

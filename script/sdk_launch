@@ -4,7 +4,6 @@
 #      Kangho Kim <kh5325.kim@samsung.com>, Yoonki Park <yoonki.park@samsung.com>
 #
 # Description: front hand of app launcher
-<<<<<<< HEAD
 source /etc/tizen-platform.conf
 
 APP_PATH_PREFIX=${TZ_SYS_RW_APP}
@@ -12,24 +11,13 @@ SDK_TOOLS_PATH=${TZ_SDK_TOOLS}
 
 print_usage()
 {
-    echo "usage: $0 -p <pkgid> -e <executable> -m <run|debug|da|oprofile> [-P <port>] [-attach <pid>] -t <gtest,gcov> [<args...>]"
-=======
-
-APP_PATH_PREFIX=/opt/apps
-SDK_TOOLS_PATH=/home/developer/sdk_tools
-
-print_usage()
-{
     echo "usage: $0 [-a <appid>] [-p <pkgid>] [-e <executable>] -m <run|debug|da|oprofile> [-P <port>] [-attach <pid>] -t <gtest,gcov> [<args...>]"
->>>>>>> tizen_2.4
 }
 
 first="true"
 
 until [ -z "$1" ]; do
     case "$1" in
-<<<<<<< HEAD
-=======
     -a)
         if [ -z "$2" ]
         then
@@ -39,7 +27,6 @@ until [ -z "$1" ]; do
         appid=$2
         shift 2;
         ;;
->>>>>>> tizen_2.4
     -p)
         if [ -z "$2" ]
         then
@@ -133,8 +120,6 @@ until [ -z "$1" ]; do
     esac
 done
 
-<<<<<<< HEAD
-=======
 if [ "" != "$appid" ]
 then
     launch_app_arg1=$appid
@@ -142,17 +127,12 @@ else
     launch_app_arg1=$pkgid.$exe
 fi
 
->>>>>>> tizen_2.4
 if [ "$mode" = "debug" ]
 then
     if [ "" != "$attach_id" ]
     #debug attach
     then
-<<<<<<< HEAD
         cmd="$COV_TEST_PREFIX ${TZ_SDK_TOOLS}/gdbserver/gdbserver :$port --attach $attach_id"
-=======
-        cmd="/usr/bin/launch_debug $launch_app_arg1 __AUL_SDK__ ATTACH __DLP_ATTACH_ARG__ --attach,:$port,$attach_id"
->>>>>>> tizen_2.4
     #debug
     else
         if [ "" != "$result_mode" ]
@@ -161,28 +141,17 @@ then
         else
             result_mode="DEBUG"
         fi
-<<<<<<< HEAD
         cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode"
 #       cmd="$COV_TEST_PREFIX ${TZ_SDK_TOOLS}/gdbserver/gdbserver :$port ${TZ_SYS_RW_APP}/$pkgid/bin/$exe"
-=======
-        cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode $args"
-#       cmd="$COV_TEST_PREFIX /home/developer/sdk_tools/gdbserver/gdbserver :$port /opt/apps/$pkgid/bin/$exe"
->>>>>>> tizen_2.4
     fi
 else
     if [ "$mode" = "run" ]
     then
         if [ "" != "$result_mode" ]
         then
-<<<<<<< HEAD
             cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode $launch_app_mode"
         else
             cmd="/usr/bin/launch_app $pkgid.$exe"
-=======
-            cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode $launch_app_mode $args"
-        else
-            cmd="/usr/bin/launch_app $launch_app_arg1"
->>>>>>> tizen_2.4
         fi
     else
         if [ "$mode" = "da" ]
@@ -201,11 +170,7 @@ else
                 result_mode="OPROFILE"
             fi
         fi
-<<<<<<< HEAD
         cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode"
-=======
-        cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode"
->>>>>>> tizen_2.4
     fi
 fi
 

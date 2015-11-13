@@ -1,15 +1,9 @@
-<<<<<<< HEAD
 %bcond_with emulator
 
 Name:       sdbd
 Summary:    SDB daemon
 Version:    3.0.1
 Release:    0
-=======
-Name:       sdbd
-Version:    2.2.32
-Release:    1
->>>>>>> tizen_2.4
 License:    Apache-2.0
 Summary:    SDB daemon
 Group:      System/Utilities
