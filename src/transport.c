@@ -170,7 +170,7 @@ static int
 write_packet(int  fd, const char* name, apacket** ppacket)
 {
     char *p = (char*) ppacket;  /* we really write the packet address */
-    int r, len = sizeof(ppacket);
+    int r, len = sizeof(apacket*);
     char buff[8];
     if (!name) {
         snprintf(buff, sizeof buff, "fd=%d", fd);
@@ -182,7 +182,6 @@ write_packet(int  fd, const char* name, apacket** ppacket)
         dump_packet(name, "to remote", *ppacket);
     }
 #endif
-    len = sizeof(ppacket);
     while(len > 0) {
         r = sdb_write(fd, p, len);
         if(r > 0) {
@@ -748,7 +747,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
     atransport *result = NULL;
     int ambiguous = 0;
 
-retry:
     if (error_out)
         *error_out = "device not found";
 
@@ -797,7 +795,6 @@ retry:
             }
         }
     }
-    sdb_mutex_unlock(&transport_lock);
 
     if (result) {
          /* offline devices are ignored -- they are either being born or dying */
@@ -818,11 +815,9 @@ retry:
         /* found one that we can take */
         if (error_out)
             *error_out = NULL;
-    } else if (state != CS_ANY && (serial || !ambiguous)) {
-        sdb_sleep_ms(1000);
-        goto retry;
     }
 
+    sdb_mutex_unlock(&transport_lock);
     return result;
 }
 
