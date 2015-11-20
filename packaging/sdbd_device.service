@@ -1,6 +1,5 @@
 [Unit]
 Description=sdbd
-Requires=tizen-system-env.service
 
 [Service]
 Type=forking
