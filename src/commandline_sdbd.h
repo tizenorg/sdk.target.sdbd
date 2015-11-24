@@ -35,6 +35,9 @@
 #define ARG_USAGE "usage"
 #define ARG_S_USAGE 'u'
 
+#define ARG_NO_USB "no-usb"
+#define ARG_S_NO_USB 'n'
+
 #define SDBD_COMMANDLINE_SUCCESS 0 ///< Success
 #define SDBD_COMMANDLINE_FAILURE -1 ///< Generic failure
 #define SDBD_COMMANDLINE_FAILURE_UNKNOWN_OPT -2 ///< Unknown option
@@ -58,6 +61,7 @@ typedef struct {
 	HostPort emulator; ///< emulator name and forward port
 	HostPort sdb; ///< sdb address
 	HostPort sensors; ///< sensors address
+    short int sdbd_no_usb; ///< disable/enable usb check for tcp
 	int sdbd_port; ///< Port to listen on in tcp mode
 } SdbdCommandlineArgs;
 
