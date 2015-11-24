@@ -1,0 +1,11 @@
+[Unit]
+Description=sdbd
+After=default.target
+
+[Service]
+Type=forking
+Environment=DISPLAY=:0
+PIDFile=/tmp/.sdbd.pid
+RemainAfterExit=yes
+SmackProcessLabel=User
+ExecStart=/usr/sbin/sdbd --no-usb --listen-port=26101
