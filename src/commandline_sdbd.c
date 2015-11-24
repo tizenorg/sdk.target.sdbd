@@ -49,6 +49,7 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 		{ ARG_SDBD_LISTEN_PORT, required_argument, NULL, ARG_S_SDBD_LISTEN_PORT },
 		{ ARG_HELP, no_argument, NULL, ARG_S_HELP },
 		{ ARG_USAGE, no_argument, NULL, ARG_S_USAGE },
+		{ ARG_NO_USB, no_argument, NULL, ARG_S_NO_USB },
 		{ NULL, 0, NULL, 0 }
 	};
 
@@ -91,6 +92,9 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 				return SDBD_COMMANDLINE_FAILURE;
 			}
 			break;
+		case ARG_S_NO_USB:
+			sdbd_args->sdbd_no_usb = 1;
+			break;
 		case ARG_S_HELP:
 		    return SDBD_COMMANDLINE_HELP;
 		case ARG_S_USAGE:
@@ -117,6 +121,7 @@ void apply_sdbd_commandline_defaults(SdbdCommandlineArgs *sdbd_args) {
 
 	// by default don't listen on local transport
 	sdbd_args->sdbd_port = -1;
+	sdbd_args->sdbd_no_usb = 0;
 }
 
 
@@ -161,6 +166,7 @@ void print_sdbd_usage_message(FILE *stream) {
             "\t-%c, --%s=HOST:PORT\thostname or IP and port of sdb listening on host\n"
             "\t-%c, --%s=HOST:PORT \thostname or IP and port of sensors daemon\n"
             "\t-%c, --%s=PORT     \tport on which sdbd shall be listening on\n"
+            "\t-%c, --%s            \tdisable usbgadget check\n"
             "\t-%c, --%s              \tprint help message\n"
             "\t-%c, --%s             \tprint this usage message\n"
             ;
@@ -170,7 +176,8 @@ void print_sdbd_usage_message(FILE *stream) {
             ARG_S_SDB, ARG_SDB,
             ARG_S_SENSORS, ARG_SENSORS,
             ARG_S_SDBD_LISTEN_PORT, ARG_SDBD_LISTEN_PORT,
+            ARG_S_NO_USB, ARG_NO_USB,
             ARG_S_HELP, ARG_HELP,
-            ARG_S_USAGE, ARG_USAGE
+            ARG_S_USAGE, ARG_USAGE,
             );
 }
