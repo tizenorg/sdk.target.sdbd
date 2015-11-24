@@ -1172,7 +1172,7 @@ static void get_plugin_capability(void)
 	char *usb_state;
 	char *sock_state;
 
-	if (is_emulator())
+	if (is_emulator() || sdbd_commandline_args.sdbd_no_usb)
 		usb_state = SDBD_CAP_RET_DISABLED;
 	else
 		usb_state = SDBD_CAP_RET_ENABLED;
