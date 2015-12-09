@@ -603,7 +603,7 @@ jdwp_socket_ready( asocket*  s )
     */
     if (jdwp->pass == 0) {
         apacket*  p = get_apacket();
-        p->len = jdwp_process_list((char*)p->data, MAX_PAYLOAD);
+        p->len = jdwp_process_list((char*)p->data, asock_get_max_payload(s));
         peer->enqueue(peer, p);
         jdwp->pass = 1;
     }

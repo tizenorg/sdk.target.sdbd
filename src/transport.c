@@ -620,6 +620,9 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
         return;
     }
 
+    t->protocol_version = A_VERSION;
+    t->max_payload = MAX_PAYLOAD;
+
     /* don't create transport threads for inaccessible devices */
     if (t->connection_state != CS_NOPERM) {
         /* initial references are the two threads */
@@ -1117,15 +1120,15 @@ int writex(int fd, const void *ptr, size_t len)
     return 0;
 }
 
-int check_header(apacket *p)
+int check_header(apacket *p, atransport *t)
 {
     if(p->msg.magic != (p->msg.command ^ 0xffffffff)) {
         D("check_header(): invalid magic\n");
         return -1;
     }
 
-    if(p->msg.data_length > MAX_PAYLOAD) {
-        D("check_header(): %d > MAX_PAYLOAD\n", p->msg.data_length);
+    if(p->msg.data_length > t->max_payload) {
+        D("check_header(): %d > transport->max_payload(%d)\n", p->msg.data_length, t->max_payload);
         return -1;
     }
 

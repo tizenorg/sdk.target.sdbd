@@ -76,4 +76,13 @@ int spawn(const char* program, char * const arg_list[]);
 
 char** str_split(char* a_str, const char a_delim);
 
+#define min(a,b)            \
+({ __typeof__ (a) _a = (a); \
+__typeof__ (b) _b = (b);    \
+_a > _b ? _b : _a; })
+#define max(a,b)            \
+({ __typeof__ (a) _a = (a); \
+__typeof__ (b) _b = (b);    \
+_a > _b ? _a : _b; })
+
 #endif /* _SDB_UTILS_H */

@@ -394,8 +394,8 @@ static void send_connect(atransport *t)
     D("Calling send_connect \n");
     apacket *cp = get_apacket();
     cp->msg.command = A_CNXN;
-    cp->msg.arg0 = A_VERSION;
-    cp->msg.arg1 = MAX_PAYLOAD;
+    cp->msg.arg0 = t->protocol_version;
+    cp->msg.arg1 = t->max_payload;
 
     char device_name[256]={0,};
     int r = 0;
@@ -644,6 +644,20 @@ void parse_banner(char *banner, atransport *t)
     t->connection_state = CS_HOST;
 }
 
+static void update_version(atransport *t, int version, size_t payload)
+{
+    size_t max_payload = MAX_PAYLOAD;
+
+    /* TODO : enable the size up for USB transport */
+    if (t->type == kTransportUsb) {
+        max_payload = MAX_PAYLOAD_V1;
+    }
+
+    t->protocol_version = min(version, A_VERSION);
+    t->max_payload = min(payload, max_payload);
+    D("update transport version. version=%x, max_payload=%d\n", t->protocol_version, t->max_payload);
+}
+
 void handle_packet(apacket *p, atransport *t)
 {
     // Verify pointer p
@@ -680,6 +694,7 @@ void handle_packet(apacket *p, atransport *t)
             t->connection_state = CS_OFFLINE;
             handle_offline(t);
         }
+        update_version(t, p->msg.arg0, p->msg.arg1);
         parse_banner((char*) p->data, t);
         handle_online();
         if(!HOST) send_connect(t);

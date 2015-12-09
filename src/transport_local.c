@@ -82,7 +82,7 @@ static int remote_read(apacket *p, atransport *t)
     D("read remote packet: %04x arg0=%0x arg1=%0x data_length=%0x data_check=%0x magic=%0x\n",
       p->msg.command, p->msg.arg0, p->msg.arg1, p->msg.data_length, p->msg.data_check, p->msg.magic);
 #endif
-    if(check_header(p)) {
+    if(check_header(p, t)) {
         D("bad header: terminated (data)\n");
         return -1;
     }

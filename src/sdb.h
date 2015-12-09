@@ -29,7 +29,9 @@
 #endif
 #include <tzplatform_config.h>
 
-#define MAX_PAYLOAD 4096
+#define MAX_PAYLOAD_V1  (4*1024)
+#define MAX_PAYLOAD_V2  (256*1024)
+#define MAX_PAYLOAD     MAX_PAYLOAD_V2
 
 #define A_SYNC 0x434e5953
 #define A_CNXN 0x4e584e43
@@ -201,6 +203,9 @@ struct atransport
         /* a list of adisconnect callbacks called when the transport is kicked */
     int          kicked;
     adisconnect  disconnects;
+
+    int protocol_version;
+    size_t max_payload;
 };
 
 
@@ -296,6 +301,7 @@ asocket *create_local_service_socket(const char *destination);
 asocket *create_remote_socket(unsigned id, atransport *t);
 void connect_to_remote(asocket *s, const char *destination);
 void connect_to_smartsocket(asocket *s);
+size_t asock_get_max_payload(asocket *s);
 
 void fatal(const char *fmt, ...);
 void fatal_errno(const char *fmt, ...);
@@ -413,7 +419,7 @@ int get_emulator_guestip(char str[], int str_size);
 apacket *get_apacket(void);
 void put_apacket(apacket *p);
 
-int check_header(apacket *p);
+int check_header(apacket *p, atransport *t);
 int check_data(apacket *p);
 
 /* define SDB_TRACE to 1 to enable tracing support, or 0 to disable it */

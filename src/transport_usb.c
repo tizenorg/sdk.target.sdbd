@@ -59,7 +59,7 @@ static int remote_read(apacket *p, atransport *t)
 
     fix_endians(p);
 
-    if(check_header(p)) {
+    if(check_header(p, t)) {
         D("remote usb: check_header failed\n");
         return -1;
     }
