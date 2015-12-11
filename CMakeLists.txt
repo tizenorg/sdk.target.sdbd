@@ -74,6 +74,8 @@ if(USE_FUNCTION_FS)
 	)
 endif()
 
+ADD_DEFINITIONS("-fPIE")
+
 include(FindPkgConfig)
 
 # Get capi-system-info
@@ -84,7 +86,7 @@ include_directories(${CAPI_SYSTEM_INFO_INCLUDE_DIRS})
 find_package(Threads REQUIRED)
 
 # Add libraries (-l...)
-target_link_libraries (sdbd ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS})
+target_link_libraries (sdbd -pie ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS})
 
 install(TARGETS sdbd DESTINATION /usr/sbin)
 install(FILES script/sdbd DESTINATION /etc/init.d)
