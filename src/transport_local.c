@@ -598,12 +598,12 @@ static void notify_sdbd_startup_thread() {
     char host_ip[256] = {0,};
     char guest_ip[256] = {0,};
     int sensors_port = sdbd_args->sensors.port;
-    int sdb_port = sdbd_args->sdb.port;
+    int emulator_port = sdbd_args->emulator.port;
 
     int r = get_emulator_name(vm_name, sizeof vm_name);
     int time = 0;
     //int try_limit_time = -1; // try_limit_time < 0 if unlimited
-    if (sensors_port < 0 || sdb_port < 0 || r < 0) {
+    if (sensors_port < 0 || emulator_port < 0 || r < 0) {
         return;
     }
     if (get_emulator_hostip(host_ip, sizeof host_ip) == -1) {
@@ -641,10 +641,11 @@ static void notify_sdbd_startup_thread() {
         // TODO: should we use host:emulator request? let's talk about this!
 
         if (!strncmp(host_ip, QEMU_FORWARD_IP, sizeof host_ip)) {
-            snprintf(request, sizeof request, "host:emulator:%d:%s", sdb_port, vm_name);
+            snprintf(request, sizeof request, "host:emulator:%d:%s", (emulator_port + 1), vm_name);
         } else {
             snprintf(request, sizeof request, "host:connect:%s:%d", guest_ip, DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
         }
+        D("[%s:%d] request:%s \n", __FUNCTION__, __LINE__, request);
         snprintf(buffer, sizeof buffer, "%04x%s", strlen(request), request );
 
         if (send_msg_to_localhost_from_guest(host_ip, DEFAULT_SDB_PORT, buffer, 0) <0) {

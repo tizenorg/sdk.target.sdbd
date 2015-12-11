@@ -2,7 +2,7 @@
 
 Name:       sdbd
 Summary:    SDB daemon
-Version:    3.0.1
+Version:    3.0.2
 Release:    0
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -25,7 +25,6 @@ BuildRequires: pkgconfig(dbus-1)
 BuildRequires: pkgconfig(dbus-glib-1)
 Requires(post): libprivilege-control
 Requires: sys-assert
-Requires: debug-launchpad
 Requires: dbus
 
 %description
