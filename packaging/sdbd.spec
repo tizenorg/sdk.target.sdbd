@@ -66,6 +66,8 @@ ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/sys
 %else
 install -m 0644 %SOURCE1001 %{buildroot}%{_unitdir}/sdbd.service
 install -m 0644 %SOURCE1004 %{buildroot}%{_unitdir}/sdbd_tcp.service
+mkdir -p %{buildroot}/%{_libdir}/systemd/system/multi-user.target.wants
+ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/system/multi-user.target.wants/
 %endif
 
 mkdir -p %{buildroot}%{_prefix}/sbin
@@ -97,6 +99,7 @@ fi
 %{_libdir}/systemd/system/emulator.target.wants/sdbd.service
 %else
 %{_unitdir}/sdbd_tcp.service
+%{_libdir}/systemd/system/multi-user.target.wants/sdbd.service
 %endif
 /usr/share/license/%{name}
 /usr/bin/profile_command

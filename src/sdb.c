@@ -1445,7 +1445,7 @@ static int get_plugin_capability(const char* in_buf, sdbd_plugin_param out) {
         if (is_emulator()) {
             snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
         } else {
-            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
         }
         ret = SDBD_PLUGIN_RET_SUCCESS;
     } else if (SDBD_CMP_CAP(in_buf, ROOTONOFF)) {
