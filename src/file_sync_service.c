@@ -28,12 +28,14 @@
 #include <sys/select.h>
 #include "sysdeps.h"
 #include "smack.h"
+//#include <sys/smack.h>
 #include <tzplatform_config.h>
 
 #define TRACE_TAG  TRACE_SYNC
 #include "sdb.h"
 #include "file_sync_service.h"
 #include "sdktools.h"
+#include "sdbd_plugin.h"
 
 #define SYNC_TIMEOUT 15
 
@@ -92,6 +94,13 @@ static void set_syncfile_smack_label(char *src) {
                 if (smack_setlabel(src, label, SMACK_LABEL_ACCESS) == -1) {
                     D("unable to set sync file smack label %s due to %s\n", label, strerror(errno));
                 }
+
+                /* Todo: The following code is from tizen 2.4
+                rc = security_server_label_access(src, label);
+                if (rc != SECURITY_SERVER_API_SUCCESS) {
+                   D("unable to set sync file smack label %s due to %d\n", label, errno);
+                }
+                */
                 free(label);
             }
         } else{
@@ -102,6 +111,13 @@ static void set_syncfile_smack_label(char *src) {
         if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) == -1) {
             D("unable to set sync file smack label %s due to %s\n", SMACK_SYNC_FILE_LABEL, strerror(errno));
         }
+
+        /* Todo: The following code is from tizen 2.4
+        rc = security_server_label_access(src, SMACK_SYNC_FILE_LABEL);
+        if (rc != SECURITY_SERVER_API_SUCCESS) {
+           D("unable to set sync file smack label %s due to %d\n", SMACK_SYNC_FILE_LABEL, errno);
+        }
+        */
     }
 }
 
@@ -117,12 +133,12 @@ static int sync_send_label_notify(int s, const char *path, int success)
 
 static void sync_read_label_notify(int s)
 {
-    char buffer[512] = {0,};
+    char buffer[512 + 1] = {0,};
 
     while (1) {
-        int len = sdb_read(s, buffer, sizeof(buffer));
+        int len = sdb_read(s, buffer, sizeof(buffer) - 1);
         if (len < 0) {
-            D("sync notify read error:%s\n", strerror(errno));
+            D("sync notify read errno:%d\n", errno);
             exit(-1);
         }
 
@@ -130,6 +146,7 @@ static void sync_read_label_notify(int s)
             D("sync notify child process exit\n");
             exit(-1);
         }
+        buffer[len] = '\0';
         char *path = buffer;
         path++;
         path++;
@@ -158,7 +175,7 @@ static int mkdirs(int noti_fd, char *name)
             sync_send_label_notify(noti_fd, name, 1);
         }
         if((ret < 0) && (errno != EEXIST)) {
-            D("mkdir(\"%s\") -> %s\n", name, strerror(errno));
+            D("mkdir(\"%s\") -> errno:%d\n", name, errno);
             *x = '/';
             return ret;
         }
@@ -179,7 +196,7 @@ static int do_stat(int s, const char *path)
         msg.stat.mode = 0;
         msg.stat.size = 0;
         msg.stat.time = 0;
-        D("failed to stat %s due to: %s\n", path, strerror(errno));
+        D("failed to stat %s due to: errno:%d\n", path, errno);
     } else {
         msg.stat.mode = htoll(st.st_mode);
         msg.stat.size = htoll(st.st_size);
@@ -200,6 +217,9 @@ static int do_list(int s, const char *path)
     char tmp[1024 + 256 + 1];
     char *fname;
 
+    char dirent_buffer[ sizeof(struct dirent) + 260 + 1 ]  = {0,};
+    struct dirent *dirent_r = (struct dirent*)dirent_buffer;
+
     len = strlen(path);
     memcpy(tmp, path, len);
     tmp[len] = '/';
@@ -209,11 +229,11 @@ static int do_list(int s, const char *path)
 
     d = opendir(path);
     if(d == NULL) {
-        D("failed to open dir due to: %s\n", strerror(errno));
+        D("failed to open dir due to: errno:%d\n", errno);
         goto done;
     }
 
-    while((de = readdir(d))) {
+    while((readdir_r(d, dirent_r, &de) == 0) && de) {
         int len = strlen(de->d_name);
 
             /* not supposed to be possible, but
@@ -222,7 +242,7 @@ static int do_list(int s, const char *path)
             continue;
         }
 
-        strcpy(fname, de->d_name);
+        s_strncpy(fname, de->d_name, sizeof tmp);
         if(lstat(tmp, &st) == 0) {
             msg.dent.mode = htoll(st.st_mode);
             msg.dent.size = htoll(st.st_size);
@@ -267,7 +287,44 @@ static int fail_message(int s, const char *reason)
 
 static int fail_errno(int s)
 {
-    return fail_message(s, strerror(errno));
+	char buf[512];
+
+	strerror_r(s, buf, sizeof(buf));
+
+    return fail_message(s, buf);
+}
+
+// FIXME: should get the following paths with api later but, do it for simple and not having dependency on other packages
+#define VAR_ABS_PATH        "/opt/var"
+#define CMD_MEDIADB_UPDATE "/usr/bin/mediadb-update"
+#define MEDIA_CONTENTS_PATH1 "/opt/media"
+#define MEDIA_CONTENTS_PATH2 "/opt/usr/media"
+#define MEDIA_CONTENTS_PATH3 "/opt/storage/sdcard"
+
+static void sync_mediadb(char *path) {
+    if (access(CMD_MEDIADB_UPDATE, F_OK) != 0) {
+        D("%s: command not found\n", CMD_MEDIADB_UPDATE);
+        return;
+    }
+
+    if (strstr(path, VAR_ABS_PATH) == path) {
+        path += 4;
+    }
+
+    if (strstr(path, MEDIA_CONTENTS_PATH1) != NULL) {
+        char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH1, NULL};
+        spawn(CMD_MEDIADB_UPDATE, arg_list);
+        D("media db update done to %s\n", MEDIA_CONTENTS_PATH1);
+    } else if (strstr(path, MEDIA_CONTENTS_PATH2) != NULL) {
+        char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH2, NULL};
+        spawn(CMD_MEDIADB_UPDATE, arg_list);
+        D("media db update done to %s\n", MEDIA_CONTENTS_PATH2);
+    } else if (strstr(path, MEDIA_CONTENTS_PATH3) != NULL) {
+        char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH3, NULL};
+        spawn(CMD_MEDIADB_UPDATE, arg_list);
+        D("media db update done to %s\n", MEDIA_CONTENTS_PATH3);
+    }
+    return;
 }
 
 static int handle_send_file(int s, int noti_fd, char *path, mode_t mode, char *buffer)
@@ -344,6 +401,7 @@ static int handle_send_file(int s, int noti_fd, char *path, mode_t mode, char *b
         return -1;
     }
     sync_send_label_notify(noti_fd, path, 1);
+    sync_mediadb(path);
     return 0;
 
 fail:
@@ -403,11 +461,29 @@ static int handle_send_link(int s, int noti_fd, char *path, char *buffer)
 }
 #endif /* HAVE_SYMLINKS */
 
+static int is_support_push()
+{
+    return (!strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSHPULL, strlen(SDBD_CAP_RET_PUSHPULL))
+            || !strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSH, strlen(SDBD_CAP_RET_PUSH)));
+}
+
+static int is_support_pull()
+{
+    return (!strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PUSHPULL, strlen(SDBD_CAP_RET_PUSHPULL))
+            || !strncmp(g_capabilities.filesync_support, SDBD_CAP_RET_PULL, strlen(SDBD_CAP_RET_PULL)));
+}
+
 static int do_send(int s, int noti_fd, char *path, char *buffer)
 {
     char *tmp;
     mode_t mode;
     int is_link, ret;
+
+    // Check the capability for file push support.
+    if(!is_support_push()) {
+        fail_message(s, "NO support file push.");
+        return -1;
+    }
 
     tmp = strrchr(path,',');
     if(tmp) {
@@ -425,6 +501,10 @@ static int do_send(int s, int noti_fd, char *path, char *buffer)
     }
     if(!tmp || errno) {
         mode = 0644; // set default permission value in most of unix system.
+        is_link = 0;
+    }
+    if (is_pkg_file_path(path)) {
+        mode = 0644;
         is_link = 0;
     }
 
@@ -456,6 +536,12 @@ static int do_recv(int s, const char *path, char *buffer)
 {
     syncmsg msg;
     int fd, r;
+
+    // Check the capability for file push support.
+    if (!is_support_pull()) {
+        fail_message(s, "NO support file pull.");
+        return -1;
+    }
 
     fd = sdb_open(path, O_RDONLY);
     if(fd < 0) {

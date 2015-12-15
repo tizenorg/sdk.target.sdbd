@@ -42,8 +42,11 @@
 #include <system_info.h>
 #include <tzplatform_config.h>
 
-#define SYSTEM_INFO_KEY_MODEL           "http://tizen.org/system/model_name"
-#define SYSTEM_INFO_KEY_PLATFORM_NAME   "http://tizen.org/system/platform.name"
+#include <vconf.h>
+#include <limits.h>
+
+#include <termios.h>
+#include <sys/ioctl.h>
 
 typedef struct stinfo stinfo;
 
@@ -83,6 +86,11 @@ static void dns_service(int fd, void *cookie)
     sdb_close(fd);
 }
 #else
+
+static int is_support_interactive_shell()
+{
+    return (!strncmp(g_capabilities.intershell_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
 
 #if 0
 extern int recovery_mode;
@@ -164,23 +172,35 @@ void restart_tcp_service(int fd, void *cookie)
     sdb_close(fd);
 }
 
+static int is_support_rootonoff()
+{
+    return (!strncmp(g_capabilities.rootonoff_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
+
 void rootshell_service(int fd, void *cookie)
 {
     char buf[100];
     char *mode = (char*) cookie;
 
     if (!strcmp(mode, "on")) {
-        if (rootshell_mode == 1) {
-            //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
-            // do not show message
-        } else {
-            if (access("/bin/su", F_OK) == 0) {
-                rootshell_mode = 1;
-                //allows a permitted user to execute a command as the superuser
-                snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
+        if (getuid() == 0) {
+            if (rootshell_mode == 1) {
+                //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
+                // do not show message
             } else {
-                snprintf(buf, sizeof(buf), "Permission denied\n");
+                if (is_support_rootonoff()) {
+                    rootshell_mode = 1;
+                    //allows a permitted user to execute a command as the superuser
+                    snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
+                } else {
+                    snprintf(buf, sizeof(buf), "Permission denied\n");
+                }
+                writex(fd, buf, strlen(buf));
             }
+        } else {
+            D("need root permission for root shell: %d\n", getuid());
+            rootshell_mode = 0;
+            snprintf(buf, sizeof(buf), "Permission denied\n");
             writex(fd, buf, strlen(buf));
         }
     } else if (!strcmp(mode, "off")) {
@@ -190,10 +210,11 @@ void rootshell_service(int fd, void *cookie)
             writex(fd, buf, strlen(buf));
         }
     } else {
-        snprintf(buf, sizeof(buf), "Unknown command option\n");
+    	snprintf(buf, sizeof(buf), "Unknown command option : %s\n", mode);
         writex(fd, buf, strlen(buf));
     }
     D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : "developer");
+    free(mode);
     sdb_close(fd);
 }
 
@@ -231,7 +252,7 @@ void reboot_service(int fd, void *arg)
 
     ret = android_reboot(ANDROID_RB_RESTART2, 0, (char *) arg);
     if (ret < 0) {
-        snprintf(buf, sizeof(buf), "reboot failed: %s\n", strerror(errno));
+        snprintf(buf, sizeof(buf), "reboot failed: %s errno:%d\n", errno);
         writex(fd, buf, strlen(buf));
     }
     free(arg);
@@ -268,14 +289,14 @@ void inoti_service(int fd, void *arg)
             D( "inoti read failed\n");
             goto done;
         }
-
-        while ( i < length ) {
-            struct inotify_event *event = ( struct inotify_event * )&buffer[i];
+        while (i >= 0 && i <= (length - EVENT_SIZE)) {
+            struct inotify_event *event = (struct inotify_event *) &buffer[i];
             if (event->len) {
-                if ( event->mask & IN_CREATE) {
+                if (event->mask & IN_CREATE) {
                     if (!(event->mask & IN_ISDIR)) {
                         char *cspath = NULL;
-                        int len = asprintf(&cspath, "%s/%s", CS_PATH, event->name);
+                        int len = asprintf(&cspath, "%s/%s", CS_PATH,
+                                event->name);
                         D( "The file %s was created.\n", cspath);
                         writex(fd, cspath, len);
                         if (cspath != NULL) {
@@ -283,6 +304,9 @@ void inoti_service(int fd, void *arg)
                         }
                     }
                 }
+            }
+            if (i + EVENT_SIZE + event->len < event->len) { // in case of integer overflow
+                break;
             }
             i += EVENT_SIZE + event->len;
         }
@@ -362,35 +386,41 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
 
 #if !SDB_HOST
 
-static int create_subprocess(const char *cmd, const char *arg0, const char *arg1, pid_t *pid)
+static void redirect_and_exec(int pts, const char *cmd, const char *argv[], const char *envp[])
 {
-#ifdef HAVE_WIN32_PROC
-    D("create_subprocess(cmd=%s, arg0=%s, arg1=%s)\n", cmd, arg0, arg1);
-    fprintf(stderr, "error: create_subprocess not implemented on Win32 (%s %s %s)\n", cmd, arg0, arg1);
-    return -1;
-#else /* !HAVE_WIN32_PROC */
-    char *devname;
+    dup2(pts, 0);
+    dup2(pts, 1);
+    dup2(pts, 2);
+
+    sdb_close(pts);
+
+    execve(cmd, argv, envp);
+}
+
+static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], const char *envp[])
+{
+    char devname[64];
     int ptm;
 
     ptm = unix_open("/dev/ptmx", O_RDWR); // | O_NOCTTY);
     if(ptm < 0){
-        D("[ cannot open /dev/ptmx - %s ]\n",strerror(errno));
+        D("[ cannot open /dev/ptmx - errno:%d ]\n",errno);
         return -1;
     }
     if (fcntl(ptm, F_SETFD, FD_CLOEXEC) < 0) {
-        D("[ cannot set cloexec to /dev/ptmx - %s ]\n",strerror(errno));
+        D("[ cannot set cloexec to /dev/ptmx - errno:%d ]\n",errno);
     }
 
     if(grantpt(ptm) || unlockpt(ptm) ||
-       ((devname = (char*) ptsname(ptm)) == 0)){
-        D("[ trouble with /dev/ptmx - %s ]\n", strerror(errno));
+        ptsname_r(ptm, devname, sizeof(devname)) != 0 ){
+        D("[ trouble with /dev/ptmx - errno:%d ]\n", errno);
         sdb_close(ptm);
         return -1;
     }
 
     *pid = fork();
     if(*pid < 0) {
-        D("- fork failed: %s -\n", strerror(errno));
+        D("- fork failed: errno:%d -\n", errno);
         sdb_close(ptm);
         return -1;
     }
@@ -406,32 +436,34 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
             exit(-1);
         }
 
-        dup2(pts, 0);
-        dup2(pts, 1);
-        dup2(pts, 2);
-
-        sdb_close(pts);
         sdb_close(ptm);
 
         // set OOM adjustment to zero
         {
             char text[64];
-            snprintf(text, sizeof text, "/proc/%d/oom_score_adj", getpid());
+            //snprintf(text, sizeof text, "/proc/%d/oom_score_adj", getpid());
+            snprintf(text, sizeof text, "/proc/%d/oom_adj", getpid());
             int fd = sdb_open(text, O_WRONLY);
             if (fd >= 0) {
                 sdb_write(fd, "0", 1);
                 sdb_close(fd);
             } else {
                // FIXME: not supposed to be here
-               D("sdb: unable to open %s due to %s\n", text, strerror(errno));
+               D("sdb: unable to open %s due to errno:%d\n", text, errno);
             }
         }
 
-        verify_commands(arg1);
-
-        execl(cmd, cmd, arg0, arg1, NULL);
-        fprintf(stderr, "- exec '%s' failed: %s (%d) -\n",
-                cmd, strerror(errno), errno);
+        if (should_drop_privileges()) {
+            if (argv[2] != NULL && getuid() == 0 && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
+                // do nothing
+                D("sdb: executes root commands!!:%s\n", argv[2]);
+            } else {
+                set_developer_privileges();
+            }
+        }
+        redirect_and_exec(pts, cmd, argv, envp);
+        fprintf(stderr, "- exec '%s' failed: (errno:%d) -\n",
+                cmd, errno);
         exit(-1);
     } else {
         // Don't set child's OOM adjustment to zero.
@@ -440,15 +472,14 @@ static int create_subprocess(const char *cmd, const char *arg0, const char *arg1
         // """sdb: unable to open /proc/644/oom_adj""" seen in some logs.
         return ptm;
     }
-#endif /* !HAVE_WIN32_PROC */
 }
 #endif  /* !SDB_HOST */
 
-#if SDB_HOST
 #define SHELL_COMMAND "/bin/sh"
-#else
-#define SHELL_COMMAND "/bin/sh" /* tizen specific */
-#endif
+#define LOGIN_COMMAND "/bin/login"
+#define SDK_USER      "developer"
+#define SUPER_USER    "root"
+#define LOGIN_CONFIG  "/etc/login.defs"
 
 #if !SDB_HOST
 static void subproc_waiter_service(int fd, void *cookie)
@@ -461,7 +492,6 @@ static void subproc_waiter_service(int fd, void *cookie)
         pid_t p = waitpid(pid, &status, 0);
         if (p == pid) {
             D("fd=%d, post waitpid(pid=%d) status=%04x\n", fd, p, status);
-            
             if (WIFEXITED(status)) {
                 D("*** Exit code %d\n", WEXITSTATUS(status));
                 break;
@@ -483,17 +513,160 @@ static void subproc_waiter_service(int fd, void *cookie)
     }
 }
 
-static int create_subproc_thread(const char *name)
+static void get_env(char *key, char **env)
+{
+    FILE *fp;
+    char buf[1024];
+    int i;
+    char *s, *e, *value;
+
+    fp = fopen (LOGIN_CONFIG, "r");
+    if (NULL == fp) {
+        return;
+    }
+
+    while (fgets(buf, (int) sizeof (buf), fp) != NULL) {
+        s = buf;
+        e = buf + (strlen(buf) - 1);
+
+        while(*e == ' ' ||  *e == '\n' || *e == '\t') {
+            e--;
+        }
+        *(e+1) ='\0';
+
+        while(*s != '\0' && (*s == ' ' || *s == '\t' || *s == '\n')) {
+            s++;
+        }
+
+        if (*s == '#' || *s == '\0') {
+            continue;
+        }
+        value = s + strcspn(s, " \t");
+        *value++ = '\0';
+
+        if(!strcmp(buf, key)) {
+            *env = value;
+            break;
+        }
+    }
+
+    fclose(fp);
+}
+
+static int create_subproc_thread(const char *name, int lines, int columns)
 {
     stinfo *sti;
     sdb_thread_t t;
     int ret_fd;
     pid_t pid;
+    char *value = NULL;
+    char *trim_value = NULL;
+    char path[PATH_MAX];
+    memset(path, 0, sizeof(path));
 
-    if(name) {
-        ret_fd = create_subprocess(SHELL_COMMAND, "-c", name, &pid);
-    } else {
-        ret_fd = create_subprocess(SHELL_COMMAND, "-", 0, &pid);
+    char *envp[] = {
+        "TERM=linux", /* without this, some programs based on screen can't work, e.g. top */
+        "DISPLAY=:0", /* without this, some programs based on without launchpad can't work */
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    };
+
+    if (should_drop_privileges()) {
+         envp[2] = "HOME=/home/developer";
+         get_env("ENV_PATH", &value);
+     } else {
+         get_env("ENV_SUPATH", &value);
+         if(value == NULL) {
+             get_env("ENV_ROOTPATH", &value);
+         }
+         envp[2] = "HOME=/root";
+     }
+    if (value != NULL) {
+        trim_value = str_trim(value);
+        if (trim_value != NULL) {
+            // if string is not including 'PATH=', append it.
+            if (strncmp(trim_value, "PATH", 4)) {
+                snprintf(path, sizeof(path), "PATH=%s", trim_value);
+            } else {
+                snprintf(path, sizeof(path), "%s", trim_value);
+            }
+            envp[3] = path;
+            free(trim_value);
+        } else {
+            envp[3] = value;
+        }
+    }
+
+    D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
+
+    if(name) { // in case of shell execution directly
+        // Check the shell command validation.
+        if (!request_plugin_verification(SDBD_CMD_VERIFY_SHELLCMD, name)) {
+            D("This shell command is invalid. (%s)\n", name);
+            return -1;
+        }
+
+        // Convert the shell command.
+        char *new_cmd = NULL;
+        new_cmd = malloc(SDBD_SHELL_CMD_MAX);
+        if(new_cmd == NULL) {
+            D("Cannot allocate the shell commnad buffer.");
+            return -1;
+        }
+
+        memset(new_cmd, 0, SDBD_SHELL_CMD_MAX);
+        if(!request_plugin_cmd(SDBD_CMD_CONV_SHELLCMD, name, new_cmd, SDBD_SHELL_CMD_MAX)) {
+            D("Failed to convert the shell command. (%s)\n", name);
+            free(new_cmd);
+            return -1;
+        }
+
+        D("converted cmd : %s\n", new_cmd);
+
+        char *args[] = {
+            SHELL_COMMAND,
+            "-c",
+            NULL,
+            NULL,
+        };
+        args[2] = new_cmd;
+
+        ret_fd = create_subprocess(SHELL_COMMAND, &pid, args, envp);
+        free(new_cmd);
+    } else { // in case of shell interactively
+        // Check the capability for interactive shell support.
+        if (!is_support_interactive_shell()) {
+            D("This platform dose NOT support the interactive shell\n");
+            return -1;
+        }
+
+        char *args[] = {
+                SHELL_COMMAND,
+                "-",
+                NULL,
+        };
+        ret_fd = create_subprocess(SHELL_COMMAND, &pid, args, envp);
+#if 0   // FIXME: should call login command instead of /bin/sh
+        if (should_drop_privileges()) {
+            char *args[] = {
+                SHELL_COMMAND,
+                "-",
+                NULL,
+            };
+            ret_fd = create_subprocess(SHELL_COMMAND, &pid, args, envp);
+        } else {
+            char *args[] = {
+                LOGIN_COMMAND,
+                "-f",
+                SUPER_USER,
+                NULL,
+            };
+            ret_fd = create_subprocess(LOGIN_COMMAND, &pid, args, envp);
+        }
+#endif
     }
     D("create_subprocess() ret_fd=%d pid=%d\n", ret_fd, pid);
 
@@ -501,6 +674,18 @@ static int create_subproc_thread(const char *name)
         D("cannot create service thread\n");
         return -1;
     }
+
+    if (lines > 0 && columns > 0) {
+        D("shell size lines=%d, columns=%d\n", lines, columns);
+        struct winsize win_sz;
+        win_sz.ws_row = lines;
+        win_sz.ws_col = columns;
+
+        if (ioctl(ret_fd, TIOCSWINSZ, &win_sz) < 0) {
+            D("failed to sync window size.\n");
+        }
+    }
+
     sti = malloc(sizeof(stinfo));
     if(sti == 0) fatal("cannot allocate stinfo");
     sti->func = subproc_waiter_service;
@@ -540,7 +725,7 @@ static int create_sync_subprocess(void (*func)(int, void *), void* cookie) {
         //waitpid(pid, &ret, 0);
     }
     if (pid < 0) {
-        D("- fork failed: %s -\n", strerror(errno));
+        D("- fork failed: errno:%d -\n", errno);
         sdb_close(s[0]);
         sdb_close(s[1]);
         D("cannot create sync service sub process\n");
@@ -584,25 +769,13 @@ static int create_syncproc_thread()
 
 #endif
 
-#define UNKNOWN "unknown"
-#define INFOBUF_MAXLEN 64
-#define INFO_VERSION "2.2.0"
-typedef struct platform_info {
-    
-    char platform_info_version[INFOBUF_MAXLEN];
-    char model_name[INFOBUF_MAXLEN]; // Emulator
-    char platform_name[INFOBUF_MAXLEN]; // Tizen
-    char platform_version[INFOBUF_MAXLEN]; // 2.2.1
-    char profile_name[INFOBUF_MAXLEN]; // 2.2.1
-} pinfo;
-
 static void get_platforminfo(int fd, void *cookie) {
     pinfo sysinfo;
 
     char *value = NULL;
     s_strncpy(sysinfo.platform_info_version, INFO_VERSION, strlen(INFO_VERSION));
 
-    int r = system_info_get_platform_string(SYSTEM_INFO_KEY_MODEL, &value);
+    int r = system_info_get_platform_string("http://tizen.org/system/model_name", &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         s_strncpy(sysinfo.model_name, UNKNOWN, strlen(UNKNOWN));
         D("fail to get system model:%d\n", errno);
@@ -614,7 +787,7 @@ static void get_platforminfo(int fd, void *cookie) {
         }
     }
 
-    r = system_info_get_platform_string(SYSTEM_INFO_KEY_PLATFORM_NAME, &value);
+    r = system_info_get_platform_string("http://tizen.org/system/platform.name", &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         s_strncpy(sysinfo.platform_name, UNKNOWN, strlen(UNKNOWN));
         D("fail to get platform name:%d\n", errno);
@@ -657,6 +830,132 @@ static void get_platforminfo(int fd, void *cookie) {
     sdb_close(fd);
 }
 
+static int put_key_value_string(char* buf, int offset, int buf_size, char* key, char* value) {
+    int len = 0;
+    if ((len = snprintf(buf+offset, buf_size-offset, "%s:%s\n", key, value)) > 0) {
+        return len;
+    }
+    return 0;
+}
+
+static void get_capability(int fd, void *cookie) {
+    char cap_buffer[CAPBUF_SIZE] = {0,};
+    uint16_t offset = 0;
+
+    // Secure protocol support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "secure_protocol", g_capabilities.secure_protocol);
+
+    // Interactive shell support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "intershell_support", g_capabilities.intershell_support);
+
+    // File push/pull support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "filesync_support", g_capabilities.filesync_support);
+
+    // USB protocol support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "usbproto_support", g_capabilities.usbproto_support);
+
+    // Socket protocol support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "sockproto_support", g_capabilities.sockproto_support);
+
+    // Root command support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "rootonoff_support", g_capabilities.rootonoff_support);
+
+    // Zone support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "zone_support", g_capabilities.zone_support);
+
+    // Multi-User support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "multiuser_support", g_capabilities.multiuser_support);
+
+    // CPU Architecture of model
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "cpu_arch", g_capabilities.cpu_arch);
+
+    // Profile name
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "profile_name", g_capabilities.profile_name);
+
+    // Vendor name
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "vendor_name", g_capabilities.vendor_name);
+
+    // Platform version
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "platform_version", g_capabilities.platform_version);
+
+    // Product version
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "product_version", g_capabilities.product_version);
+
+    // Sdbd version
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "sdbd_version", g_capabilities.sdbd_version);
+
+    // Sdbd plugin version
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "sdbd_plugin_version", g_capabilities.sdbd_plugin_version);
+
+    // Window size synchronization support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "syncwinsz_support", g_capabilities.syncwinsz_support);
+
+
+    offset++; // for '\0' character
+
+    writex(fd, &offset, sizeof(uint16_t));
+    writex(fd, cap_buffer, offset);
+
+    sdb_close(fd);
+}
+
+static void sync_windowsize(int fd, void *cookie) {
+    int id, lines, columns;
+    char *size_info = cookie;
+    asocket *s = NULL;
+
+    if (sscanf(size_info, "%d:%d:%d", &id, &lines, &columns) == 3) {
+        D("window size information: id=%d, lines=%d, columns=%d\n", id, lines, columns);
+    }
+    if((s = find_local_socket(id))) {
+        struct winsize win_sz;
+        win_sz.ws_row = lines;
+        win_sz.ws_col = columns;
+
+        if (ioctl(s->fd, TIOCSWINSZ, &win_sz) < 0) {
+            D("failed to sync window size.\n");
+            return;
+        }
+        D("success to sync window size.\n");
+    }
+}
+
+const unsigned COMMAND_TIMEOUT = 10000;
+void get_boot(int fd, void *cookie) {
+    char buf[2] = { 0, };
+    char *mode = (char*) cookie;
+    int time = 0;
+    int interval = 1000;
+    while (time < COMMAND_TIMEOUT) {
+        if (booting_done == 1) {
+            D("get_boot:platform booting is done\n");
+            snprintf(buf, sizeof(buf), "%s", "1");
+            break;
+        }
+        D("get_boot:platform booting is in progress\n");
+        sdb_sleep_ms(interval);
+        time += interval;
+    }
+    writex(fd, buf, strlen(buf));
+    sdb_close(fd);
+}
+
 int service_to_fd(const char *name)
 {
     int ret = -1;
@@ -665,9 +964,22 @@ int service_to_fd(const char *name)
         int port = atoi(name + 4);
         name = strchr(name + 4, ':');
         if(name == 0) {
-            ret = socket_loopback_client(port, SOCK_STREAM);
-            if (ret >= 0)
+            if (is_emulator()){
+                ret = socket_ifr_client(port , SOCK_STREAM, "eth0");
+            } else {
+                ret = socket_ifr_client(port , SOCK_STREAM, "usb0");
+                if (ret < 0) {
+                    if (ifconfig(SDB_FORWARD_IFNAME, SDB_FORWARD_INTERNAL_IP, SDB_FORWARD_INTERNAL_MASK, 1) == 0) {
+                        ret = socket_ifr_client(port , SOCK_STREAM, SDB_FORWARD_IFNAME);
+                    }
+                }
+            }
+            if (ret < 0) {
+                ret = socket_loopback_client(port, SOCK_STREAM);
+            }
+            if (ret >= 0) {
                 disable_tcp_nagle(ret);
+            }
         } else {
 #if SDB_HOST
             sdb_mutex_lock(&dns_lock);
@@ -709,9 +1021,14 @@ int service_to_fd(const char *name)
         ret = create_service_thread(log_service, get_log_file_path(name + 4));
     }*/ else if(!HOST && !strncmp(name, "shell:", 6)) {
         if(name[6]) {
-            ret = create_subproc_thread(name + 6);
+            ret = create_subproc_thread(name + 6, 0, 0);
         } else {
-            ret = create_subproc_thread(0);
+            ret = create_subproc_thread(NULL, 0, 0);
+        }
+    } else if(!strncmp(name, "eshell:", 7)) {
+        int lines, columns;
+        if (sscanf(name+7, "%d:%d", &lines, &columns) == 2) {
+            ret = create_subproc_thread(NULL, lines, columns);
         }
     } else if(!strncmp(name, "sync:", 5)) {
         //ret = create_service_thread(file_sync_service, NULL);
@@ -731,22 +1048,27 @@ int service_to_fd(const char *name)
     } else if(!strncmp(name, "restore:", 8)) {
         ret = backup_service(RESTORE, NULL);
     }*/ else if(!strncmp(name, "root:", 5)) {
-        ret = create_service_thread(rootshell_service, (void *)(name+5));
-    } else if(!strncmp(name, "tcpip:", 6)) {
-        int port;
-        /*if (sscanf(name + 6, "%d", &port) == 0) {
-            port = 0;
-        }*/
-        port = DEFAULT_SDB_LOCAL_TRANSPORT_PORT;
-        ret = create_service_thread(restart_tcp_service, (void *)port);
-    } else if(!strncmp(name, "usb:", 4)) {
-        ret = create_service_thread(restart_usb_service, NULL);
+        char* service_name = NULL;
+
+        service_name = strdup(name+5);
+        ret = create_service_thread(rootshell_service, (void *)(service_name));
     } else if(!strncmp(name, "cs:", 5)) {
         ret = create_service_thread(inoti_service, NULL);
 #endif
     } else if(!strncmp(name, "sysinfo:", 8)){
         ret = create_service_thread(get_platforminfo, 0);
+    } else if(!strncmp(name, "capability:", 11)){
+        ret = create_service_thread(get_capability, 0);
+    } else if(!strncmp(name, "boot:", 5)){
+        if (is_emulator()) {
+            ret = create_service_thread(get_boot, 0);
+        }
+    } else if(!strncmp(name, "shellconf:", 10)){
+        if(!strncmp(name+10, "syncwinsz:", 10)){
+            ret = create_service_thread(sync_windowsize, name+20);
+        }
     }
+
     if (ret >= 0) {
         if (close_on_exec(ret) < 0) {
             D("failed to close fd exec\n");

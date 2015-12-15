@@ -19,7 +19,14 @@ project (sdbd)
 option(USE_FUNCTION_FS "Use FunctionFS" NO)
 option(BUILD_UNIT_TESTS "Build unit tests" NO)
 
-set(sdbd_SRCS
+
+############################# cmake packages ##################################
+
+INCLUDE(FindPkgConfig)
+
+############################# compiler flags ##################################
+
+SET(SDBD_SRCS
 	src/sdb.c
 	src/fdevent.c
 	src/transport.c
@@ -28,6 +35,7 @@ set(sdbd_SRCS
 	src/sockets.c
 	src/services.c
 	src/file_sync_service.c
+	src/usb_linux_client.c
 	src/utils.c
 	src/socket_inaddr_any_server.c
 	src/socket_local_client.c
@@ -46,9 +54,51 @@ set(sdbd_SRCS
 	src/usb_funcfs_client.c
 )
 
-include_directories(src)
+include(FindPkgConfig)
 
-add_executable(sdbd ${sdbd_SRCS})
+pkg_check_modules(pkgs REQUIRED
+    libtzplatform-config
+    capi-system-info
+    vconf
+    glib-2.0
+    dbus-1
+    dbus-glib-1
+ )
+ 
+FOREACH(flag ${pkgs_CFLAGS})
+        SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
+ENDFOREACH(flag)
+
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
+
+INCLUDE_DIRECTORIES(src)
+
+ADD_DEFINITIONS("-O2 -g -Wall -Wno-unused-parameter -fPIE")
+ADD_DEFINITIONS("-DSDB_HOST=0")
+ADD_DEFINITIONS("-D_XOPEN_SOURCE")
+ADD_DEFINITIONS("-D_GNU_SOURCE")
+ADD_DEFINITIONS("-DHAVE_FORKEXEC")
+ADD_DEFINITIONS("-D_DROP_PRIVILEGE")
+ADD_DEFINITIONS("-D_FILE_OFFSET_BITS=64")
+
+IF (_ARM_TARGET)
+    ADD_DEFINITIONS("-DANDROID_GADGET=1")
+ENDIF (_ARM_TARGET)
+
+IF(TARGET_ARCH STREQUAL x86)
+    ADD_DEFINITIONS("-DTARGET_ARCH_X86")
+ELSE()
+    ADD_DEFINITIONS("-DTARGET_ARCH_ARM")
+ENDIF()
+
+IF(WEARABLE_PROFILE STREQUAL on)
+    ADD_DEFINITIONS("-D_WEARABLE")
+ENDIF()
+
+find_package(Threads REQUIRED)
+
+ADD_EXECUTABLE(sdbd ${SDBD_SRCS})
+TARGET_LINK_LIBRARIES(sdbd -pie -lsmack -lresolv -ldl ${CMAKE_THREAD_LIBS_INIT} ${pkgs_LDFLAGS})
 
 set_property(
 	TARGET sdbd
@@ -74,6 +124,7 @@ if(USE_FUNCTION_FS)
 	)
 endif()
 
+<<<<<<< HEAD
 ADD_DEFINITIONS("-fPIE")
 
 include(FindPkgConfig)
@@ -88,6 +139,8 @@ find_package(Threads REQUIRED)
 # Add libraries (-l...)
 target_link_libraries (sdbd -pie ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS})
 
+=======
+>>>>>>> tizen_2.4_merge
 install(TARGETS sdbd DESTINATION /usr/sbin)
 install(FILES script/sdbd DESTINATION /etc/init.d)
 

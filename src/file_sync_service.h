@@ -76,6 +76,7 @@ typedef union {
 } syncmsg;
 
 void init_sdk_sync_permit_rule_regx(void);
+
 void file_sync_service(int fd, void *cookie);
 void file_sync_subproc(int fd, void *cookie);
 int do_sync_ls(const char *path);
