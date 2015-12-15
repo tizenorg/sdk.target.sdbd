@@ -227,17 +227,6 @@ struct alistener
     adisconnect  disconnect;
 };
 
-<<<<<<< HEAD
-#define SDBD_CAP_RET_ENABLED  "enabled"
-#define SDBD_CAP_RET_DISABLED "disabled"
-#define CAPBUF_ITEMSIZE 32
-typedef struct platform_capabilities
-{
-	char usbproto_support[CAPBUF_ITEMSIZE];     // enabled or disabled
-	char sockproto_support[CAPBUF_ITEMSIZE];    // enabled or disabled
-} pcap;
-pcap g_capabilities;
-=======
 #define UNKNOWN "unknown"
 #define INFOBUF_MAXLEN 64
 #define INFO_VERSION "2.2.0"
@@ -285,7 +274,6 @@ typedef int (*SDBD_PLUGIN_CMD_PROC_PTR)(const char*, const char*, sdbd_plugin_pa
 extern SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc;
 int request_plugin_cmd(const char* cmd, const char* in_buf, char *out_buf, unsigned int out_len);
 int request_plugin_verification(const char* cmd, const char* in_buf);
->>>>>>> tizen_2.4_merge
 
 void print_packet(const char *label, apacket *p);
 

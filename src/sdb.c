@@ -1660,28 +1660,6 @@ static void init_sdk_requirements() {
 }
 #endif /* !SDB_HOST */
 
-<<<<<<< HEAD
-static void get_plugin_capability(void)
-{
-	int len;
-	char *usb_state;
-	char *sock_state;
-
-	if (is_emulator())
-		usb_state = SDBD_CAP_RET_DISABLED;
-	else
-		usb_state = SDBD_CAP_RET_ENABLED;
-
-	sock_state = SDBD_CAP_RET_ENABLED;
-
-	len = sizeof(g_capabilities.usbproto_support);
-	snprintf(g_capabilities.usbproto_support, len,
-			"%s", usb_state);
-
-	len = sizeof(g_capabilities.sockproto_support);
-	snprintf(g_capabilities.sockproto_support, len,
-			"%s", sock_state);
-=======
 int request_plugin_verification(const char* cmd, const char* in_buf) {
     char out_buf[32] = {0,};
 
@@ -1882,39 +1860,24 @@ static void init_capabilities(void) {
         snprintf(g_capabilities.sdbd_plugin_version, sizeof(g_capabilities.sdbd_plugin_version),
                     "%s", UNKNOWN);
     }
->>>>>>> tizen_2.4_merge
 }
 
 static int is_support_usbproto()
 {
-<<<<<<< HEAD
-	return (!strncmp(g_capabilities.usbproto_support,
-				SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
-=======
     return (!strncmp(g_capabilities.usbproto_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
->>>>>>> tizen_2.4_merge
 }
 
 static int is_support_sockproto()
 {
-<<<<<<< HEAD
-	return (!strncmp(g_capabilities.sockproto_support,
-				SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
-=======
     return (!strncmp(g_capabilities.sockproto_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
->>>>>>> tizen_2.4_merge
 }
 
 int sdb_main(int is_daemon, int server_port)
 {
 #if !SDB_HOST
-<<<<<<< HEAD
-    get_plugin_capability();
-=======
     load_sdbd_plugin();
     init_capabilities();
 
->>>>>>> tizen_2.4_merge
     init_drop_privileges();
     init_sdk_requirements();
     if (!request_plugin_verification(SDBD_CMD_VERIFY_LAUNCH, NULL)) {
@@ -1992,39 +1955,6 @@ int sdb_main(int is_daemon, int server_port)
         }
     }
 
-<<<<<<< HEAD
-	if (is_support_usbproto()) {
-	    if (!is_emulator()) {
-	        /* choose the usb gadget backend */
-	        if (access(USB_NODE_FILE, F_OK) == 0) {
-	            /* legacy kernel-based sdb gadget */
-	            usb_init =    &linux_usb_init;
-	            usb_cleanup = &linux_usb_cleanup;
-	            usb_write =   &linux_usb_write;
-	            usb_read =    &linux_usb_read;
-	            usb_close =   &linux_usb_close;
-	            usb_kick =    &linux_usb_kick;
-	        } else {
-	            /* functionfs based gadget */
-	            usb_init =    &ffs_usb_init;
-	            usb_cleanup = &ffs_usb_cleanup;
-	            usb_write =   &ffs_usb_write;
-	            usb_read =    &ffs_usb_read;
-	            usb_close =   &ffs_usb_close;
-	            usb_kick =    &ffs_usb_kick;
-	        }
-	        // listen on USB
-	        usb_init();
-	    }
-	}
-
-	if (is_support_sockproto()) {
-		/* by default don't listen on local transport but
-		 * listen if suitable command line argument has been provided */
-		if (sdbd_commandline_args.sdbd_port >= 0)
-			local_init(sdbd_commandline_args.sdbd_port);
-	}
-=======
     if (is_support_usbproto()) {
         /* choose the usb gadget backend */
         if (access(USB_NODE_FILE, F_OK) == 0) {
@@ -2057,7 +1987,6 @@ int sdb_main(int is_daemon, int server_port)
             local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
         }
     }
->>>>>>> tizen_2.4_merge
 
 #if 0 /* tizen specific */
     D("sdb_main(): pre init_jdwp()\n");

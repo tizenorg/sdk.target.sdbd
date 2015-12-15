@@ -124,23 +124,6 @@ if(USE_FUNCTION_FS)
 	)
 endif()
 
-<<<<<<< HEAD
-ADD_DEFINITIONS("-fPIE")
-
-include(FindPkgConfig)
-
-# Get capi-system-info
-pkg_check_modules(CAPI_SYSTEM_INFO REQUIRED capi-system-info libtzplatform-config)
-include_directories(${CAPI_SYSTEM_INFO_INCLUDE_DIRS})
-
-# Get pthreads
-find_package(Threads REQUIRED)
-
-# Add libraries (-l...)
-target_link_libraries (sdbd -pie ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS})
-
-=======
->>>>>>> tizen_2.4_merge
 install(TARGETS sdbd DESTINATION /usr/sbin)
 install(FILES script/sdbd DESTINATION /etc/init.d)
 
