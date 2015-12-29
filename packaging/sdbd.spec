@@ -16,6 +16,7 @@ Source1004:    sdbd_tcp.service
 BuildRequires: capi-system-info-devel >= 0.2.0
 BuildRequires: cmake >= 2.8.3
 BuildRequires:  pkgconfig(libtzplatform-config)
+BuildRequires: pkgconfig(libsmack)
 Requires: dbus
 %description
 Description: SDB daemon.

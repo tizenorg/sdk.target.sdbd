@@ -27,7 +27,7 @@
 #include <sys/socket.h>
 #include <sys/select.h>
 #include "sysdeps.h"
-#include "smack.h"
+#include <sys/smack.h>
 #include <tzplatform_config.h>
 
 #define TRACE_TAG  TRACE_SYNC

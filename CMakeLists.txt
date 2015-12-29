@@ -38,7 +38,6 @@ set(sdbd_SRCS
 	src/properties.c
 	src/sdktools.c
 	src/strutils.c
-	src/libsmack.c
 	src/init.c
 	src/fileutils.c
 	src/commandline_sdbd.c
@@ -86,7 +85,7 @@ include_directories(${CAPI_SYSTEM_INFO_INCLUDE_DIRS})
 find_package(Threads REQUIRED)
 
 # Add libraries (-l...)
-target_link_libraries (sdbd -pie ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS})
+target_link_libraries (sdbd -pie -lsmack ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS})
 
 install(TARGETS sdbd DESTINATION /usr/sbin)
 install(FILES script/sdbd DESTINATION /etc/init.d)
