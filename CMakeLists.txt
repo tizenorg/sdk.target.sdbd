@@ -46,7 +46,6 @@ SET(SDBD_SRCS
 	src/properties.c
 	src/sdktools.c
 	src/strutils.c
-	src/libsmack.c
 	src/init.c
 	src/fileutils.c
 	src/commandline_sdbd.c
