@@ -169,6 +169,7 @@ static void init_functionfs(struct usb_handle *h)
     if (h->control < 0) {
         D("[ %s: cannot open control endpoint ]\n", h->EP0_NAME);
         h->control = -errno;
+        sdb_mutex_unlock(&h->control_lock);
         goto error;
     }
 
@@ -178,6 +179,7 @@ static void init_functionfs(struct usb_handle *h)
     if (ret < 0) {
         D("[ %s: cannot write descriptors ]\n", h->EP0_NAME);
         h->control = -errno;
+        sdb_mutex_unlock(&h->control_lock);
         goto error;
     }
 
@@ -187,12 +189,12 @@ static void init_functionfs(struct usb_handle *h)
     if(ret < 0) {
         D("[ %s: cannot write strings ]\n", h->EP0_NAME);
         h->control = -errno;
+        sdb_mutex_unlock(&h->control_lock);
         goto error;
     }
 
     sdb_cond_signal(&h->control_notify);
     sdb_mutex_unlock(&h->control_lock);
-
 
     /* once configuration is passed to FunctionFS, io endpoints can be opened */
 
@@ -201,7 +203,7 @@ static void init_functionfs(struct usb_handle *h)
     if ((h->bulk_out = sdb_open(h->EP_OUT_NAME, O_RDWR)) < 0) {
         D("[ %s: cannot open bulk-out endpoint ]\n", h->EP_OUT_NAME);
         h->bulk_out = -errno;
-        return;
+        goto error;
     }
 
     /* open input endpoint */
@@ -209,13 +211,24 @@ static void init_functionfs(struct usb_handle *h)
     if ((h->bulk_in = sdb_open(h->EP_IN_NAME, O_RDWR)) < 0) {
         D("[ %s: cannot open bulk-in endpoint ]\n", h->EP_IN_NAME);
         h->bulk_in = -errno;
-        return;
+        goto error;
     }
 
     return;
 
 error:
-    sdb_mutex_unlock(&h->control_lock);
+    if (h->bulk_in > 0) {
+        sdb_close(h->bulk_in);
+        h->bulk_in = -1;
+    }
+    if (h->bulk_out > 0) {
+        sdb_close(h->bulk_out);
+        h->bulk_out = -1;
+    }
+    if (h->control > 0) {
+        sdb_close(h->control);
+        h->control = -1;
+    }
 }
 
 static void *usb_open_thread(void *x)

@@ -97,7 +97,7 @@ void property_save()
     }
 
     for (i = 0; sdbd_config[i].key; i++) {
-        sprintf(buffer,"%s%s%s\n", sdbd_config[i].key, PROPERTY_SEPARATOR, sdbd_config[i].value);
+        snprintf(buffer, sizeof(buffer), "%s%s%s\n", sdbd_config[i].key, PROPERTY_SEPARATOR, sdbd_config[i].value);
         sdb_write(fd, buffer, strlen(buffer));
     }
     sdb_close(fd);
