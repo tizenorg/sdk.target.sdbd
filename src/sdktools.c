@@ -212,7 +212,7 @@ int exec_app_standalone(const char* path) {
     for (i=0; i<cnt; i++) {
         D("tokenize: %dth: %s\n", i, tokens[i]);
 
-        if (!strcmp("export", tokens[i])) {
+        if (!strncmp(tokens[i]), "export", sizeof("export")) {
             flag = 0;
             i++;
             if (i>=cnt) break;
@@ -221,7 +221,7 @@ int exec_app_standalone(const char* path) {
             }
             i++;
             if (i>=cnt) break;
-            if (!strcmp("&&", tokens[i])) {
+            if (!strncmp(tokens[i]), "&&", sizeof("&&")) {
                 continue;
             }
         }
@@ -229,14 +229,14 @@ int exec_app_standalone(const char* path) {
             // TODO: check evn setting
         }
 
-        if(!strcmp(tokens[i], SDK_LAUNCH_PATH)) {
+        if(!strncmp(tokens[i], SDK_LAUNCH_PATH, sizoef(SDK_LAUNCH_PATH))) {
             int debug = 0;
             int pid = 0;
             char* pkg_id = NULL;
             char* executable = NULL;
             ++i;
             while( i < cnt ) {
-                if(!strcmp(tokens[i], "-attach")) {
+                if(!strncmp(tokens[i], "-attach", sizeof("-attach"))) {
                     if(++i < cnt) {
                         char* pid_pattern = "[1-9][0-9]{2,5}";
                         if (regcmp(pid_pattern, tokens[i])) {
@@ -244,12 +244,12 @@ int exec_app_standalone(const char* path) {
                         }
                     }
                 }
-                else if(!strcmp(tokens[i], "-p")) {
+                else if(!strncmp(tokens[i], "-p", sizeof("-p"))) {
                     if(++i < cnt) {
                         pkg_id = tokens[i];
                     }
                 }
-                else if(!strcmp(tokens[i], "-e")) {
+                else if(!strncmp(tokens[i], "-e", sizeof("-e"))) {
                     if(++i < cnt) {
                         executable = tokens[i];
                     }
@@ -351,7 +351,7 @@ int exec_app_standalone(const char* path) {
  */
 char* clone_gdbserver_label_from_app(const char* app_path) {
     char *new_appid = NULL;
-    char appid[APPID_MAX_LENGTH+1];
+    char appid[APPID_MAX_LENGTH+1] = {0, };
     char *buffer = NULL;
 
 #if 0
@@ -364,10 +364,10 @@ char* clone_gdbserver_label_from_app(const char* app_path) {
     int rc = smack_lgetlabel(app_path, &buffer, SMACK_LABEL_ACCESS);
 
     if (rc == 0 && buffer != NULL) {
-        strcpy(appid, buffer);
+        strncpy(appid, buffer, sizeof(appid) - 1);
         free(buffer);
     } else {
-        strcpy(appid, "_");
+        strncpy(appid, "_", sizeof(appid) - 1);
     }
     new_appid = (char *)malloc(sizeof(appid)+1);
     strncpy(new_appid, appid, APPID_MAX_LENGTH);
