@@ -464,9 +464,7 @@ int get_emulator_name(char str[], int str_size) {
 
 int get_device_name(char str[], int str_size) {
     char *value = NULL;
-    int r = system_info_get_platform_string(SYSTEM_INFO_KEY_MODEL, &value);
-    //XXX: check system API prototype.
-    //int r = system_info_get_platform_string("http://tizen.org/system/model_name", &value);
+    int r = system_info_get_platform_string("http://tizen.org/system/model_name", &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         D("fail to get system model:%d\n", errno);
         return -1;
