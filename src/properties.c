@@ -67,7 +67,8 @@ static void property_init(void)
         if(read_line(fd, buffer, PROPERTY_KEY_MAX+PROPERTY_VALUE_MAX+1) < 0)
             break;
         tok = strtok(buffer, PROPERTY_SEPARATOR);
-        for (i = 0; sdbd_config[i].key; i++) {
+        int array_element_cnt = sizeof(sdbd_config) / sizeof(sdbd_config[0]);
+        for (i = 0; i < array_element_cnt && sdbd_config[i].key ; i++) {
             if (!strcmp(tok, sdbd_config[i].key)) {
                 tok = strtok(NULL, PROPERTY_SEPARATOR);
                 strncpy(sdbd_config[i].value, tok, PROPERTY_VALUE_MAX);

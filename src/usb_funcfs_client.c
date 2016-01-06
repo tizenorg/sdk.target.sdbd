@@ -178,7 +178,6 @@ static void init_functionfs(struct usb_handle *h)
     ret = sdb_write(h->control, &descriptors, sizeof(descriptors));
     if (ret < 0) {
         D("[ %s: cannot write descriptors ]\n", h->EP0_NAME);
-        h->control = -errno;
         sdb_mutex_unlock(&h->control_lock);
         goto error;
     }
@@ -188,7 +187,6 @@ static void init_functionfs(struct usb_handle *h)
     ret = sdb_write(h->control, &strings, sizeof(strings));
     if(ret < 0) {
         D("[ %s: cannot write strings ]\n", h->EP0_NAME);
-        h->control = -errno;
         sdb_mutex_unlock(&h->control_lock);
         goto error;
     }

@@ -212,7 +212,7 @@ int exec_app_standalone(const char* path) {
     for (i=0; i<cnt; i++) {
         D("tokenize: %dth: %s\n", i, tokens[i]);
 
-        if (!strncmp(tokens[i], "export", sizeof("export"))) {
+        if (!strncmp(tokens[i], "export", strlen("export"))) {
             flag = 0;
             i++;
             if (i>=cnt) break;
@@ -221,7 +221,7 @@ int exec_app_standalone(const char* path) {
             }
             i++;
             if (i>=cnt) break;
-            if (!strncmp(tokens[i], "&&", sizeof("&&"))) {
+            if (!strncmp(tokens[i], "&&", strlen("&&"))) {
                 continue;
             }
         }
@@ -229,14 +229,14 @@ int exec_app_standalone(const char* path) {
             // TODO: check evn setting
         }
 
-        if(!strncmp(tokens[i], SDK_LAUNCH_PATH, sizeof(SDK_LAUNCH_PATH))) {
+        if(!strncmp(tokens[i], SDK_LAUNCH_PATH, strlen(SDK_LAUNCH_PATH))) {
             int debug = 0;
             int pid = 0;
             char* pkg_id = NULL;
             char* executable = NULL;
             ++i;
             while( i < cnt ) {
-                if(!strncmp(tokens[i], "-attach", sizeof("-attach"))) {
+                if(!strncmp(tokens[i], "-attach", strlen("-attach"))) {
                     if(++i < cnt) {
                         char* pid_pattern = "[1-9][0-9]{2,5}";
                         if (regcmp(pid_pattern, tokens[i])) {
@@ -244,12 +244,12 @@ int exec_app_standalone(const char* path) {
                         }
                     }
                 }
-                else if(!strncmp(tokens[i], "-p", sizeof("-p"))) {
+                else if(!strncmp(tokens[i], "-p", strlen("-p"))) {
                     if(++i < cnt) {
                         pkg_id = tokens[i];
                     }
                 }
-                else if(!strncmp(tokens[i], "-e", sizeof("-e"))) {
+                else if(!strncmp(tokens[i], "-e", strlen("-e"))) {
                     if(++i < cnt) {
                         executable = tokens[i];
                     }
