@@ -86,23 +86,23 @@ int linux_usb_write(usb_handle *h, const void *data, int len)
     D("about to write (fd=%d, len=%d)\n", h->fd, len);
     n = sdb_write(h->fd, data, len);
     if(n != len) {
-        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
-            h->fd, n, errno, strerror(errno));
+        D("ERROR: fd = %d, n = %d, errno = %d\n",
+            h->fd, n, errno);
         return -1;
     }
     D("[ done fd=%d ]\n", h->fd);
     return 0;
 }
 
-int linux_usb_read(usb_handle *h, void *data, int len)
+int linux_usb_read(usb_handle *h, void *data, unsigned len)
 {
     int n;
 
     D("about to read (fd=%d, len=%d)\n", h->fd, len);
     n = sdb_read(h->fd, data, len);
     if(n != len) {
-        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
-            h->fd, n, errno, strerror(errno));
+        D("ERROR: fd = %d, n = %d, errno = %d\n",
+            h->fd, n, errno);
         return -1;
     }
     D("[ done fd=%d ]\n", h->fd);
@@ -116,11 +116,16 @@ void linux_usb_init()
 //  int fd;
 
     h = calloc(1, sizeof(usb_handle));
+    if (h == NULL) {
+        D("failed to allocate memory of usb_handle\n");
+        return;
+    }
+
     h->fd = -1;
     sdb_cond_init(&h->notify, 0);
     sdb_mutex_init(&h->lock, 0);
 
-    // Open the file /dev/android_sdb_enable to trigger 
+    // Open the file /dev/android_sdb_enable to trigger
     // the enabling of the sdb USB function in the kernel.
     // We never touch this file again - just leave it open
     // indefinitely so the kernel will know when we are running

@@ -18,6 +18,11 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <errno.h>
 
 #define STRING_MAXLEN 1024
 char*
@@ -119,7 +124,82 @@ char *str_trim(const char* string)
         e--;
 
     ret = strdup(s);
+    if(ret == NULL) {
+        return NULL;
+    }
     ret[e - s + 1] = 0;
 
     return  ret;
 }
+
+int spawn(char* program, char** arg_list)
+{
+    pid_t pid;
+    int ret;
+
+    if ((pid = fork()) < 0) {
+        fprintf(stderr, "couldn't fork: %d\n", errno);
+        exit(1);
+    } else if (pid == 0) {
+            if ((pid = fork()) < 0) {
+                fprintf(stderr, "couldn't fork: %d\n", errno);
+                exit(1);
+            } else if (pid > 0) {
+                // init takes the process, and the process is not able to be zombie
+                exit(0);
+            }
+            execvp (program, arg_list);
+            fprintf(stderr, "failed to spawn: never reach here!:%s\n", program);
+            exit(0);
+    }
+    if (waitpid(pid, &ret, 0) != pid) {
+        fprintf(stderr, "failed to wait pid\n");
+    }
+
+    return pid;
+}
+
+char** str_split(char* a_str, const char a_delim) {
+	char** result = 0;
+	size_t count = 0;
+	char* tmp = a_str;
+	char* last_comma = 0;
+	char delim[2];
+	delim[0] = a_delim;
+	delim[1] = 0;
+	char *ptr;
+
+	/* Count how many elements will be extracted. */
+	while (*tmp) {
+		if (a_delim == *tmp) {
+			count++;
+			last_comma = tmp;
+		}
+		tmp++;
+	}
+
+	/* Add space for trailing token. */
+	count += last_comma < (a_str + strlen(a_str) - 1);
+
+	/* Add space for terminating null string so caller
+	 knows where the list of returned strings ends. */
+	count++;
+
+	result = malloc(sizeof(char*) * count);
+
+	if (result) {
+		size_t idx = 0;
+		char* token = strtok_r(a_str, delim, &ptr);
+
+		while (token) {
+			//assert(idx < count);
+			*(result + idx++) = strdup(token);
+			token = strtok_r(0, delim, &ptr);
+		}
+		//assert(idx == count - 1);
+		*(result + idx) = 0;
+	}
+
+	return result;
+}
+

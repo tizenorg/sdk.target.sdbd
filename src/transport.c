@@ -45,11 +45,13 @@ static void  dump_hex( const unsigned char*  ptr, size_t  len )
 
     if (len2 > MAX_DUMP_HEX_LEN) len2 = MAX_DUMP_HEX_LEN;
 
+    int pbSize = sizeof(buffer);
     for (nn = 0; nn < len2; nn++) {
-        sprintf(pb, "%02x", ptr[nn]);
+        snprintf(pb, pbSize,  "%02x", ptr[nn]);
         pb += 2;
+        pbSize -= 2;
     }
-    sprintf(pb++, " ");
+    *pb++ = ' ';
 
     for (nn = 0; nn < len2; nn++) {
         int  c = ptr[nn];
@@ -150,7 +152,7 @@ read_packet(int  fd, const char* name, apacket** ppacket)
             len -= r;
             p   += r;
         } else {
-            D("%s: read_packet (fd=%d), error ret=%d errno=%d: %s\n", name, fd, r, errno, strerror(errno));
+            D("%s: read_packet (fd=%d), error ret=%d errno=%d\n", name, fd, r, errno);
             if((r < 0) && (errno == EINTR)) continue;
             return -1;
         }
@@ -187,7 +189,7 @@ write_packet(int  fd, const char* name, apacket** ppacket)
             len -= r;
             p += r;
         } else {
-            D("%s: write_packet (fd=%d) error ret=%d errno=%d: %s\n", name, fd, r, errno, strerror(errno));
+            D("%s: write_packet (fd=%d) error ret=%d errno=%d\n", name, fd, r, errno);
             if((r < 0) && (errno == EINTR)) continue;
             return -1;
         }
@@ -533,8 +535,8 @@ transport_read_action(int  fd, struct tmsg*  m)
             p   += r;
         } else {
             if((r < 0) && (errno == EINTR)) continue;
-            D("transport_read_action: on fd %d, error %d: %s\n",
-              fd, errno, strerror(errno));
+            D("transport_read_action: on fd %d, error %d\n",
+              fd, errno);
             return -1;
         }
     }
@@ -555,8 +557,8 @@ transport_write_action(int  fd, struct tmsg*  m)
             p   += r;
         } else {
             if((r < 0) && (errno == EINTR)) continue;
-            D("transport_write_action: on fd %d, error %d: %s\n",
-              fd, errno, strerror(errno));
+            D("transport_write_action: on fd %d, error %d\n",
+              fd, errno);
             return -1;
         }
     }
@@ -886,6 +888,10 @@ void close_usb_devices()
 void register_socket_transport(int s, const char *serial, int port, int local, const char *device_name)
 {
     atransport *t = calloc(1, sizeof(atransport));
+    if (t == NULL) {
+        D("failed to allocate memory of transport struct\n");
+        return;
+    }
     char buff[32];
 
     if (!serial) {
@@ -977,24 +983,49 @@ void unregister_all_tcp_transports()
 
 #endif
 
-int get_connected_device_count(transport_type type) /* tizen specific */
+int get_connected_count(transport_type type) /* tizen specific */
 {
     int cnt = 0;
     atransport *t;
     sdb_mutex_lock(&transport_lock);
     for(t = transport_list.next; t != &transport_list; t = t->next) {
-        if (type == kTransportUsb && t->type == kTransportUsb)
+        if (type == kTransportAny || type == t->type)
             cnt++;
      }
     sdb_mutex_unlock(&transport_lock);
-    D("connected device count:%d\n",cnt);
+    if (type == kTransportUsb) {
+        D("connected device count:%d\n",cnt);
+    }
     return cnt;
+}
+
+void broadcast_transport(apacket *p)
+{
+    atransport *t;
+    sdb_mutex_lock(&transport_lock);
+    for(t = transport_list.next; t != &transport_list; t = t->next) {
+        D("broadcast device transport:%d\n", t->connection_state);
+        apacket* ap = get_apacket();
+        copy_packet(ap, p);
+
+        send_packet(ap, t);
+        if (is_pwlocked()) {
+            t->connection_state = CS_PWLOCK;
+        } else {
+            t->connection_state = CS_DEVICE;
+        }
+     }
+    sdb_mutex_unlock(&transport_lock);
 }
 
 void register_usb_transport(usb_handle *usb, const char *serial, unsigned writeable)
 {
-    atransport *t = calloc(1, sizeof(atransport));
     char device_name[256];
+    atransport *t = calloc(1, sizeof(atransport));
+    if (t == NULL) {
+        D("failed to allocate memory of transport struct\n");
+        return;
+    }
 
     D("transport: %p init'ing for usb_handle %p (sn='%s')\n", t, usb,
       serial ? serial : "");
@@ -1004,7 +1035,7 @@ void register_usb_transport(usb_handle *usb, const char *serial, unsigned writea
     }
 
     /* tizen specific */
-    sprintf(device_name, "device-%d",get_connected_device_count(kTransportUsb)+1);
+    snprintf(device_name, sizeof(device_name), "device-%d",get_connected_count(kTransportUsb)+1);
     t->device_name = strdup(device_name);
     register_transport(t);
 }
@@ -1042,7 +1073,7 @@ int readx(int fd, void *ptr, size_t len)
             p += r;
         } else {
             if (r < 0) {
-                D("readx: fd=%d error %d: %s\n", fd, errno, strerror(errno));
+                D("readx: fd=%d error %d\n", fd, errno);
                 if (errno == EINTR)
                     continue;
             } else {
@@ -1075,7 +1106,7 @@ int writex(int fd, const void *ptr, size_t len)
             p += r;
         } else {
             if (r < 0) {
-                D("writex: fd=%d error %d: %s\n", fd, errno, strerror(errno));
+                D("writex: fd=%d error %d\n", fd, errno);
                 if (errno == EINTR)
                     continue;
             } else {

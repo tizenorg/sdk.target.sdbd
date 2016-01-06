@@ -11,13 +11,22 @@ SDK_TOOLS_PATH=${TZ_SDK_TOOLS}
 
 print_usage()
 {
-    echo "usage: $0 -p <pkgid> -e <executable> -m <run|debug|da|oprofile> [-P <port>] [-attach <pid>] -t <gtest,gcov> [<args...>]"
+    echo "usage: $0 [-a <appid>] [-p <pkgid>] [-e <executable>] -m <run|debug|da|oprofile> [-P <port>] [-attach <pid>] -t <gtest,gcov> [<args...>]"
 }
 
 first="true"
 
 until [ -z "$1" ]; do
     case "$1" in
+    -a)
+        if [ -z "$2" ]
+        then
+            print_usage
+            exit 1;
+        fi
+        appid=$2
+        shift 2;
+        ;;
     -p)
         if [ -z "$2" ]
         then
@@ -110,6 +119,13 @@ until [ -z "$1" ]; do
         shift 1;
     esac
 done
+
+if [ "" != "$appid" ]
+then
+    launch_app_arg1=$appid
+else
+    launch_app_arg1=$pkgid.$exe
+fi
 
 if [ "$mode" = "debug" ]
 then
