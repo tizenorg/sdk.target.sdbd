@@ -97,7 +97,8 @@ void property_save()
         return;
     }
 
-    for (i = 0; sdbd_config[i].key; i++) {
+    int array_element_cnt = sizeof(sdbd_config) / sizeof(sdbd_config[0]);
+    for (i = 0; i < array_element_cnt && sdbd_config[i].key; i++) {
         snprintf(buffer, sizeof(buffer), "%s%s%s\n", sdbd_config[i].key, PROPERTY_SEPARATOR, sdbd_config[i].value);
         sdb_write(fd, buffer, strlen(buffer));
     }
@@ -110,7 +111,8 @@ int property_set(const char *key, const char *value)
     int i = 0;
 
     mutex_lock(&env_lock);
-    for (i = 0; sdbd_config[i].key; i++) {
+    int array_element_cnt = sizeof(sdbd_config) / sizeof(sdbd_config[0]);
+    for (i = 0; i < array_element_cnt && sdbd_config[i].key; i++) {
         if (!strcmp(key,sdbd_config[i].key)) {
             strncpy(sdbd_config[i].value, value, PROPERTY_VALUE_MAX);
             D("property set key=%s, value=%s\n", key, value);
@@ -129,7 +131,8 @@ int property_get(const char *key, char *value, const char *default_value)
 
     property_init();
     mutex_lock(&env_lock);
-    for (i = 0; sdbd_config[i].key; i++) {
+    int array_element_cnt = sizeof(sdbd_config) / sizeof(sdbd_config[0]);
+    for (i = 0; i < array_element_cnt && sdbd_config[i].key; i++) {
         if (!strcmp(key,sdbd_config[i].key)) {
             len = strlen(sdbd_config[i].value);
             memcpy(value, sdbd_config[i].value, len + 1);
