@@ -36,6 +36,22 @@
  */
 int split_host_port(const char *optarg, char **host, int *port);
 
+/*!
+ * @define print_nullable(s)
+ * Takes string (<tt>const char *</tt>) and returns it or "(null)" literal
+ * in case \c s is NULL.
+ */
+#define print_nullable(s) \
+    (((s) == NULL) ? "(NULL)" : (s))
+
+
+static void print_sdbd_command(FILE *stream, SdbdCommandlineArgs *sdbd_args) {
+    fprintf(stream, "sdbd_port [%d] \n", sdbd_args->sdbd_port);
+    fprintf(stream, "emulator  [%s:%d] \n", print_nullable(sdbd_args->emulator.host), sdbd_args->emulator.port);
+    fprintf(stream, "sdb       [%s:%d] \n", print_nullable(sdbd_args->sdb.host), sdbd_args->sdb.port);
+    fprintf(stream, "sensors   [%s:%d] \n", print_nullable(sdbd_args->sensors.host), sdbd_args->sensors.port);
+}
+
 int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[]) {
 	int split_retval;
 
@@ -69,6 +85,7 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 			if (sdbd_args->sdbd_port < 0) {
 				sdbd_args->sdbd_port = DEFAULT_SDB_LOCAL_TRANSPORT_PORT;
 			}
+			print_sdbd_command(stdout, sdbd_args);
 			break;
 		case ARG_S_SENSORS:
 			split_retval = split_host_port(optarg,
@@ -77,6 +94,7 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 			if (split_retval != SDBD_COMMANDLINE_SUCCESS) {
 				return split_retval;
 			}
+			print_sdbd_command(stdout, sdbd_args);
 			break;
 		case ARG_S_SDB:
 			split_retval = split_host_port(optarg,
@@ -85,11 +103,13 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 			if (split_retval != SDBD_COMMANDLINE_SUCCESS) {
 				return split_retval;
 			}
+			print_sdbd_command(stdout, sdbd_args);
 			break;
 		case ARG_S_SDBD_LISTEN_PORT:
 			if (sscanf(optarg, "%d", &sdbd_args->sdbd_port) < 1) {
 				return SDBD_COMMANDLINE_FAILURE;
 			}
+			print_sdbd_command(stdout, sdbd_args);
 			break;
 		case ARG_S_HELP:
 		    return SDBD_COMMANDLINE_HELP;
@@ -104,11 +124,15 @@ int parse_sdbd_commandline(SdbdCommandlineArgs *sdbd_args, int argc, char *argv[
 		}
 	}
 
+	print_sdbd_command(stdout, sdbd_args);
+
 	return SDBD_COMMANDLINE_SUCCESS;
 }
 
 
 void apply_sdbd_commandline_defaults(SdbdCommandlineArgs *sdbd_args) {
+	sdbd_args->emulator.port = -1;
+
 	sdbd_args->sensors.host = strdup(QEMU_FORWARD_IP);
 	sdbd_args->sensors.port = DEFAULT_SENSORS_LOCAL_TRANSPORT_PORT;
 

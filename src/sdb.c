@@ -1,5 +1,4 @@
-/* -*- mode: C; c-basic-offset: 4; indent-tabs-mode: nil -*-
- *
+/*
  * Copyright (c) 2011 Samsung Electronics Co., Ltd All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the License);
@@ -29,6 +28,8 @@
 #include <grp.h>
 #include <netdb.h>
 #include <tzplatform_config.h>
+#include <pthread.h>
+#include <dlfcn.h>
 
 #include "sysdeps.h"
 #include "sdb.h"
@@ -36,6 +37,8 @@
 #if !SDB_HOST
 #include "commandline_sdbd.h"
 #endif
+#include "utils.h"
+#include "sdktools.h"
 
 #if !SDB_HOST
 #include <linux/prctl.h>
@@ -44,8 +47,18 @@
 #include "usb_vendors.h"
 #endif
 #include <system_info.h>
+#include <vconf.h>
+#include "utils.h"
 #define PROC_CMDLINE_PATH "/proc/cmdline"
-#define SYSTEM_INFO_KEY_MODEL           "http://tizen.org/system/model_name"
+#define USB_SERIAL_PATH "/sys/class/usb_mode/usb0/iSerial"
+
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#define GUEST_IP_INTERFACE "eth0"
+
+SDB_MUTEX_DEFINE(zone_check_lock);
 #if SDB_TRACE
 SDB_MUTEX_DEFINE( D_lock );
 #endif
@@ -72,18 +85,33 @@ int is_emulator(void) {
 #endif
 }
 
+int is_container_enabled(void) {
+    bool value;
+    int ret;
+    ret = system_info_get_platform_bool("tizen.org/feature/container", &value);
+    if (ret != SYSTEM_INFO_ERROR_NONE) {
+        D("failed to get container information: %d\n", errno);
+        return 0;
+    } else {
+        D("tizen container: %d\n", value);
+        if (value == true)
+            return 1;
+        else
+            return 0;
+    }
+}
+
+void* g_sdbd_plugin_handle = NULL;
+SDBD_PLUGIN_CMD_PROC_PTR sdbd_plugin_cmd_proc = NULL;
+
 void handle_sig_term(int sig) {
 #ifdef SDB_PIDPATH
     if (access(SDB_PIDPATH, F_OK) == 0)
         sdb_unlink(SDB_PIDPATH);
 #endif
-    //kill(getpgid(getpid()),SIGTERM);
-    //killpg(getpgid(getpid()),SIGTERM);
-    if (!is_emulator()) {
-        exit(0);
-    } else {
-    	// do nothing on a emulator
-    }
+    char *cmd1_args[] = {"/usr/bin/killall", "/usr/bin/debug_launchpad_preloading_preinitializing_daemon", NULL};
+    spawn("/usr/bin/killall", cmd1_args);
+    sdb_sleep_ms(1000);
 }
 
 static const char *sdb_device_banner = "device";
@@ -103,7 +131,7 @@ void fatal_errno(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr, "error: %s: ", strerror(errno));
+    fprintf(stderr, "errno: %d: ", errno);
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
     va_end(ap);
@@ -319,7 +347,7 @@ static void send_close(unsigned local, unsigned remote, atransport *t)
     p->msg.arg1 = remote;
     send_packet(p, t);
 }
-static int device_status = 0; // 0:online, 1: password locked later
+
 static void send_connect(atransport *t)
 {
     D("Calling send_connect \n");
@@ -330,6 +358,11 @@ static void send_connect(atransport *t)
 
     char device_name[256]={0,};
     int r = 0;
+    int status = 0;
+    if (is_pwlocked()) {
+        status = 1;
+        t->connection_state = CS_PWLOCK;
+    }
 
     if (is_emulator()) {
         r = get_emulator_name(device_name, sizeof device_name);
@@ -337,9 +370,9 @@ static void send_connect(atransport *t)
         r = get_device_name(device_name, sizeof device_name);
     }
     if (r < 0) {
-        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, DEFAULT_DEVICENAME, device_status);
+        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, DEFAULT_DEVICENAME, status);
     } else {
-        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, device_name, device_status);
+        snprintf((char*) cp->data, sizeof cp->data, "%s::%s::%d", sdb_device_banner, device_name, status);
     }
 
     D("CNXN data:%s\n", (char*)cp->data);
@@ -351,6 +384,21 @@ static void send_connect(atransport *t)
     // allow the device some time to respond to the connect message
     sdb_sleep_ms(1000);
 #endif
+}
+
+static void send_device_status()
+{
+    D("broadcast device status\n");
+    apacket* cp = get_apacket();
+    cp->msg.command = A_STAT;
+    cp->msg.arg0 = is_pwlocked();
+    cp->msg.arg1 = 0;
+
+    broadcast_transport(cp);
+
+    //all broadcasted packets are memory copied
+    //so, we should call put_apacket
+    put_apacket(cp);
 }
 
 static char *connection_state_name(atransport *t)
@@ -388,7 +436,8 @@ static int get_str_cmdline(char *src, char *dest, char str[], int str_size) {
         return -1;
     }
 
-    s_strncpy(str, s + strlen(dest), len);
+    strncpy(str, s + strlen(dest), len);
+    str[len]='\0';
     return len;
 }
 
@@ -415,7 +464,7 @@ int get_emulator_name(char str[], int str_size) {
 
 int get_device_name(char str[], int str_size) {
     char *value = NULL;
-    int r = system_info_get_platform_string(SYSTEM_INFO_KEY_MODEL, &value);
+    int r = system_info_get_platform_string("http://tizen.org/system/model_name", &value);
     if (r != SYSTEM_INFO_ERROR_NONE) {
         D("fail to get system model:%d\n", errno);
         return -1;
@@ -442,6 +491,60 @@ int get_device_name(char str[], int str_size) {
     sdb_close(fd);
     */
     return -1;
+}
+
+static int get_cmdline_value(char *split, char str[], int str_size) {
+    char cmdline[512];
+    int fd = unix_open(PROC_CMDLINE_PATH, O_RDONLY);
+
+    if (fd < 0) {
+        D("fail to read /proc/cmdline\n");
+        return -1;
+    }
+    if(read_line(fd, cmdline, sizeof(cmdline))) {
+        D("qemu cmd: %s\n", cmdline);
+        if (get_str_cmdline(cmdline, split, str, str_size) < 1) {
+            D("could not get the (%s) value from cmdline\n", split);
+            sdb_close(fd);
+            return -1;
+        }
+    }
+    sdb_close(fd);
+    return 0;
+}
+
+int get_emulator_hostip(char str[], int str_size) {
+    return get_cmdline_value("host_ip=", str, str_size);
+}
+
+int get_emulator_guestip(char str[], int str_size) {
+    int           s;
+    struct ifreq ifr;
+    struct sockaddr_in *sin;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if(s < 0) {
+        D("socket error\n");
+        return -1;
+    }
+
+    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", GUEST_IP_INTERFACE);
+    if(ioctl(s, SIOCGIFHWADDR, &ifr) < 0) {
+        D("ioctl hwaddr error\n");
+        sdb_close(s);
+        return -1;
+    }
+
+    if(ioctl(s, SIOCGIFADDR, &ifr) < 0) {
+        D("ioctl addr error\n");
+        sdb_close(s);
+        return -1;
+    }
+    sin = (struct sockaddr_in *)&ifr.ifr_addr;
+    snprintf(str, str_size, "%s", inet_ntoa(sin->sin_addr));
+    sdb_close(s);
+
+    return 0;
 }
 
 void parse_banner(char *banner, atransport *t)
@@ -535,17 +638,22 @@ void handle_packet(apacket *p, atransport *t)
         break;
 
     case A_OPEN: /* OPEN(local-id, 0, "destination") */
-        if(t->connection_state != CS_OFFLINE) {
-            char *name = (char*) p->data;
-            name[p->msg.data_length > 0 ? p->msg.data_length - 1 : 0] = 0;
-            s = create_local_service_socket(name);
-            if(s == 0) {
-                send_close(0, p->msg.arg0, t);
-            } else {
-                s->peer = create_remote_socket(p->msg.arg0, t);
-                s->peer->peer = s;
-                send_ready(s->id, s->peer->id, t);
-                s->ready(s);
+        if (is_pwlocked() && t->connection_state == CS_PWLOCK) { // in case of already locked before get A_CNXN
+            D("open failed due to password locked before get A_CNXN:%d\n", t->connection_state);
+            send_close(0, p->msg.arg0, t);
+        } else {
+            if(t->connection_state != CS_OFFLINE) {
+                char *name = (char*) p->data;
+                name[p->msg.data_length > 0 ? p->msg.data_length - 1 : 0] = 0;
+                s = create_local_service_socket(name);
+                if(s == 0) {
+                    send_close(0, p->msg.arg0, t);
+                } else {
+                    s->peer = create_remote_socket(p->msg.arg0, t);
+                    s->peer->peer = s;
+                    send_ready(s->id, s->peer->id, t);
+                    s->ready(s);
+                }
             }
         }
         break;
@@ -811,6 +919,10 @@ static void sdb_cleanup(void)
 //    if(required_pid > 0) {
 //        kill(required_pid, SIGKILL);
 //    }
+    if (g_sdbd_plugin_handle) {
+        dlclose(g_sdbd_plugin_handle);
+        g_sdbd_plugin_handle = NULL;
+    }
 }
 
 void start_logging(void)
@@ -1096,6 +1208,40 @@ static void init_drop_privileges() {
 #endif
 }
 
+int is_pwlocked(void) {
+    int pwlock_status = 0;
+    int pwlock_type = 0;
+
+    if (vconf_get_int(VCONFKEY_IDLE_LOCK_STATE, &pwlock_status)) {
+        pwlock_status = 0;
+        D("failed to get pw lock status\n");
+    }
+#ifdef _WEARABLE
+    D("wearable lock applied\n");
+    // for wearable which uses different VCONF key (lock type)
+	if (vconf_get_int(VCONFKEY_SETAPPL_PRIVACY_LOCK_TYPE_INT, &pwlock_type)) {
+		pwlock_type = 0;
+		D("failed to get pw lock type\n");
+	}
+	  if ((pwlock_status == VCONFKEY_IDLE_LOCK) && (pwlock_type != SETTING_PRIVACY_LOCK_TYPE_NONE)) {
+		   D("device has been locked\n");
+		   return 1; // locked!
+	  }
+#else
+	D("mobile lock applied\n");
+    // for mobile
+    if (vconf_get_int(VCONFKEY_SETAPPL_SCREEN_LOCK_TYPE_INT, &pwlock_type)) {
+        pwlock_type = 0;
+        D("failed to get pw lock type\n");
+    }
+    if (pwlock_status == VCONFKEY_IDLE_LOCK && ((pwlock_type != SETTING_SCREEN_LOCK_TYPE_NONE) && (pwlock_type != SETTING_SCREEN_LOCK_TYPE_SWIPE))) {
+        D("device has been locked\n");
+        return 1; // locked!
+    }
+#endif
+    return 0; // unlocked!
+}
+
 int should_drop_privileges() {
     if (rootshell_mode == 1) { // if root, then don't drop
         return 0;
@@ -1103,20 +1249,139 @@ int should_drop_privileges() {
     return 1;
 }
 
+static void *pwlock_tmp_cb(void *x)
+{
+    int status = is_pwlocked();
+    /**
+     * FIXME: make it callback using vconf_notify_key_changed
+     */
+
+    while(1) {
+        if (status != is_pwlocked()) {
+            send_device_status();
+            status = is_pwlocked();
+        }
+        sdb_sleep_ms(3000);
+    }
+    return 0;
+}
+
+void register_pwlock_cb() {
+    D("registerd vconf callback\n");
+
+    sdb_thread_t t;
+    if(sdb_thread_create( &t, pwlock_tmp_cb, NULL)){
+        D("cannot create service thread\n");
+        return;
+    }
+}
+
+#include <dbus/dbus.h>
+#include <dbus/dbus-glib.h>
+#include <dbus/dbus-glib-lowlevel.h>
+
+#define BOOTING_DONE_SIGNAL    "BootingDone"
+#define DEVICED_CORE_INTERFACE "org.tizen.system.deviced.core"
+#define SDBD_BOOT_INFO_FILE "/tmp/sdbd_boot_info"
+
+static DBusHandlerResult __sdbd_dbus_signal_filter(DBusConnection *conn,
+		DBusMessage *message, void *user_data) {
+	D("got dbus message\n");
+	const char *interface;
+
+	DBusError error;
+	dbus_error_init(&error);
+
+	interface = dbus_message_get_interface(message);
+	if (interface == NULL) {
+		D("reject by security issue - no interface\n");
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+	}
+
+	if (dbus_message_is_signal(message, DEVICED_CORE_INTERFACE,
+			BOOTING_DONE_SIGNAL)) {
+		booting_done = 1;
+		if (access(SDBD_BOOT_INFO_FILE, F_OK) == 0) {
+			D("booting is done before\n");
+		} else {
+			FILE *f = fopen(SDBD_BOOT_INFO_FILE, "w");
+			if (f != NULL) {
+				fprintf(f, "%d", 1);
+				fclose(f);
+			}
+		}
+		D("booting is done\n");
+	}
+
+	D("handled dbus message\n");
+	return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+static void *bootdone_cb(void *x) {
+	int MAX_LOCAL_BUFSZ = 128;
+	DBusError error;
+	DBusConnection *bus;
+	char rule[MAX_LOCAL_BUFSZ];
+	GMainLoop *mainloop;
+
+	g_type_init();
+
+	dbus_error_init(&error);
+	bus = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
+	if (!bus) {
+		D("Failed to connect to the D-BUS daemon: %s", error.message);
+		dbus_error_free(&error);
+		return -1;
+	}
+	dbus_connection_setup_with_g_main(bus, NULL);
+
+	snprintf(rule, MAX_LOCAL_BUFSZ, "type='signal',interface='%s'",
+			DEVICED_CORE_INTERFACE);
+	/* listening to messages */
+	dbus_bus_add_match(bus, rule, &error);
+	if (dbus_error_is_set(&error)) {
+		D("Fail to rule set: %s", error.message);
+		dbus_error_free(&error);
+		return -1;
+	}
+
+	if (dbus_connection_add_filter(bus, __sdbd_dbus_signal_filter, NULL, NULL)
+			== FALSE)
+		return -1;
+
+	D("booting signal initialized\n");
+	mainloop = g_main_loop_new(NULL, FALSE);
+	g_main_loop_run(mainloop);
+
+	D("dbus loop exited");
+
+	return 0;
+}
+
+void register_bootdone_cb() {
+	D("registerd bootdone callback\n");
+
+	sdb_thread_t t;
+	if (sdb_thread_create(&t, bootdone_cb, NULL)) {
+		D("cannot create service thread\n");
+		return;
+	}
+}
+
 int set_developer_privileges() {
-    gid_t groups[] = { GID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
+    gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
     if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
-        D("set groups failed (errno: %d, %s)\n", errno, strerror(errno));
+        D("set groups failed (errno: %d)\n", errno);
     }
 
     // then switch user and group to developer
-    if (setgid(GID_DEVELOPER) != 0) {
-        D("set group id failed (errno: %d, %s)\n", errno, strerror(errno));
+    if (setgid(SID_DEVELOPER) != 0) {
+        D("set group id failed (errno: %d)\n", errno);
         return -1;
     }
 
     if (setuid(SID_DEVELOPER) != 0) {
-        D("set user id failed (errno: %d, %s)\n", errno, strerror(errno));
+        D("set user id failed (errno: %d)\n", errno);
         return -1;
     }
 
@@ -1138,6 +1403,226 @@ int set_developer_privileges() {
     return 1;
 }
 #define ONDEMAND_ROOT_PATH tzplatform_getenv(TZ_SDK_HOME)
+
+static void execute_required_process() {
+    char *cmd_args[] = {"/usr/bin/debug_launchpad_preloading_preinitializing_daemon",NULL};
+
+    spawn("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", cmd_args);
+}
+
+/* default plugin proc */
+static int get_plugin_capability(const char* in_buf, sdbd_plugin_param out) {
+    int ret = SDBD_PLUGIN_RET_NOT_SUPPORT;
+
+    if (in_buf == NULL) {
+        D("Invalid argument\n");
+        return SDBD_PLUGIN_RET_FAIL;
+    }
+
+    if (SDBD_CMP_CAP(in_buf, SECURE)) {
+        snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, INTER_SHELL)) {
+        snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, FILESYNC)) {
+        // - push : SDBD_CAP_RET_PUSH
+        // - pull : SDBD_CAP_RET_PULL
+        // - both : SDBD_CAP_RET_PUSHPULL
+        // - disabled : SDBD_CAP_RET_DISABLED
+        snprintf(out.data, out.len, "%s", SDBD_CAP_RET_PUSHPULL);
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, USBPROTO)) {
+        if (is_emulator()) {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
+        } else {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        }
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, SOCKPROTO)) {
+        if (is_emulator()) {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        } else {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        }
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, ROOTONOFF)) {
+        if (access("/bin/su", F_OK) == 0) {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        } else {
+            snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
+        }
+    } else if (SDBD_CMP_CAP(in_buf, PLUGIN_VER)) {
+        snprintf(out.data, out.len, "%s", UNKNOWN);
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, PRODUCT_VER)) {
+        snprintf(out.data, out.len, "%s", UNKNOWN);
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    }
+
+    return ret;
+}
+
+static int verify_shell_cmd(const char* in_buf, sdbd_plugin_param out) {
+    int ret = SDBD_PLUGIN_RET_FAIL;
+
+    if (in_buf == NULL) {
+        D("Invalid argument\n");
+        return SDBD_PLUGIN_RET_FAIL;
+    }
+
+    D("shell command : %s\n", in_buf);
+
+    snprintf(out.data, out.len, "%s", SDBD_RET_VALID);
+    ret = SDBD_PLUGIN_RET_SUCCESS;
+
+    return ret;
+}
+
+static int convert_shell_cmd(const char* in_buf, sdbd_plugin_param out) {
+    int ret = SDBD_PLUGIN_RET_FAIL;
+
+    if (in_buf == NULL) {
+        D("Invalid argument\n");
+        return SDBD_PLUGIN_RET_FAIL;
+    }
+
+    snprintf(out.data, out.len, "%s", in_buf);
+    ret = SDBD_PLUGIN_RET_SUCCESS;
+
+    return ret;
+}
+
+static int verify_peer_ip(const char* in_buf, sdbd_plugin_param out) {
+    int ret = SDBD_PLUGIN_RET_FAIL;
+
+    if (in_buf == NULL) {
+        D("Invalid argument\n");
+        return SDBD_PLUGIN_RET_FAIL;
+    }
+
+    D("peer ip : %s\n", in_buf);
+
+    snprintf(out.data, out.len, "%s", SDBD_RET_VALID);
+    ret = SDBD_PLUGIN_RET_SUCCESS;
+
+    return ret;
+}
+
+static int verify_sdbd_launch(const char* in_buf, sdbd_plugin_param out) {
+    snprintf(out.data, out.len, "%s", SDBD_RET_VALID);
+    return SDBD_PLUGIN_RET_SUCCESS;
+}
+
+static int verify_root_cmd(const char* in_buf, sdbd_plugin_param out) {
+    int ret = SDBD_PLUGIN_RET_FAIL;
+
+    if (in_buf == NULL) {
+        D("Invalid argument\n");
+        return SDBD_PLUGIN_RET_FAIL;
+    }
+
+    D("shell command : %s\n", in_buf);
+
+    if (verify_root_commands(in_buf)) {
+        snprintf(out.data, out.len, "%s", SDBD_RET_VALID);
+    } else {
+        snprintf(out.data, out.len, "%s", SDBD_RET_INVALID);
+    }
+    ret = SDBD_PLUGIN_RET_SUCCESS;
+
+    return ret;
+}
+
+int default_cmd_proc(const char* cmd,
+                    const char* in_buf, sdbd_plugin_param out) {
+    int ret = SDBD_PLUGIN_RET_NOT_SUPPORT;
+
+    /* Check the arguments */
+    if (cmd == NULL || out.data == NULL) {
+        D("Invalid argument\n");
+        return SDBD_PLUGIN_RET_FAIL;
+    }
+
+    D("handle the command : %s\n", cmd);
+
+    /* Handle the request from sdbd */
+    if (SDBD_CMP_CMD(cmd, PLUGIN_CAP)) {
+        ret = get_plugin_capability(in_buf, out);
+    } else if (SDBD_CMP_CMD(cmd, VERIFY_SHELLCMD)) {
+        ret = verify_shell_cmd(in_buf, out);
+    } else if (SDBD_CMP_CMD(cmd, CONV_SHELLCMD)) {
+        ret = convert_shell_cmd(in_buf, out);
+    } else if (SDBD_CMP_CMD(cmd, VERIFY_PEERIP)) {
+        ret = verify_peer_ip(in_buf, out);
+    } else if (SDBD_CMP_CMD(cmd, VERIFY_LAUNCH)) {
+        ret = verify_sdbd_launch(in_buf, out);
+    } else if (SDBD_CMP_CMD(cmd, VERIFY_ROOTCMD)) {
+        ret = verify_root_cmd(in_buf, out);
+    } else {
+        D("Not supported command : %s\n", cmd);
+        ret = SDBD_PLUGIN_RET_NOT_SUPPORT;
+    }
+
+    return ret;
+}
+
+int request_plugin_cmd(const char* cmd, const char* in_buf,
+                        char *out_buf, unsigned int out_len)
+{
+    int ret = SDBD_PLUGIN_RET_FAIL;
+    sdbd_plugin_param out;
+
+    if (out_len > SDBD_PLUGIN_OUTBUF_MAX) {
+        D("invalid parameter : %s\n", cmd);
+        return 0;
+    }
+
+    out.data = out_buf;
+    out.len = out_len;
+
+    ret = sdbd_plugin_cmd_proc(cmd, in_buf, out);
+    if (ret == SDBD_PLUGIN_RET_FAIL) {
+        D("failed to request : %s\n", cmd);
+        return 0;
+    }
+    if (ret == SDBD_PLUGIN_RET_NOT_SUPPORT) {
+        // retry in default handler
+        ret = default_cmd_proc(cmd, in_buf, out);
+        if (ret == SDBD_PLUGIN_RET_FAIL) {
+            D("failed to request : %s\n", cmd);
+            return 0;
+        }
+    }
+
+    // add null character.
+    out_buf[out_len-1] = '\0';
+    D("return value: %s\n", out_buf);
+
+    return 1;
+}
+
+static void load_sdbd_plugin() {
+    sdbd_plugin_cmd_proc = NULL;
+
+    g_sdbd_plugin_handle = dlopen(SDBD_PLUGIN_PATH, RTLD_NOW);
+    if (!g_sdbd_plugin_handle) {
+        D("failed to dlopen(%s). error: %s\n", SDBD_PLUGIN_PATH, dlerror());
+        sdbd_plugin_cmd_proc = default_cmd_proc;
+        return;
+    }
+
+    sdbd_plugin_cmd_proc = dlsym(g_sdbd_plugin_handle, SDBD_PLUGIN_INTF);
+    if (!sdbd_plugin_cmd_proc) {
+        D("failed to get the sdbd plugin interface. error: %s\n", dlerror());
+        dlclose(g_sdbd_plugin_handle);
+        g_sdbd_plugin_handle = NULL;
+        sdbd_plugin_cmd_proc = default_cmd_proc;
+        return;
+    }
+
+    D("using sdbd plugin interface.(%s)\n", SDBD_PLUGIN_PATH);
+}
 
 static void init_sdk_requirements() {
     struct stat st;
@@ -1163,49 +1648,241 @@ static void init_sdk_requirements() {
         }
     }
 
+    execute_required_process();
+
+    register_pwlock_cb();
+
+    if (is_emulator()) {
+        register_bootdone_cb();
+    }
 }
 #endif /* !SDB_HOST */
 
-static void get_plugin_capability(void)
+int request_plugin_verification(const char* cmd, const char* in_buf) {
+    char out_buf[32] = {0,};
+
+    if(!request_plugin_cmd(cmd, in_buf, out_buf, sizeof(out_buf))) {
+        D("failed to request plugin command. : %s\n", SDBD_CMD_VERIFY_LAUNCH);
+        return 0;
+    }
+
+    if (strlen(out_buf) == 7 && !strncmp(out_buf, SDBD_RET_INVALID, 7)) {
+        D("[%s] is NOT verified.\n", cmd);
+        return 0;
+    }
+
+    D("[%s] is verified.\n", cmd);
+    return 1;
+}
+
+static char* get_cpu_architecture()
 {
-	int len;
-	char *usb_state;
-	char *sock_state;
+    int ret = 0;
+    bool b_value = false;
 
-	if (is_emulator())
-		usb_state = SDBD_CAP_RET_DISABLED;
-	else
-		usb_state = SDBD_CAP_RET_ENABLED;
+    ret = system_info_get_platform_bool(
+            "http://tizen.org/feature/platform.core.cpu.arch.armv6", &b_value);
+    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
+        return CPUARCH_ARMV6;
+    }
 
-	sock_state = SDBD_CAP_RET_ENABLED;
+    ret = system_info_get_platform_bool(
+            "http://tizen.org/feature/platform.core.cpu.arch.armv7", &b_value);
+    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
+        return CPUARCH_ARMV7;
+    }
 
-	len = sizeof(g_capabilities.usbproto_support);
-	snprintf(g_capabilities.usbproto_support, len,
-			"%s", usb_state);
+    ret = system_info_get_platform_bool(
+            "http://tizen.org/feature/platform.core.cpu.arch.x86", &b_value);
+    if (ret == SYSTEM_INFO_ERROR_NONE && b_value) {
+        return CPUARCH_X86;
+    }
 
-	len = sizeof(g_capabilities.sockproto_support);
-	snprintf(g_capabilities.sockproto_support, len,
-			"%s", sock_state);
+    D("fail to get the CPU architecture of model:%d\n", errno);
+    return UNKNOWN;
+}
+
+static void init_capabilities(void) {
+    int ret = -1;
+    char *value = NULL;
+
+    memset(&g_capabilities, 0, sizeof(g_capabilities));
+
+    // CPU Architecture of model
+    snprintf(g_capabilities.cpu_arch, sizeof(g_capabilities.cpu_arch),
+                "%s", get_cpu_architecture());
+
+
+    // Secure protocol support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_SECURE,
+                            g_capabilities.secure_protocol,
+                            sizeof(g_capabilities.secure_protocol))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_SECURE);
+        snprintf(g_capabilities.secure_protocol, sizeof(g_capabilities.secure_protocol),
+                    "%s", DISABLED);
+    }
+
+
+    // Interactive shell support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_INTER_SHELL,
+                            g_capabilities.intershell_support,
+                            sizeof(g_capabilities.intershell_support))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_INTER_SHELL);
+        snprintf(g_capabilities.intershell_support, sizeof(g_capabilities.intershell_support),
+                    "%s", DISABLED);
+    }
+
+
+    // File push/pull support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_FILESYNC,
+                            g_capabilities.filesync_support,
+                            sizeof(g_capabilities.filesync_support))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_FILESYNC);
+        snprintf(g_capabilities.filesync_support, sizeof(g_capabilities.filesync_support),
+                    "%s", DISABLED);
+    }
+
+
+    // USB protocol support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_USBPROTO,
+                            g_capabilities.usbproto_support,
+                            sizeof(g_capabilities.usbproto_support))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_USBPROTO);
+        snprintf(g_capabilities.usbproto_support, sizeof(g_capabilities.usbproto_support),
+                    "%s", DISABLED);
+    }
+
+
+    // Socket protocol support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_SOCKPROTO,
+                            g_capabilities.sockproto_support,
+                            sizeof(g_capabilities.sockproto_support))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_SOCKPROTO);
+        snprintf(g_capabilities.sockproto_support, sizeof(g_capabilities.sockproto_support),
+                    "%s", DISABLED);
+    }
+
+
+    // Root command support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_ROOTONOFF,
+                            g_capabilities.rootonoff_support,
+                            sizeof(g_capabilities.rootonoff_support))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_ROOTONOFF);
+        snprintf(g_capabilities.rootonoff_support, sizeof(g_capabilities.rootonoff_support),
+                    "%s", DISABLED);
+    }
+
+
+    // Zone support
+    ret = is_container_enabled();
+    snprintf(g_capabilities.zone_support, sizeof(g_capabilities.zone_support),
+                "%s", ret == 1 ? ENABLED : DISABLED);
+
+
+    // Multi-User support
+    // TODO: get this information from platform.
+    snprintf(g_capabilities.multiuser_support, sizeof(g_capabilities.multiuser_support),
+                "%s", DISABLED);
+
+
+    // Window size synchronization support
+    snprintf(g_capabilities.syncwinsz_support, sizeof(g_capabilities.syncwinsz_support),
+                "%s", ENABLED);
+
+
+    // Profile name
+    ret = system_info_get_platform_string("http://tizen.org/feature/profile", &value);
+    if (ret != SYSTEM_INFO_ERROR_NONE) {
+        snprintf(g_capabilities.profile_name, sizeof(g_capabilities.profile_name),
+                    "%s", UNKNOWN);
+        D("fail to get profile name:%d\n", errno);
+    } else {
+        snprintf(g_capabilities.profile_name, sizeof(g_capabilities.profile_name),
+                    "%s", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+
+    // Vendor name
+    ret = system_info_get_platform_string("http://tizen.org/system/manufacturer", &value);
+    if (ret != SYSTEM_INFO_ERROR_NONE) {
+        snprintf(g_capabilities.vendor_name, sizeof(g_capabilities.vendor_name),
+                    "%s", UNKNOWN);
+        D("fail to get the Vendor name:%d\n", errno);
+    } else {
+        snprintf(g_capabilities.vendor_name, sizeof(g_capabilities.vendor_name),
+                    "%s", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+
+    // Platform version
+    ret = system_info_get_platform_string("http://tizen.org/feature/platform.version", &value);
+    if (ret != SYSTEM_INFO_ERROR_NONE) {
+        snprintf(g_capabilities.platform_version, sizeof(g_capabilities.platform_version),
+                    "%s", UNKNOWN);
+        D("fail to get platform version:%d\n", errno);
+    } else {
+        snprintf(g_capabilities.platform_version, sizeof(g_capabilities.platform_version),
+                    "%s", value);
+        if (value != NULL) {
+            free(value);
+        }
+    }
+
+
+    // Product version
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_PRODUCT_VER,
+                            g_capabilities.product_version,
+                            sizeof(g_capabilities.product_version))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_PRODUCT_VER);
+        snprintf(g_capabilities.product_version, sizeof(g_capabilities.product_version),
+                    "%s", UNKNOWN);
+    }
+
+
+    // Sdbd version
+    snprintf(g_capabilities.sdbd_version, sizeof(g_capabilities.sdbd_version),
+                "%d.%d.%d", SDB_VERSION_MAJOR, SDB_VERSION_MINOR, SDB_VERSION_PATCH);
+
+
+    // Sdbd plugin version
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_PLUGIN_VER,
+                            g_capabilities.sdbd_plugin_version,
+                            sizeof(g_capabilities.sdbd_plugin_version))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_PLUGIN_VER);
+        snprintf(g_capabilities.sdbd_plugin_version, sizeof(g_capabilities.sdbd_plugin_version),
+                    "%s", UNKNOWN);
+    }
 }
 
 static int is_support_usbproto()
 {
-	return (!strncmp(g_capabilities.usbproto_support,
-				SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+    return (!strncmp(g_capabilities.usbproto_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
 }
 
 static int is_support_sockproto()
 {
-	return (!strncmp(g_capabilities.sockproto_support,
-				SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+    return (!strncmp(g_capabilities.sockproto_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
 }
 
 int sdb_main(int is_daemon, int server_port)
 {
 #if !SDB_HOST
-    get_plugin_capability();
+    load_sdbd_plugin();
+    init_capabilities();
+
     init_drop_privileges();
     init_sdk_requirements();
+    if (!request_plugin_verification(SDBD_CMD_VERIFY_LAUNCH, NULL)) {
+        D("sdbd should be launched in develop mode.\n");
+        return -1;
+    }
+
     umask(000);
 #endif
 
@@ -1276,37 +1953,38 @@ int sdb_main(int is_daemon, int server_port)
         }
     }
 
-	if (is_support_usbproto()) {
-	    if (!is_emulator()) {
-	        /* choose the usb gadget backend */
-	        if (access(USB_NODE_FILE, F_OK) == 0) {
-	            /* legacy kernel-based sdb gadget */
-	            usb_init =    &linux_usb_init;
-	            usb_cleanup = &linux_usb_cleanup;
-	            usb_write =   &linux_usb_write;
-	            usb_read =    &linux_usb_read;
-	            usb_close =   &linux_usb_close;
-	            usb_kick =    &linux_usb_kick;
-	        } else {
-	            /* functionfs based gadget */
-	            usb_init =    &ffs_usb_init;
-	            usb_cleanup = &ffs_usb_cleanup;
-	            usb_write =   &ffs_usb_write;
-	            usb_read =    &ffs_usb_read;
-	            usb_close =   &ffs_usb_close;
-	            usb_kick =    &ffs_usb_kick;
-	        }
-	        // listen on USB
-	        usb_init();
-	    }
-	}
+    if (is_support_usbproto()) {
+        /* choose the usb gadget backend */
+        if (access(USB_NODE_FILE, F_OK) == 0) {
+            /* legacy kernel-based sdb gadget */
+            usb_init =    &linux_usb_init;
+            usb_cleanup = &linux_usb_cleanup;
+            usb_write =   &linux_usb_write;
+            usb_read =    &linux_usb_read;
+            usb_close =   &linux_usb_close;
+            usb_kick =    &linux_usb_kick;
+        } else {
+            /* functionfs based gadget */
+            usb_init =    &ffs_usb_init;
+            usb_cleanup = &ffs_usb_cleanup;
+            usb_write =   &ffs_usb_write;
+            usb_read =    &ffs_usb_read;
+            usb_close =   &ffs_usb_close;
+            usb_kick =    &ffs_usb_kick;
+        }
 
-	if (is_support_sockproto()) {
-		/* by default don't listen on local transport but
-		 * listen if suitable command line argument has been provided */
-		if (sdbd_commandline_args.sdbd_port >= 0)
-			local_init(sdbd_commandline_args.sdbd_port);
-	}
+        // listen on USB
+        usb_init();
+    }
+    if (is_support_sockproto()) {
+        /* by default don't listen on local transport but
+         * listen if suitable command line argument has been provided */
+        if (sdbd_commandline_args.sdbd_port >= 0) {
+            local_init(sdbd_commandline_args.sdbd_port);
+        } else {
+            local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
+        }
+    }
 
 #if 0 /* tizen specific */
     D("sdb_main(): pre init_jdwp()\n");
@@ -1344,7 +2022,7 @@ void connect_device(char* host, char* buffer, int buffer_size)
     char hostbuf[100];
     char serial[100];
 
-    strncpy(hostbuf, host, sizeof(hostbuf) - 1);
+    s_strncpy(hostbuf, host, sizeof(hostbuf) - 1);
     if (portstr) {
         if (portstr - host >= sizeof(hostbuf)) {
             snprintf(buffer, buffer_size, "bad host name %s", host);
@@ -1434,6 +2112,31 @@ void connect_emulator(char* port_spec, char* buffer, int buffer_size)
     }
 }
 #endif
+
+int copy_packet(apacket* dest, apacket* src) {
+
+    if(dest == NULL) {
+        D("dest packet is NULL\n");
+        return -1;
+    }
+
+    if(src == NULL) {
+        D("src packet is NULL\n");
+        return -1;
+    }
+
+    dest->next = src->next;
+    dest->ptr = src->ptr;
+    dest->len = src->len;
+
+    int data_length = src->msg.data_length;
+    if(data_length > MAX_PAYLOAD) {
+        data_length = MAX_PAYLOAD;
+    }
+    memcpy(&(dest->msg), &(src->msg), sizeof(amessage) + data_length);
+
+    return 0;
+}
 
 int handle_host_request(char *service, transport_type ttype, char* serial, int reply_fd, asocket *s)
 {
@@ -1671,7 +2374,7 @@ int main(int argc, char **argv)
 
 #if !SDB_HOST
     if (daemonize() < 0)
-        fatal("daemonize() failed: %.200s", strerror(errno));
+        fatal("daemonize() failed: errno:%d", errno);
 #endif
 
     start_device_log();

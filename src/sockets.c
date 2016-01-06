@@ -25,6 +25,7 @@
 
 #define  TRACE_TAG  TRACE_SOCKETS
 #include "sdb.h"
+#include "strutils.h"
 
 SDB_MUTEX_DEFINE( socket_list_lock );
 
@@ -152,7 +153,7 @@ static int local_socket_enqueue(asocket *s, apacket *p)
             continue;
         }
         if((r == 0) || (errno != EAGAIN)) {
-            D( "LS(%d): not ready, errno=%d: %s\n", s->id, errno, strerror(errno) );
+            D( "LS(%d): not ready, errno=%d\n", s->id, errno);
             s->close(s);
             return 1; /* not ready (error) */
         } else {
@@ -199,7 +200,6 @@ static void local_socket_close(asocket *s)
 static void local_socket_destroy(asocket  *s)
 {
     apacket *p, *n;
-    int exit_on_close = s->exit_on_close;
 
     D("LS(%d): destroying fde.fd=%d\n", s->id, s->fde.fd);
 
@@ -216,11 +216,6 @@ static void local_socket_destroy(asocket  *s)
     }
     remove_socket(s);
     free(s);
-
-    if (exit_on_close) {
-        D("local_socket_destroy: exiting\n");
-        exit(1);
-    }
 }
 
 
@@ -428,15 +423,6 @@ asocket *create_local_service_socket(const char *name)
     s = create_local_socket(fd);
     D("LS(%d): bound to '%s' via %d\n", s->id, name, fd);
 
-#if !SDB_HOST
-    if ((!strncmp(name, "root:", 5) && getuid() != 0)
-        || !strncmp(name, "usb:", 4)
-        || !strncmp(name, "tcpip:", 6)) {
-        D("LS(%d): enabling exit_on_close\n", s->id);
-        s->exit_on_close = 1;
-    }
-#endif
-
     return s;
 }
 
@@ -554,7 +540,7 @@ void connect_to_remote(asocket *s, const char *destination)
     p->msg.command = A_OPEN;
     p->msg.arg0 = s->id;
     p->msg.data_length = len;
-    strcpy((char*) p->data, destination);
+    s_strncpy((char*) p->data, destination, len);
     send_packet(p, s->transport);
 }
 

@@ -38,11 +38,11 @@ int socket_local_client(const char *name, int namespaceId, int type)
 #include <sys/types.h>
 
 #include "socket_local.h"
-
+#include "strutils.h"
 #define LISTEN_BACKLOG 4
 
 /* Documented in header file. */
-int socket_make_sockaddr_un(const char *name, int namespaceId, 
+int socket_make_sockaddr_un(const char *name, int namespaceId,
         struct sockaddr_un *p_addr, socklen_t *alen)
 {
     memset (p_addr, 0, sizeof (*p_addr));
@@ -62,7 +62,7 @@ int socket_make_sockaddr_un(const char *name, int namespaceId,
              * Note: The path in this case is *not* supposed to be
              * '\0'-terminated. ("man 7 unix" for the gory details.)
              */
-            
+
             p_addr->sun_path[0] = 0;
             memcpy(p_addr->sun_path + 1, name, namelen);
 #else /*HAVE_LINUX_LOCAL_SOCKET_NAMESPACE*/
@@ -70,37 +70,37 @@ int socket_make_sockaddr_un(const char *name, int namespaceId,
 
             namelen = strlen(name) + strlen(FILESYSTEM_SOCKET_PREFIX);
             /* unix_path_max appears to be missing on linux */
-            if (namelen > sizeof(*p_addr) 
+            if (namelen > sizeof(*p_addr)
                     - offsetof(struct sockaddr_un, sun_path) - 1) {
                 goto error;
             }
 
-            strcpy(p_addr->sun_path, FILESYSTEM_SOCKET_PREFIX);
-            strcat(p_addr->sun_path, name);
+            s_strncpy(p_addr->sun_path, FILESYSTEM_SOCKET_PREFIX, strlen(FILESYSTEM_SOCKET_PREFIX));
+            strncat(p_addr->sun_path, name, strlen(name));
 #endif /*HAVE_LINUX_LOCAL_SOCKET_NAMESPACE*/
         break;
 
         case ANDROID_SOCKET_NAMESPACE_RESERVED:
             namelen = strlen(name) + strlen(ANDROID_RESERVED_SOCKET_PREFIX);
             /* unix_path_max appears to be missing on linux */
-            if (namelen > sizeof(*p_addr) 
+            if (namelen > sizeof(*p_addr)
                     - offsetof(struct sockaddr_un, sun_path) - 1) {
                 goto error;
             }
 
-            strcpy(p_addr->sun_path, ANDROID_RESERVED_SOCKET_PREFIX);
-            strcat(p_addr->sun_path, name);
+            s_strncpy(p_addr->sun_path, ANDROID_RESERVED_SOCKET_PREFIX, strlen(ANDROID_RESERVED_SOCKET_PREFIX));
+            strncat(p_addr->sun_path, name, strlen(name));
         break;
 
         case ANDROID_SOCKET_NAMESPACE_FILESYSTEM:
             namelen = strlen(name);
             /* unix_path_max appears to be missing on linux */
-            if (namelen > sizeof(*p_addr) 
+            if (namelen > sizeof(*p_addr)
                     - offsetof(struct sockaddr_un, sun_path) - 1) {
                 goto error;
             }
 
-            strcpy(p_addr->sun_path, name);
+            s_strncpy(p_addr->sun_path, name, strlen(name));
         break;
         default:
             // invalid namespace id
@@ -118,10 +118,10 @@ error:
  * connect to peer named "name" on fd
  * returns same fd or -1 on error.
  * fd is not closed on error. that's your job.
- * 
+ *
  * Used by AndroidSocketImpl
  */
-int socket_local_client_connect(int fd, const char *name, int namespaceId, 
+int socket_local_client_connect(int fd, const char *name, int namespaceId,
         int type)
 {
     struct sockaddr_un addr;
@@ -144,7 +144,7 @@ error:
     return -1;
 }
 
-/** 
+/**
  * connect to peer named "name"
  * returns fd or -1 on error
  */

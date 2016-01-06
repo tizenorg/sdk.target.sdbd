@@ -6,11 +6,12 @@ extern "C" {
 #endif
 #include <tzplatform_config.h>
 
+#define PERMITTED_ARGUMENT_SIZE 20
 struct sudo_command
 {
   const char *command;
   const char *path;
-  //const char *arguments;
+  const char *arguments[PERMITTED_ARGUMENT_SIZE];
   //const char *regx;
   //int   permission; /* 0: root, 1: developer, 2: app*/
 };
@@ -37,18 +38,11 @@ struct arg_permit_rule
 #define SDBD_LABEL_NAME                         "sdbd"
 #define SDK_HOME_LABEL_NAME                     "sdbd::home"
 
-void init_sdk_arg_permit_rule_pattern(void);
-int verify_commands(const char *arg1);
 int verify_root_commands(const char *arg1);
 int verify_app_path(const char* path);
 int regcmp(const char* pattern, const char* str);
-int exec_app_standalone(const char* path);
-char* clone_gdbserver_label_from_app(const char* app_path);
-int set_smack_rules_for_gdbserver(const char* apppath, int mode);
-void apply_app_process();
-void set_appuser_groups(void);
 int is_root_commands(const char *command);
-int apply_sdb_rules(const char* subject, const char* object, const char* access_type);
+int is_pkg_file_path(const char* path);
 
 #ifdef __cplusplus
 }
