@@ -296,6 +296,9 @@ static void *server_socket_thread(void * arg)
             } else {
                 register_socket_transport(fd, "host", port, 1, NULL);
             }
+        } else {
+            D("failed to accept() from sdb server\n");
+            //FIXME: implements error handle for EMFILE or ENFILE
         }
     }
     D("transport: server_socket_thread() exiting\n");

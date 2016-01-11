@@ -32,6 +32,12 @@ static atransport transport_list = {
     .prev = &transport_list,
 };
 
+static atransport pending_list = {
+    .next = &pending_list,
+    .prev = &pending_list,
+};
+
+
 SDB_MUTEX_DEFINE( transport_lock );
 
 #if SDB_TRACE
@@ -302,7 +308,7 @@ static void *output_thread(void *_t)
     }
 
 oops:
-    D("%s: transport output thread is exiting\n", t->serial);
+    D("%s: transport output thread is exiting, fd %d, sfd %d\n", t->serial, t->fd, t->sfd);
     kick_transport(t);
     transport_unref(t);
     return 0;
@@ -360,7 +366,7 @@ static void *input_thread(void *_t)
     // while a client socket is still active.
     close_all_sockets(t);
 
-    D("%s: transport input thread is exiting, fd %d\n", t->serial, t->fd);
+    D("%s: transport input thread is exiting, fd %d, sfd %d\n", t->serial, t->fd, t->sfd);
     kick_transport(t);
     transport_unref(t);
     return 0;
@@ -649,8 +655,13 @@ static void transport_registration_func(int _fd, unsigned ev, void *data)
         }
     }
 
-        /* put us on the master device list */
     sdb_mutex_lock(&transport_lock);
+    if (t->type == kTransportLocal) {
+        /* remove the transport from pending list */
+        t->next->prev = t->prev;
+        t->prev->next = t->next;
+    }
+    /* put us on the master device list */
     t->next = &transport_list;
     t->prev = transport_list.prev;
     t->next->prev = t;
@@ -709,7 +720,7 @@ static void transport_unref_locked(atransport *t)
 {
     t->ref_count--;
     if (t->ref_count == 0) {
-        D("transport: %s unref (kicking and closing)\n", t->serial);
+        D("transport: %s unref (kicking and closing), fd %d, sfd %d\n", t->serial, t->fd, t->sfd);
         if (!t->kicked) {
             t->kicked = 1;
             t->kick(t);
@@ -910,9 +921,35 @@ void register_socket_transport(int s, const char *serial, int port, int local, c
 #endif
         return;
     }
-    if(serial) {
-        t->serial = strdup(serial);
-    }
+
+    /* Allow ONLY a single connection with sdb server. */
+    sdb_mutex_lock(&transport_lock);
+    atransport *old_t;
+    for(old_t = pending_list.next; old_t != &pending_list; old_t = old_t->next) {
+        if (old_t->serial && !strcmp(serial, old_t->serial)) {
+            sdb_mutex_unlock(&transport_lock);
+            sdb_close(s);
+            free(t);
+            return;
+        }
+     }
+
+    for(old_t = transport_list.next; old_t != &transport_list; old_t = old_t->next) {
+        if (old_t->serial && !strcmp(serial, old_t->serial)) {
+            sdb_mutex_unlock(&transport_lock);
+            sdb_close(s);
+            free(t);
+            return;
+        }
+     }
+
+    t->next = &pending_list;
+    t->prev = pending_list.prev;
+    t->next->prev = t;
+    t->prev->next = t;
+    t->serial = strdup(serial);
+    sdb_mutex_unlock(&transport_lock);
+
 #if SDB_HOST /* tizen specific */
     if (device_name) {/* tizen specific */
         t->device_name = strdup(device_name);
