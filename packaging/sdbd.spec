@@ -105,3 +105,5 @@ fi
 /usr/bin/profile_command
 
 %changelog
+* Thu Jan 28 2016 - Shingil Kang <shingil.kang@samsung.com>
+- Merged tizen_2.4
