@@ -103,3 +103,5 @@ fi
 %endif
 /usr/share/license/%{name}
 /usr/bin/profile_command
+
+%changelog
