@@ -1,16 +1,15 @@
 * Thu Feb 20 2014 Yoonki Park <yoonki.park@samsung.com>
 - Version up to 3.0.1
-* Thu Oct 31 2013 Junfeng Dong <junfeng.dong@intel.com> submit/tizen/20131011.084016@81e3d5b
-- Fix some runtime issue in 3.0
 * Wed Nov 27 2013 Yoonki Park <yoonki.park@samsung.com>
- - changed port redirection to usb0 instead of loopback
+- changed port redirection to usb0 instead of loopback
+* Thu Oct 31 2013 Junfeng Dong <junfeng.dong@intel.com>
+- Fix some runtime issue in 3.0
 * Wed Apr 04 2013 Ho Namkoong <ho.namkoong@samsung.com>
- - supports platform gdbserver
+- supports platform gdbserver
 * Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
- - supports cs report service using inotify
-* Mon Dec 02 2012 Yoonki Park <yoonki.park@samsung.com>
- - sdb code dropped from adb (Ice Cream Samdwich 4.1.1)
+- sdb code dropped from adb (Ice Cream Samdwich 4.1.1)
+- supports cs report service using inotify
 * Wed Apr 18 2012 Yoonki Park <yoonki.park@samsung.com>
- - set dir permission to 777
+- set dir permission to 777
 * Sat Mar 31 2012 Yoonki Park <yoonki.park@samsung.com>
- - let sshd be daemon and create sshd.pid file
+- let sshd be daemon and create sshd.pid file
