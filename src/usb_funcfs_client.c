@@ -25,112 +25,13 @@
 #include <dirent.h>
 #include <errno.h>
 
-#include <linux/usb/ch9.h>
-#include <linux/usb/functionfs.h>
-
 #include "sysdeps.h"
-
-#define   TRACE_TAG  TRACE_USB
 #include "sdb.h"
-
-#define MAX_PACKET_SIZE_FS	64
-#define MAX_PACKET_SIZE_HS	512
-
-#define cpu_to_le16(x)  htole16(x)
-#define cpu_to_le32(x)  htole32(x)
+#include "descs_strings.h"
 
 static const char ep0_path[] = USB_FUNCFS_SDB_PATH"/ep0";
 static const char ep1_path[] = USB_FUNCFS_SDB_PATH"/ep1";
 static const char ep2_path[] = USB_FUNCFS_SDB_PATH"/ep2";
-
-static const struct {
-    struct usb_functionfs_descs_head header;
-    struct {
-        struct usb_interface_descriptor intf;
-        struct usb_endpoint_descriptor_no_audio source;
-        struct usb_endpoint_descriptor_no_audio sink;
-    } __attribute__((packed)) fs_descs, hs_descs;
-} __attribute__((packed)) descriptors = {
-    .header = {
-        .magic = cpu_to_le32(FUNCTIONFS_DESCRIPTORS_MAGIC),
-        .length = cpu_to_le32(sizeof(descriptors)),
-        .fs_count = 3,
-        .hs_count = 3,
-    },
-    .fs_descs = {
-        .intf = {
-            .bLength = sizeof(descriptors.fs_descs.intf),
-            .bDescriptorType = USB_DT_INTERFACE,
-            .bInterfaceNumber = 0,
-            .bNumEndpoints = 2,
-            .bInterfaceClass = SDB_CLASS,
-            .bInterfaceSubClass = SDB_SUBCLASS,
-            .bInterfaceProtocol = SDB_PROTOCOL,
-            .iInterface = 1, /* first string from the provided table */
-        },
-        .source = {
-            .bLength = sizeof(descriptors.fs_descs.source),
-            .bDescriptorType = USB_DT_ENDPOINT,
-            .bEndpointAddress = 1 | USB_DIR_OUT,
-            .bmAttributes = USB_ENDPOINT_XFER_BULK,
-            .wMaxPacketSize = MAX_PACKET_SIZE_FS,
-        },
-        .sink = {
-          .bLength = sizeof(descriptors.fs_descs.sink),
-            .bDescriptorType = USB_DT_ENDPOINT,
-            .bEndpointAddress = 2 | USB_DIR_IN,
-            .bmAttributes = USB_ENDPOINT_XFER_BULK,
-            .wMaxPacketSize = MAX_PACKET_SIZE_FS,
-        },
-    },
-    .hs_descs = {
-        .intf = {
-            .bLength = sizeof(descriptors.hs_descs.intf),
-            .bDescriptorType = USB_DT_INTERFACE,
-            .bInterfaceNumber = 0,
-            .bNumEndpoints = 2,
-            .bInterfaceClass = SDB_CLASS,
-            .bInterfaceSubClass = SDB_SUBCLASS,
-            .bInterfaceProtocol = SDB_PROTOCOL,
-            .iInterface = 1, /* first string from the provided table */
-        },
-        .source = {
-            .bLength = sizeof(descriptors.hs_descs.source),
-            .bDescriptorType = USB_DT_ENDPOINT,
-            .bEndpointAddress = 1 | USB_DIR_OUT,
-            .bmAttributes = USB_ENDPOINT_XFER_BULK,
-            .wMaxPacketSize = MAX_PACKET_SIZE_HS,
-        },
-        .sink = {
-            .bLength = sizeof(descriptors.hs_descs.sink),
-            .bDescriptorType = USB_DT_ENDPOINT,
-            .bEndpointAddress = 2 | USB_DIR_IN,
-            .bmAttributes = USB_ENDPOINT_XFER_BULK,
-            .wMaxPacketSize = MAX_PACKET_SIZE_HS,
-        },
-    },
-};
-
-#define STR_INTERFACE "SDB Interface"
-
-static const struct {
-    struct usb_functionfs_strings_head header;
-    struct {
-        __le16 code;
-        const char str1[sizeof(STR_INTERFACE)];
-    } __attribute__((packed)) lang0;
-} __attribute__((packed)) strings = {
-    .header = {
-        .magic = cpu_to_le32(FUNCTIONFS_STRINGS_MAGIC),
-        .length = cpu_to_le32(sizeof(strings)),
-        .str_count = cpu_to_le32(1),
-        .lang_count = cpu_to_le32(1),
-    },
-    .lang0 = {
-        cpu_to_le16(0x0409), /* en-us */
-        STR_INTERFACE,
-    },
-};
 
 
 /* A local struct to store state of application */
