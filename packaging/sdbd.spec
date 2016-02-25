@@ -71,5 +71,6 @@ fi
 %else
 %{_unitdir}/sdbd_tcp.service
 %endif
-
+/etc/sdbd/descs
+/etc/sdbd/strings
 %changelog

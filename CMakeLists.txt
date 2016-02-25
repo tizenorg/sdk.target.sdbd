@@ -44,6 +44,7 @@ set(sdbd_SRCS
 	src/commandline_sdbd.c
 	src/usb_linux_client.c
 	src/usb_funcfs_client.c
+	src/descs_strings.c
 )
 
 include_directories(src)
@@ -89,6 +90,15 @@ target_link_libraries (sdbd ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS
 install(TARGETS sdbd DESTINATION /usr/sbin)
 install(FILES script/sdbd DESTINATION /etc/init.d)
 
+# Extract descriptors and strings for systemd socket activation
+add_executable(extract_descs_strings src/extract_descs_strings.c src/descs_strings.c) 
+add_custom_command(OUTPUT descs strings
+		COMMAND ./extract_descs_strings
+		DEPENDS extract_descs_strings)
+add_custom_target(descs_strings ALL DEPENDS descs strings) 
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/descs DESTINATION /etc/sdbd)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/strings DESTINATION /etc/sdbd)
 
 # Optionally build unit tests binary -- could be helpful during further development
 if(BUILD_UNIT_TESTS)
