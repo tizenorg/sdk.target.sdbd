@@ -72,6 +72,9 @@ int HOST = 0;
 SdbdCommandlineArgs sdbd_commandline_args;
 #endif
 
+static int is_support_usbproto();
+static int is_support_sockproto();
+
 void (*usb_init)() = NULL;
 void (*usb_cleanup)() = NULL;
 int (*usb_write)(usb_handle *h, const void *data, int len) = NULL;
@@ -917,7 +920,10 @@ static BOOL WINAPI ctrlc_handler(DWORD type)
 static void sdb_cleanup(void)
 {
     clear_sdbd_commandline_args(&sdbd_commandline_args);
-    usb_cleanup();
+
+    if (is_support_usbproto()) {
+        usb_cleanup();
+    }
 //    if(required_pid > 0) {
 //        kill(required_pid, SIGKILL);
 //    }
@@ -1971,26 +1977,26 @@ int sdb_main(int is_daemon, int server_port)
         }
     }
 
-    if (is_support_usbproto()) {
-        /* choose the usb gadget backend */
-        if (access(USB_NODE_FILE, F_OK) == 0) {
-            /* legacy kernel-based sdb gadget */
-            usb_init =    &linux_usb_init;
-            usb_cleanup = &linux_usb_cleanup;
-            usb_write =   &linux_usb_write;
-            usb_read =    &linux_usb_read;
-            usb_close =   &linux_usb_close;
-            usb_kick =    &linux_usb_kick;
-        } else {
-            /* functionfs based gadget */
-            usb_init =    &ffs_usb_init;
-            usb_cleanup = &ffs_usb_cleanup;
-            usb_write =   &ffs_usb_write;
-            usb_read =    &ffs_usb_read;
-            usb_close =   &ffs_usb_close;
-            usb_kick =    &ffs_usb_kick;
-        }
+    /* choose the usb gadget backend */
+    if (access(USB_NODE_FILE, F_OK) == 0) {
+        /* legacy kernel-based sdb gadget */
+        usb_init =    &linux_usb_init;
+        usb_cleanup = &linux_usb_cleanup;
+        usb_write =   &linux_usb_write;
+        usb_read =    &linux_usb_read;
+        usb_close =   &linux_usb_close;
+        usb_kick =    &linux_usb_kick;
+    } else {
+        /* functionfs based gadget */
+        usb_init =    &ffs_usb_init;
+        usb_cleanup = &ffs_usb_cleanup;
+        usb_write =   &ffs_usb_write;
+        usb_read =    &ffs_usb_read;
+        usb_close =   &ffs_usb_close;
+        usb_kick =    &ffs_usb_kick;
+    }
 
+    if (is_support_usbproto()) {
         // listen on USB
         usb_init();
     }
@@ -2027,7 +2033,9 @@ int sdb_main(int is_daemon, int server_port)
 
     fdevent_loop();
 
-    usb_cleanup();
+    if (is_support_usbproto()) {
+        usb_cleanup();
+    }
 
     return 0;
 }
@@ -2165,7 +2173,9 @@ int handle_host_request(char *service, transport_type ttype, char* serial, int r
         fprintf(stderr,"sdb server killed by remote request\n");
         fflush(stdout);
         sdb_write(reply_fd, "OKAY", 4);
-        usb_cleanup();
+        if (is_support_usbproto()) {
+            usb_cleanup();
+        }
         exit(0);
     }
 
