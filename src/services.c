@@ -529,6 +529,7 @@ static void get_env(char *key, char **env)
         s = buf;
         e = buf + (strlen(buf) - 1);
 
+        // trim string
         while(*e == ' ' ||  *e == '\n' || *e == '\t') {
             e--;
         }
@@ -538,6 +539,7 @@ static void get_env(char *key, char **env)
             s++;
         }
 
+        // skip comment or null string
         if (*s == '#' || *s == '\0') {
             continue;
         }
@@ -545,7 +547,7 @@ static void get_env(char *key, char **env)
         *value++ = '\0';
 
         if(!strcmp(buf, key)) {
-            *env = value;
+            *env = strdup(value);
             break;
         }
     }
@@ -596,8 +598,10 @@ static int create_subproc_thread(const char *name, int lines, int columns)
             envp[3] = path;
             free(trim_value);
         } else {
-            envp[3] = value;
+            snprintf(path, sizeof(path), "%s", value);
+            envp[3] = path;
         }
+        free(value);
     }
 
     D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
