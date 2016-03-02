@@ -24,6 +24,7 @@
 #include <sys/poll.h>
 #include <dirent.h>
 #include <errno.h>
+#include <systemd/sd-daemon.h>
 
 #include "sysdeps.h"
 #include "sdb.h"
@@ -123,7 +124,16 @@ static void *usb_open_thread(void *x)
 {
     struct usb_handle *usb = (struct usb_handle *)x;
 
-    init_functionfs(usb);
+    /* Endpoints are received from sytemd */
+    if (sd_listen_fds(0) >= 3) {
+        usb->control = SD_LISTEN_FDS_START + 0; 
+        usb->bulk_in = SD_LISTEN_FDS_START + 1;
+        usb->bulk_out = SD_LISTEN_FDS_START + 2;
+    }
+
+    else
+        init_functionfs(usb);
+
     if (usb->control < 0 || usb->bulk_in < 0 || usb->bulk_out < 0) {
         D("[ opening device failed ]\n");
         return (void *)-1;
