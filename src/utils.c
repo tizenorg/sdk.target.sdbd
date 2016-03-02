@@ -112,7 +112,7 @@ buff_add  (char*  buff, char*  buffEnd, const char*  format, ... )
     return buff;
 }
 
-char *str_trim(const char* string)
+void str_trim(const char* string, char* out_string, int size_out_string)
 {
     const char* s = string;
     const char* e = string + (strlen(string) - 1);
@@ -123,13 +123,7 @@ char *str_trim(const char* string)
     while(*e == ' ' || *e == '\t') // rtrim
         e--;
 
-    ret = strdup(s);
-    if(ret == NULL) {
-        return NULL;
-    }
-    ret[e - s + 1] = 0;
-
-    return  ret;
+    snprintf(out_string, size_out_string, "%s",  s);
 }
 
 int spawn(char* program, char** arg_list)

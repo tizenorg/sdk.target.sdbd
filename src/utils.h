@@ -66,7 +66,7 @@ char*   buff_add  (char*  buff, char*  buffEnd, const char*  format, ... );
 #define  BUFF_DECL(_buff,_cursor,_end,_size)   \
     char   _buff[_size], *_cursor=_buff, *_end = _cursor + (_size)
 
-char *str_trim(const char* string);
+void str_trim(const char* string, char* out_string, int size_out_string);
 
 /*
  * spawn a process and returns the process id of the new spawned process.

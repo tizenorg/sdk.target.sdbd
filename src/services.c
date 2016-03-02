@@ -560,7 +560,7 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     int ret_fd;
     pid_t pid;
     char *value = NULL;
-    char *trim_value = NULL;
+    char trim_value[PATH_MAX] = {0, };
     char path[PATH_MAX];
     memset(path, 0, sizeof(path));
 
@@ -585,19 +585,15 @@ static int create_subproc_thread(const char *name, int lines, int columns)
          envp[2] = "HOME=/root";
      }
     if (value != NULL) {
-        trim_value = str_trim(value);
-        if (trim_value != NULL) {
-            // if string is not including 'PATH=', append it.
-            if (strncmp(trim_value, "PATH", 4)) {
-                snprintf(path, sizeof(path), "PATH=%s", trim_value);
-            } else {
-                snprintf(path, sizeof(path), "%s", trim_value);
-            }
-            envp[3] = path;
-            free(trim_value);
-        } else {
-            envp[3] = value;
-        }
+        str_trim(value, trim_value, PATH_MAX);
+        D("trim_value = %s\n", trim_value);
+
+		// if string is not including 'PATH=', append it.
+		if (strncmp(trim_value, "PATH", 4)) {
+			snprintf(path, sizeof(path), "PATH=%s", trim_value);
+		} else {
+			snprintf(path, sizeof(path), "%s", trim_value);
+		}
     }
 
     D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
