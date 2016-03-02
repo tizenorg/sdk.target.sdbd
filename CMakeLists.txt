@@ -81,11 +81,19 @@ include(FindPkgConfig)
 pkg_check_modules(CAPI_SYSTEM_INFO REQUIRED capi-system-info libtzplatform-config)
 include_directories(${CAPI_SYSTEM_INFO_INCLUDE_DIRS})
 
+# Get systemd
+pkg_check_modules(SYSTEMD REQUIRED libsystemd)
+foreach(flag ${SYSTEMD_CFLAGS})
+	set(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
+endforeach(flag)
+
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
+
 # Get pthreads
 find_package(Threads REQUIRED)
 
 # Add libraries (-l...)
-target_link_libraries (sdbd ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS})
+target_link_libraries (sdbd ${CMAKE_THREAD_LIBS_INIT} ${CAPI_SYSTEM_INFO_LDFLAGS} ${SYSTEMD_LDFLAGS})
 
 install(TARGETS sdbd DESTINATION /usr/sbin)
 install(FILES script/sdbd DESTINATION /etc/init.d)
