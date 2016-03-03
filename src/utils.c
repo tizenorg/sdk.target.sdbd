@@ -115,21 +115,45 @@ buff_add  (char*  buff, char*  buffEnd, const char*  format, ... )
 char *str_trim(const char* string)
 {
     const char* s = string;
-    const char* e = string + (strlen(string) - 1);
-    char* ret;
+    size_t size = strlen(string);
+    size_t start_index = 0;
+    size_t end_index = size - 1;
+    char* ret = NULL;
 
-    while(*s == ' ' || *s == '\t') // ltrim
-        s++;
-    while(*e == ' ' || *e == '\t') // rtrim
-        e--;
-
-    ret = strdup(s);
-    if(ret == NULL) {
+    if (size == 0) {
         return NULL;
     }
-    ret[e - s + 1] = 0;
 
-    return  ret;
+    ret = (char *)malloc(size);
+    if (ret == NULL) {
+        // error
+        return NULL;
+    }
+
+    // ltrim
+    while (start_index < size) {
+        if (!isspace(s[start_index])) {
+            break;
+        }
+        start_index++;
+    }
+
+    // rtrim
+    while (end_index >= start_index) {
+        if (!isspace(s[end_index])) {
+            break;
+        }
+        end_index--;
+    }
+
+    if (end_index < start_index) {
+        return NULL;
+    }
+
+    memset(ret, 0, size);
+    memcpy((void *)ret, &s[start_index], end_index - start_index + 1);
+
+    return ret;
 }
 
 int spawn(char* program, char** arg_list)
