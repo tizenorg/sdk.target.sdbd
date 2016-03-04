@@ -39,6 +39,7 @@
 #endif
 
 #include "strutils.h"
+#include "utils.h"
 #include <system_info.h>
 #include <tzplatform_config.h>
 
@@ -596,7 +597,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
                 snprintf(path, sizeof(path), "%s", trim_value);
             }
             envp[3] = path;
-            free(trim_value);
         } else {
             snprintf(path, sizeof(path), "%s", value);
             envp[3] = path;

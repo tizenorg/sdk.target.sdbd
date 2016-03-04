@@ -35,6 +35,7 @@
 #include "file_sync_service.h"
 #include "sdktools.h"
 #include "sdbd_plugin.h"
+#include "utils.h"
 
 #define SYNC_TIMEOUT 15
 
@@ -65,7 +66,7 @@ void init_sdk_sync_permit_rule_regx(void)
 {
     asprintf(&sdk_sync_permit_rule[0].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
     asprintf(&sdk_sync_permit_rule[1].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/+(.)*\\.gcda$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
-    asprintf(&sdk_sync_permit_rule[2].regx, "da", "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$");
+    asprintf(&sdk_sync_permit_rule[2].regx, "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$");
 
 }
 
