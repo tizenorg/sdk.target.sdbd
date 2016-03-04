@@ -1262,26 +1262,6 @@ static void pwlock_cb(keynode_t *key, void* data) {
     send_device_status();
 }
 
-static void *pwlock_thread(void *x) {
-	GMainLoop *loop;
-	loop = g_main_loop_new(NULL, FALSE);
-	register_pwlock_cb();
-	g_main_loop_run(loop);
-	g_main_loop_unref(loop);
-	unregister_pwlock_cb();
-	return 0;
-}
-
-
-void create_pwlock_thread() {
-    sdb_thread_t t;
-    if(sdb_thread_create( &t, pwlock_thread, NULL)) {
-        D("cannot create_pwlock_thread.\n");
-        return;
-    }
-    D("created pwlock_thread\n");
-}
-
 void register_pwlock_cb() {
     int ret = vconf_notify_key_changed(VCONFKEY_IDLE_LOCK_STATE, pwlock_cb, NULL);
     if(ret != 0) {
@@ -1298,6 +1278,25 @@ void unregister_pwlock_cb() {
         return;
     }
     D("unregistered vconf callback\n");
+}
+
+static void *pwlock_thread(void *x) {
+	GMainLoop *loop;
+	loop = g_main_loop_new(NULL, FALSE);
+	register_pwlock_cb();
+	g_main_loop_run(loop);
+	g_main_loop_unref(loop);
+	unregister_pwlock_cb();
+	return 0;
+}
+
+void create_pwlock_thread() {
+    sdb_thread_t t;
+    if(sdb_thread_create( &t, pwlock_thread, NULL)) {
+        D("cannot create_pwlock_thread.\n");
+        return;
+    }
+    D("created pwlock_thread\n");
 }
 
 #include <dbus/dbus.h>

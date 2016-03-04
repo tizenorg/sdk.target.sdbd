@@ -39,6 +39,7 @@
 #endif
 
 #include "strutils.h"
+#include "utils.h"
 #include <system_info.h>
 #include <tzplatform_config.h>
 
@@ -586,9 +587,11 @@ static int create_subproc_thread(const char *name, int lines, int columns)
          }
          envp[2] = "HOME=/root";
      }
+    D("value : %s\n", value);
     if (value != NULL) {
         trim_value = str_trim(value);
         if (trim_value != NULL) {
+        	D("trim_value : %s\n", trim_value);
             // if string is not including 'PATH=', append it.
             if (strncmp(trim_value, "PATH", 4)) {
                 snprintf(path, sizeof(path), "PATH=%s", trim_value);
@@ -596,7 +599,6 @@ static int create_subproc_thread(const char *name, int lines, int columns)
                 snprintf(path, sizeof(path), "%s", trim_value);
             }
             envp[3] = path;
-            free(trim_value);
         } else {
             snprintf(path, sizeof(path), "%s", value);
             envp[3] = path;

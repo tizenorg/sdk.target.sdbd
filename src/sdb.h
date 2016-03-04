@@ -309,6 +309,7 @@ void init_transport_registration(void);
 int  list_transports(char *buf, size_t  bufsize);
 void update_transports(void);
 void broadcast_transport(apacket *p);
+int get_connected_count(transport_type type);
 
 asocket*  create_device_tracker(void);
 

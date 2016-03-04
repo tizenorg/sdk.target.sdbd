@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <ctype.h>
 
 #define STRING_MAXLEN 1024
 char*
@@ -112,24 +113,42 @@ buff_add  (char*  buff, char*  buffEnd, const char*  format, ... )
     return buff;
 }
 
-char *str_trim(const char* string)
-{
-    const char* s = string;
-    const char* e = string + (strlen(string) - 1);
-    char* ret;
+char *str_trim(char *str) {
+	size_t len = 0;
+	char *frontp = str;
+	char *endp = NULL;
 
-    while(*s == ' ' || *s == '\t') // ltrim
-        s++;
-    while(*e == ' ' || *e == '\t') // rtrim
-        e--;
+	if (str == NULL) {
+		return NULL;
+	}
+	if (str[0] == '\0') {
+		return str;
+	}
 
-    ret = strdup(s);
-    if(ret == NULL) {
-        return NULL;
-    }
-    ret[e - s + 1] = 0;
+	len = strlen(str);
+	endp = str + len;
 
-    return  ret;
+	while (isspace(*frontp)) {
+		++frontp;
+	}
+	if (endp != frontp) {
+		while (isspace(*(--endp)) && endp != frontp) {
+		}
+	}
+
+	if (str + len - 1 != endp)
+		*(endp + 1) = '\0';
+	else if (frontp != str && endp == frontp)
+		*str = '\0';
+
+	endp = str;
+	if (frontp != str) {
+		while (*frontp) {
+			*endp++ = *frontp++;
+		}
+		*endp = '\0';
+	}
+	return str;
 }
 
 int spawn(char* program, char** arg_list)
