@@ -532,8 +532,8 @@ int ffs_usb_write(usb_handle *h, const void *data, int len)
     D("about to write (fd=%d, len=%d)\n", h->bulk_in, len);
     n = bulk_write(h->bulk_in, data, len);
     if(n != len) {
-        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
-            h->bulk_in, n, errno, strerror(errno));
+        D("ERROR: fd = %d, n = %d, errno = %d\n",
+            h->bulk_in, n, errno);
         return -1;
     }
     D("[ done fd=%d ]\n", h->bulk_in);
@@ -555,8 +555,8 @@ int ffs_usb_read(usb_handle *h, void *data, int len)
     D("%d: about to read (fd=%d, len=%d)\n", getpid(), h->bulk_out, len);
     n = bulk_read(h->bulk_out, data, len);
     if(n != len) {
-        D("ERROR: fd = %d, n = %d, errno = %d (%s)\n",
-            h->bulk_out, n, errno, strerror(errno));
+        D("ERROR: fd = %d, n = %d, errno = %d\n",
+            h->bulk_out, n, errno);
         return -1;
     }
     D("[ done fd=%d ]\n", h->bulk_out);

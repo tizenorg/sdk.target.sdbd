@@ -60,6 +60,7 @@ static void property_init(void)
     int i = 0;
     char buffer[PROPERTY_KEY_MAX+PROPERTY_VALUE_MAX+1];
     char *tok = NULL;
+    char *ptr;
 
     fd = unix_open(TIZEN_PROPERTY_FILE, O_RDONLY);
     if (fd < 0)
@@ -67,12 +68,14 @@ static void property_init(void)
     for(;;) {
         if(read_line(fd, buffer, PROPERTY_KEY_MAX+PROPERTY_VALUE_MAX+1) < 0)
             break;
-        tok = strtok(buffer, PROPERTY_SEPARATOR);
+        tok = strtok_r(buffer, PROPERTY_SEPARATOR, &ptr);
         for (i = 0; i < sdbd_config_element_cnt && sdbd_config[i].key ; i++) {
             if (!strcmp(tok, sdbd_config[i].key)) {
-                tok = strtok(NULL, PROPERTY_SEPARATOR);
-                strncpy(sdbd_config[i].value, tok, PROPERTY_VALUE_MAX);
-                D("property init key=%s, value=%s\n", sdbd_config[i].key, tok);
+                tok = strtok_r(NULL, PROPERTY_SEPARATOR, &ptr);
+                if(tok) {
+                    snprintf(sdbd_config[i].value, PROPERTY_VALUE_MAX, "%s", tok);
+                    D("property init key=%s, value=%s\n", sdbd_config[i].key, tok);
+                }
             }
         }
 
@@ -113,7 +116,7 @@ int property_set(const char *key, const char *value)
 
     for (i = 0; i < sdbd_config_element_cnt && sdbd_config[i].key; i++) {
         if (!strcmp(key,sdbd_config[i].key)) {
-            strncpy(sdbd_config[i].value, value, PROPERTY_VALUE_MAX);
+            snprintf(sdbd_config[i].value, PROPERTY_VALUE_MAX, "%s", value);
             D("property set key=%s, value=%s\n", key, value);
             break;
         }
