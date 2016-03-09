@@ -455,7 +455,7 @@ static int send_msg_to_host_from_guest(const char *hostname, int host_port, char
 
     hints.ai_family = AF_INET;
 
-    sprintf(port, "%d", host_port);
+    snprintf(port, "%d", host_port);
     getaddr_ret = getaddrinfo(hostname, port, &hints, &addresses);
 
     if (getaddr_ret != 0) {

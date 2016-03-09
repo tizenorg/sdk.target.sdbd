@@ -92,7 +92,7 @@ static void set_syncfile_smack_label(char *src) {
             rc = smack_getlabel(dirname, &label, SMACK_LABEL_ACCESS);
             if (rc == 0 && label != NULL) {
                 if (smack_setlabel(src, label, SMACK_LABEL_ACCESS) == -1) {
-                    D("unable to set sync file smack label %s due to %s\n", label, strerror(errno));
+                    D("unable to set sync file smack label %s due to (errno:%d)\n", label, errno);
                 }
 
                 /* Todo: The following code is from tizen 2.4
@@ -109,7 +109,7 @@ static void set_syncfile_smack_label(char *src) {
         free(label_transmuted);
     } else {
         if (smack_setlabel(src, SMACK_SYNC_FILE_LABEL, SMACK_LABEL_ACCESS) == -1) {
-            D("unable to set sync file smack label %s due to %s\n", SMACK_SYNC_FILE_LABEL, strerror(errno));
+            D("unable to set sync file smack label %s due to (errno:%d)\n", SMACK_SYNC_FILE_LABEL, errno);
         }
 
         /* Todo: The following code is from tizen 2.4
