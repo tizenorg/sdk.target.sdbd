@@ -1416,10 +1416,10 @@ int set_developer_privileges() {
         }
     }
     // TODO: use pam later
-    char * env = malloc(strlen("HOME=") + strlen(HOME_DEV_PATH) + 1);
+    int env_size = strlen("HOME=") + strlen(HOME_DEV_PATH) + 1;
+    char * env = malloc(env_size);
     if(env == 0) fatal("failed to allocate for env string");
-    strcpy(env, "HOME=");
-    strcat(env, HOME_DEV_PATH);
+    snprintf(env, env_size, "HOME=%s", HOME_DEV_PATH);
     putenv(env);
     free(env);
 

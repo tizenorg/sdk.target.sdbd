@@ -431,7 +431,8 @@ static const char _ok_resp[]    = "ok";
  */
 static int send_msg_to_host_from_guest(const char *hostname, int host_port, char *request, int protocol) {
     int sock = -1;
-    char port[32]; /* string decimal representation for getaddrinfo */
+    int PORT_SIZE = 32;
+    char port[PORT_SIZE]; /* string decimal representation for getaddrinfo */
     struct addrinfo hints = {0};
     struct addrinfo *addresses, *curr_addr;
     int getaddr_ret;
@@ -455,7 +456,7 @@ static int send_msg_to_host_from_guest(const char *hostname, int host_port, char
 
     hints.ai_family = AF_INET;
 
-    sprintf(port, "%d", host_port);
+    snprintf(port, PORT_SIZE, "%d", host_port);
     getaddr_ret = getaddrinfo(hostname, port, &hints, &addresses);
 
     if (getaddr_ret != 0) {
