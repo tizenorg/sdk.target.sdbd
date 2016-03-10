@@ -13,7 +13,7 @@ struct sudo_command
   const char *path;
   const char *arguments[PERMITTED_ARGUMENT_SIZE];
   //const char *regx;
-  //int   permission; /* 0: root, 1: developer, 2: app*/
+  //int   permission; /* 0: root, 1: sdk user, 2: app*/
 };
 
 

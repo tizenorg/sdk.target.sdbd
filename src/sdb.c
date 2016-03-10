@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <grp.h>
+#include <pwd.h>
 #include <netdb.h>
 #include <tzplatform_config.h>
 #include <pthread.h>
@@ -68,6 +69,11 @@ SDB_MUTEX_DEFINE( D_lock );
 int HOST = 0;
 #define HOME_DEV_PATH tzplatform_getenv(TZ_SDK_HOME)
 #define DEV_NAME tzplatform_getenv(TZ_SDK_USER_NAME)
+uid_t g_sdk_user_id = -1;
+gid_t g_sdk_group_id = -1;
+char* g_sdk_home_dir = NULL;
+char* g_sdk_home_dir_env = NULL;
+
 #if !SDB_HOST
 SdbdCommandlineArgs sdbd_commandline_args;
 #endif
@@ -1391,41 +1397,108 @@ void register_bootdone_cb() {
 	}
 }
 
-int set_developer_privileges() {
-    gid_t groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
-    if (setgroups(sizeof(groups) / sizeof(groups[0]), groups) != 0) {
-        D("set groups failed (errno: %d)\n", errno);
+static int sdbd_set_groups() {
+    gid_t *groups = NULL;
+    int ngroups = 0;
+    int default_ngroups = 0;
+    int i, j = 0;
+    int group_match = 0;
+    int added_group_cnt = 0;
+    gid_t default_groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
+
+    default_ngroups = sizeof(default_groups) / sizeof(default_groups[0]);
+
+    getgrouplist(SDK_USER_NAME, g_sdk_group_id, NULL, &ngroups);
+    D("group list : ngroups = %d\n", ngroups);
+    groups = malloc((ngroups + default_ngroups) * sizeof(gid_t));
+    if (groups == NULL) {
+        D("failed to allocate groups(%d)\n", (ngroups + default_ngroups) * sizeof(gid_t));
+        return -1;
+    }
+    if (getgrouplist(SDK_USER_NAME, g_sdk_group_id, groups, &ngroups) == -1) {
+        D("failed to getgrouplist(), ngroups = %d\n", ngroups);
+        free(groups);
+        return -1;
     }
 
-    // then switch user and group to developer
-    if (setgid(SID_DEVELOPER) != 0) {
+    for (i = 0; i < default_ngroups; i++) {
+        for (j = 0; j < ngroups; j++) {
+            if (groups[j] == default_groups[i]) {
+                group_match = 1;
+                break;
+            }
+        }
+        if (group_match == 0) {
+            groups[ngroups + added_group_cnt] = default_groups[i];
+            added_group_cnt ++;
+        }
+        group_match = 0;
+    }
+
+    if (setgroups(ngroups+added_group_cnt, groups) != 0) {
+        D("failed to setgroups().\n");
+        free(groups);
+        return -1;
+    }
+
+    free(groups);
+    return 0;
+}
+
+static int sdbd_get_user_pwd(const char* user_name, struct passwd* pwd, char* buf, size_t bufsize) {
+    struct passwd *result = NULL;
+    int ret = 0;
+
+    ret = getpwnam_r(user_name, pwd, buf, bufsize, &result);
+    if (result == NULL) {
+        if (ret == 0) {
+            D("Not found passwd : username(%s)\n", user_name);
+        } else {
+            errno = ret;
+            D("failed to getpwuid_r\n");
+        }
+        free(buf);
+        return -1;
+    }
+
+    return 0;
+}
+
+int set_sdk_user_privileges() {
+    if (g_sdk_user_id < 0 || g_sdk_group_id < 0 ||
+        g_sdk_home_dir == NULL || g_sdk_home_dir_env == NULL) {
+        D("failed to init sdk user information.\n");
+        return -1;
+    }
+
+    if (sdbd_set_groups() < 0) {
+        D("set groups failed (errno: %d)\n", errno);
+
+        // set default group list
+        gid_t default_groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
+        int default_ngroups = sizeof(default_groups) / sizeof(default_groups[0]);
+        setgroups(default_ngroups, default_groups);
+    }
+
+    if (setgid(g_sdk_group_id) != 0) {
         D("set group id failed (errno: %d)\n", errno);
         return -1;
     }
 
-    if (setuid(SID_DEVELOPER) != 0) {
+    if (setuid(g_sdk_user_id) != 0) {
         D("set user id failed (errno: %d)\n", errno);
         return -1;
     }
 
-    if (chdir(HOME_DEV_PATH) < 0) {
-        D("sdbd: unable to change working directory to %s\n", HOME_DEV_PATH);
-    } else {
-        if (chdir("/") < 0) {
-            D("sdbd: unable to change working directory to /\n");
-        }
+    if (chdir(g_sdk_home_dir) < 0) {
+        D("unable to change working directory to %s\n", g_sdk_home_dir);
+        return -1;
     }
-    // TODO: use pam later
-    int env_size = strlen("HOME=") + strlen(HOME_DEV_PATH) + 1;
-    char * env = malloc(env_size);
-    if(env == 0) fatal("failed to allocate for env string");
-    snprintf(env, env_size, "HOME=%s", HOME_DEV_PATH);
-    putenv(env);
-    free(env);
 
-    return 1;
+    // TODO: use pam later
+    putenv(g_sdk_home_dir_env);
+    return 0;
 }
-#define ONDEMAND_ROOT_PATH tzplatform_getenv(TZ_SDK_HOME)
 
 static void execute_required_process() {
     char *cmd_args[] = {"/usr/bin/debug_launchpad_preloading_preinitializing_daemon",NULL};
@@ -1647,6 +1720,52 @@ static void load_sdbd_plugin() {
     D("using sdbd plugin interface.(%s)\n", SDBD_PLUGIN_PATH);
 }
 
+static int init_sdk_userinfo() {
+    struct passwd pwd;
+    char *buf = NULL;
+    size_t bufsize = 0;
+
+    if (g_sdk_user_id > 0 && g_sdk_group_id > 0 &&
+        g_sdk_home_dir != NULL && g_sdk_home_dir_env != NULL) {
+        return 0;
+    }
+
+    bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+    if (bufsize < 0) {
+        bufsize = (16*1024);
+    }
+    buf = malloc(bufsize);
+    if (buf == NULL) {
+        D("failed to allocate passwd buf(%d)\n", bufsize);
+        return -1;
+    }
+
+    if (sdbd_get_user_pwd(SDK_USER_NAME, &pwd, buf, bufsize) < 0) {
+        D("get user passwd info.(errno: %d)\n", errno);
+        free(buf);
+        return -1;
+    }
+    D("username=%s, uid=%d, gid=%d, dir=%s\n", pwd.pw_name, pwd.pw_uid, pwd.pw_gid, pwd.pw_dir);
+
+    g_sdk_user_id = pwd.pw_uid;
+    g_sdk_group_id = pwd.pw_gid;
+    g_sdk_home_dir = strdup(pwd.pw_dir);
+
+    free(buf);
+
+    int env_size = strlen("HOME=") + strlen(g_sdk_home_dir) + 1;
+    g_sdk_home_dir_env = malloc(env_size);
+    if(g_sdk_home_dir_env == 0) {
+        D("failed to allocate for home dir env string\n");
+        free(g_sdk_home_dir);
+        g_sdk_home_dir = NULL;
+        return -1;
+    }
+    snprintf(g_sdk_home_dir_env, env_size, "HOME=%s", g_sdk_home_dir);
+
+    return 0;
+}
+
 static void init_sdk_requirements() {
     struct stat st;
 
@@ -1660,14 +1779,15 @@ static void init_sdk_requirements() {
         putenv("HOME=/root");
     }
 
-    if (stat(ONDEMAND_ROOT_PATH, &st) == -1) {
-        return;
-    }
-    if (st.st_uid != SID_DEVELOPER || st.st_gid != GID_DEVELOPER) {
-        char cmd[128];
-        snprintf(cmd, sizeof(cmd), "chown %s:%s %s -R", DEV_NAME, DEV_NAME, ONDEMAND_ROOT_PATH);
-        if (system(cmd) < 0) {
-            D("failed to change ownership to developer to %s\n", ONDEMAND_ROOT_PATH);
+    init_sdk_userinfo();
+
+    if (g_sdk_home_dir != NULL && stat(g_sdk_home_dir, &st) == 0) {
+        if (st.st_uid != g_sdk_user_id || st.st_gid != g_sdk_group_id) {
+            char cmd[128];
+            snprintf(cmd, sizeof(cmd), "chown %s:%s %s -R", SDK_USER_NAME, SDK_USER_NAME, g_sdk_home_dir);
+            if (system(cmd) < 0) {
+                D("failed to change ownership to sdk user to %s\n", g_sdk_home_dir);
+            }
         }
     }
 

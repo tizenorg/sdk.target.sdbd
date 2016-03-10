@@ -374,7 +374,7 @@ void log_service(int fd, void *cookie);
 void remount_service(int fd, void *cookie);
 char * get_log_file_path(const char * log_name);
 
-int rootshell_mode; // 0: developer, 1: root
+int rootshell_mode; // 0: sdk user, 1: root
 int booting_done; // 0: platform booting is in progess 1: platform booting is done
 
 // This is the users and groups config for the platform
@@ -383,16 +383,20 @@ int booting_done; // 0: platform booting is in progess 1: platform booting is do
 #define SID_TTY         5    /* group for /dev/ptmx */
 #define SID_APP         tzplatform_getuid(TZ_USER_NAME) /* application */
 #define SID_DEVELOPER   tzplatform_getuid(TZ_SDK_USER_NAME) /* developer with SDK */
-#define GID_DEVELOPER   100 /* developer will be member of users with SDK */
 #define SID_APP_LOGGING 6509
 #define SID_SYS_LOGGING 6527
 #define SID_INPUT       1004
 
+#define SDK_USER_NAME   tzplatform_getenv(TZ_SDK_USER_NAME)
+extern uid_t g_sdk_user_id;
+extern gid_t g_sdk_group_id;
+extern char* g_sdk_home_dir;
+extern char* g_sdk_home_dir_env;
 #endif
 
 int is_pwlocked(void);
 int should_drop_privileges(void);
-int set_developer_privileges();
+int set_sdk_user_privileges();
 void set_root_privileges();
 
 int get_emulator_forward_port(void);

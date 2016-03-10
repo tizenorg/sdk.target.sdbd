@@ -186,7 +186,7 @@ void rootshell_service(int fd, void *cookie)
     if (!strcmp(mode, "on")) {
         if (getuid() == 0) {
             if (rootshell_mode == 1) {
-                //snprintf(buf, sizeof(buf), "Already changed to developer mode\n");
+                //snprintf(buf, sizeof(buf), "Already changed to sdk user mode\n");
                 // do not show message
             } else {
                 if (is_support_rootonoff()) {
@@ -207,14 +207,14 @@ void rootshell_service(int fd, void *cookie)
     } else if (!strcmp(mode, "off")) {
         if (rootshell_mode == 1) {
             rootshell_mode = 0;
-            snprintf(buf, sizeof(buf), "Switched to 'developer' account mode\n");
+            snprintf(buf, sizeof(buf), "Switched to 'sdk user' account mode\n");
             writex(fd, buf, strlen(buf));
         }
     } else {
     	snprintf(buf, sizeof(buf), "Unknown command option : %s\n", mode);
         writex(fd, buf, strlen(buf));
     }
-    D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : "developer");
+    D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : SDK_USER_NAME);
     free(mode);
     sdb_close(fd);
 }
@@ -459,7 +459,7 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
                 // do nothing
                 D("sdb: executes root commands!!:%s\n", argv[2]);
             } else {
-                set_developer_privileges();
+                set_sdk_user_privileges();
             }
         }
         redirect_and_exec(pts, cmd, argv, envp);
@@ -478,7 +478,6 @@ static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], co
 
 #define SHELL_COMMAND "/bin/sh"
 #define LOGIN_COMMAND "/bin/login"
-#define SDK_USER      "developer"
 #define SUPER_USER    "root"
 #define LOGIN_CONFIG  "/etc/login.defs"
 
@@ -578,15 +577,19 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     };
 
     if (should_drop_privileges()) {
-         envp[2] = "HOME=/home/developer";
-         get_env("ENV_PATH", &value);
-     } else {
-         get_env("ENV_SUPATH", &value);
-         if(value == NULL) {
-             get_env("ENV_ROOTPATH", &value);
-         }
-         envp[2] = "HOME=/root";
-     }
+        if (g_sdk_home_dir_env) {
+            envp[2] = g_sdk_home_dir_env;
+        } else {
+            envp[2] = "HOME=/home/owner";
+        }
+        get_env("ENV_PATH", &value);
+    } else {
+        get_env("ENV_SUPATH", &value);
+        if(value == NULL) {
+            get_env("ENV_ROOTPATH", &value);
+        }
+        envp[2] = "HOME=/root";
+    }
     if (value != NULL) {
         trim_value = str_trim(value);
         if (trim_value != NULL) {

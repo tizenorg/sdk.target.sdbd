@@ -178,7 +178,7 @@ int verify_root_commands(const char *arg1) {
     }
     }
 
-    D("doing the cmd as a %s\n", ret == 1 ? "root" : "developer");
+    D("doing the cmd as a %s\n", ret == 1 ? "root" : SDK_USER_NAME);
 
     if (cnt) {
         free_strings(tokens, cnt);

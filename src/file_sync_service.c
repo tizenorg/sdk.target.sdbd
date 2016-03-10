@@ -672,7 +672,7 @@ void file_sync_service(int fd, void *cookie)
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
 
             if (should_drop_privileges() && !verify_sync_rule(name)) {
-                set_developer_privileges();
+                set_sdk_user_privileges();
             }
 
             switch(msg.req.id) {

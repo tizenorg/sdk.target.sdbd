@@ -127,7 +127,7 @@ void help()
     "  sdb status-window            - continuously print device status for a specified device\n"
 //    "  sdb usb                      - restarts the sdbd daemon listing on USB\n"
 //    "  sdb tcpip                    - restarts the sdbd daemon listing on TCP\n"
-    "  sdb root <on|off>            - switch to root or developer account mode\n"
+    "  sdb root <on|off>            - switch to root or sdk user account mode\n"
     "                                 'on' means to root mode, and vice versa"
     "\n"
         );
