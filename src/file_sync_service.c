@@ -40,7 +40,7 @@
 #define SYNC_TIMEOUT 15
 
 #define APP_INSTALL_PATH_PREFIX1                tzplatform_getenv(TZ_SYS_RW_APP)
-#define APP_INSTALL_PATH_PREFIX2                tzplatform_getenv(TZ_USER_APP)
+#define APP_INSTALL_PATH_PREFIX2                tzplatform_mkpath(TZ_SDK_HOME, "apps_rw")
 
 struct sync_permit_rule
 {
@@ -50,10 +50,9 @@ struct sync_permit_rule
 };
 
 struct sync_permit_rule sdk_sync_permit_rule[] = {
-//    /* 0 */ {"rds", "^((/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/info/\\.sdk_delta\\.info$", 1},
-    /* 1 */ {"unitest", "^((/tmp)|(/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", 1},
-    /* 2 */ {"codecoverage", "^((/tmp)|(/opt/apps)|(/opt/usr/apps))/[a-zA-Z0-9]{10}/data/+(.)*\\.gcda$", 1},
-    /* 3 */ {"da", "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$", 1},
+    /* 0 */ {"unitest", "", 1},
+    /* 1 */ {"codecoverage", "", 1},
+    /* 2 */ {"da", "", 1},
     /* end */ {NULL, NULL, 0}
 };
 
@@ -67,7 +66,6 @@ void init_sdk_sync_permit_rule_regx(void)
     asprintf(&sdk_sync_permit_rule[0].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
     asprintf(&sdk_sync_permit_rule[1].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/+(.)*\\.gcda$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
     asprintf(&sdk_sync_permit_rule[2].regx, "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$");
-
 }
 
 static void set_syncfile_smack_label(char *src) {
@@ -295,11 +293,11 @@ static int fail_errno(int s)
 }
 
 // FIXME: should get the following paths with api later but, do it for simple and not having dependency on other packages
-#define VAR_ABS_PATH        "/opt/var"
-#define CMD_MEDIADB_UPDATE "/usr/bin/mediadb-update"
-#define MEDIA_CONTENTS_PATH1 "/opt/media"
-#define MEDIA_CONTENTS_PATH2 "/opt/usr/media"
-#define MEDIA_CONTENTS_PATH3 "/opt/storage/sdcard"
+#define VAR_ABS_PATH         "/opt/var"
+#define CMD_MEDIADB_UPDATE   tzplatform_mkpath(TZ_SYS_BIN, "mediadb-update")
+#define MEDIA_CONTENTS_PATH1 tzplatform_getenv(TZ_SYS_STORAGE)
+#define MEDIA_CONTENTS_PATH2 tzplatform_getenv(TZ_USER_CONTENT)
+#define MEDIA_CONTENTS_PATH3 tzplatform_mkpath(TZ_SYS_STORAGE, "sdcard")
 
 static void sync_mediadb(char *path) {
     if (access(CMD_MEDIADB_UPDATE, F_OK) != 0) {
@@ -669,6 +667,7 @@ void file_sync_service(int fd, void *cookie)
             name[namelen] = 0;
 
             msg.req.namelen = 0;
+
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
 
             if (should_drop_privileges() && !verify_sync_rule(name)) {

@@ -2,7 +2,7 @@
 
 Name:       sdbd
 Summary:    SDB daemon
-Version:    3.0.5
+Version:    3.0.6
 Release:    0
 License:    Apache-2.0
 Summary:    SDB daemon
@@ -72,8 +72,8 @@ ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/sys
 mkdir -p %{buildroot}%{_prefix}/sbin
 install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 
-mkdir -p %{buildroot}/usr/bin
-install -m 755 script/profile_command %{buildroot}/usr/bin/
+mkdir -p %{buildroot}%{TZ_SYS_BIN}
+install -m 755 script/profile_command %{buildroot}%{TZ_SYS_BIN}/
 
 %post
 . %{_sysconfdir}/tizen-platform.conf
@@ -101,6 +101,6 @@ fi
 %{_libdir}/systemd/system/multi-user.target.wants/sdbd.service
 %endif
 /usr/share/license/%{name}
-/usr/bin/profile_command
+%{TZ_SYS_BIN}/profile_command
 
 %changelog
