@@ -132,7 +132,7 @@ then
     if [ "" != "$attach_id" ]
     #debug attach
     then
-        cmd="$COV_TEST_PREFIX ${TZ_SDK_TOOLS}/gdbserver/gdbserver :$port --attach $attach_id"
+        cmd="/usr/bin/launch_debug $launch_app_arg1 __AUL_SDK__ ATTACH __DLP_ATTACH_ARG__ --attach,:$port,$attach_id"
     #debug
     else
         if [ "" != "$result_mode" ]
@@ -141,7 +141,7 @@ then
         else
             result_mode="DEBUG"
         fi
-        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode"
+        cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode __DLP_DEBUG_ARG__ :$port $launch_app_mode $args"  
 #       cmd="$COV_TEST_PREFIX ${TZ_SDK_TOOLS}/gdbserver/gdbserver :$port ${TZ_SYS_RW_APP}/$pkgid/bin/$exe"
     fi
 else
@@ -149,9 +149,14 @@ else
     then
         if [ "" != "$result_mode" ]
         then
-            cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode $launch_app_mode"
+            if [ "$result_mode" = "UNIT_TEST" ]
+            then
+                cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode $launch_app_mode"
+            else
+                cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode $launch_app_mode $args"
+            fi
         else
-            cmd="/usr/bin/launch_app $pkgid.$exe"
+            cmd="/usr/bin/launch_app $launch_app_arg1"
         fi
     else
         if [ "$mode" = "da" ]
@@ -170,7 +175,7 @@ else
                 result_mode="OPROFILE"
             fi
         fi
-        cmd="/usr/bin/launch_app $pkgid.$exe __AUL_SDK__ $result_mode"
+        cmd="/usr/bin/launch_app $launch_app_arg1 __AUL_SDK__ $result_mode"
     fi
 fi
 
