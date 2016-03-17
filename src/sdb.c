@@ -69,10 +69,11 @@ SDB_MUTEX_DEFINE( D_lock );
 int HOST = 0;
 #define HOME_DEV_PATH tzplatform_getenv(TZ_SDK_HOME)
 #define DEV_NAME tzplatform_getenv(TZ_SDK_USER_NAME)
-uid_t g_sdk_user_id = -1;
-gid_t g_sdk_group_id = -1;
+uid_t g_sdk_user_id;
+gid_t g_sdk_group_id;
 char* g_sdk_home_dir = NULL;
 char* g_sdk_home_dir_env = NULL;
+int is_init_sdk_userinfo = 0;
 
 #if !SDB_HOST
 SdbdCommandlineArgs sdbd_commandline_args;
@@ -1465,8 +1466,7 @@ static int sdbd_get_user_pwd(const char* user_name, struct passwd* pwd, char* bu
 }
 
 int set_sdk_user_privileges() {
-    if (g_sdk_user_id < 0 || g_sdk_group_id < 0 ||
-        g_sdk_home_dir == NULL || g_sdk_home_dir_env == NULL) {
+    if (!is_init_sdk_userinfo) {
         D("failed to init sdk user information.\n");
         return -1;
     }
@@ -1725,15 +1725,13 @@ static int init_sdk_userinfo() {
     char *buf = NULL;
     size_t bufsize = 0;
 
-    if (g_sdk_user_id > 0 && g_sdk_group_id > 0 &&
-        g_sdk_home_dir != NULL && g_sdk_home_dir_env != NULL) {
+    if (is_init_sdk_userinfo) {
         return 0;
     }
 
     bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-    if (bufsize < 0) {
-        bufsize = (16*1024);
-    }
+    bufsize = (16*1024);
+
     buf = malloc(bufsize);
     if (buf == NULL) {
         D("failed to allocate passwd buf(%d)\n", bufsize);
@@ -1763,6 +1761,7 @@ static int init_sdk_userinfo() {
     }
     snprintf(g_sdk_home_dir_env, env_size, "HOME=%s", g_sdk_home_dir);
 
+    is_init_sdk_userinfo = 1;
     return 0;
 }
 
