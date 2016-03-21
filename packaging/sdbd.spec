@@ -12,6 +12,7 @@ Source1001:    sdbd_device.service
 Source1002:    sdbd_emulator.service
 Source1003:    %{name}.manifest
 Source1004:    sdbd_tcp.service
+Source1005:    sdbd@.socket
 
 BuildRequires: capi-system-info-devel >= 0.2.0
 BuildRequires: cmake >= 2.8.3
@@ -44,6 +45,7 @@ ln -s %{_unitdir}/sdbd.service %{buildroot}/%{_unitdir}/emulator.target.wants/
 install -m 0644 %SOURCE1001 %{buildroot}%{_unitdir}/sdbd.service
 install -m 0644 %SOURCE1004 %{buildroot}%{_unitdir}/sdbd_tcp.service
 %endif
+install -m 0644 %SOURCE1005 %{buildroot}%{_unitdir}/sdbd@.socket
 
 mkdir -p %{buildroot}%{_prefix}/sbin
 install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
@@ -68,6 +70,7 @@ fi
 %{_prefix}/sbin/sdk_launch
 %attr(0755, root, root) %{_sysconfdir}/init.d/sdbd
 %{_unitdir}/sdbd.service
+%{_unitdir}/sdbd@.socket 
 %if %{with emulator}
 %{_unitdir}/emulator.target.wants/sdbd.service
 %else
