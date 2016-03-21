@@ -1,0 +1,6 @@
+[Unit]
+Description=sdbd Socket for %I
+
+[Socket]
+ListenUSBFunction=%I
+Service=sdbd.service

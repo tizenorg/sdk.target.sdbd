@@ -8,3 +8,5 @@ EnvironmentFile=-/run/tizen-system-env
 PIDFile=/tmp/.sdbd.pid
 RemainAfterExit=yes
 ExecStart=/usr/sbin/sdbd
+USBFunctionDescriptors=/etc/sdbd/descs
+USBFunctionStrings=/etc/sdbd/strs
