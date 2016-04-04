@@ -67,8 +67,6 @@ SDB_MUTEX_DEFINE( D_lock );
 #endif
 
 int HOST = 0;
-#define HOME_DEV_PATH tzplatform_getenv(TZ_SDK_HOME)
-#define DEV_NAME tzplatform_getenv(TZ_SDK_USER_NAME)
 uid_t g_sdk_user_id;
 gid_t g_sdk_group_id;
 char* g_sdk_home_dir = NULL;
@@ -1933,6 +1931,15 @@ static void init_capabilities(void) {
     snprintf(g_capabilities.syncwinsz_support, sizeof(g_capabilities.syncwinsz_support),
                 "%s", ENABLED);
 
+    // SDK Tool path
+    if (SDK_TOOL_PATH == NULL) {
+        D("fail to get SDK tool path.\n");
+        snprintf(g_capabilities.sdk_toolpath, sizeof(g_capabilities.sdk_toolpath),
+                    "%s", UNKNOWN);
+    } else {
+        snprintf(g_capabilities.sdk_toolpath, sizeof(g_capabilities.sdk_toolpath),
+                    "%s", SDK_TOOL_PATH);
+    }
 
     // Profile name
     ret = system_info_get_platform_string("http://tizen.org/feature/profile", &value);

@@ -245,6 +245,7 @@ typedef struct platform_info {
 #define CPUARCH_X86 "x86"
 #define CAPBUF_SIZE 4096
 #define CAPBUF_ITEMSIZE 32
+#define CAPBUF_L_ITEMSIZE 256
 typedef struct platform_capabilities
 {
     char secure_protocol[CAPBUF_ITEMSIZE];      // enabled or disabled
@@ -260,6 +261,7 @@ typedef struct platform_capabilities
     char cpu_arch[CAPBUF_ITEMSIZE];             // cpu architecture (ex. x86)
     char profile_name[CAPBUF_ITEMSIZE];         // profile name (ex. mobile)
     char vendor_name[CAPBUF_ITEMSIZE];          // vendor name (ex. Tizen)
+    char sdk_toolpath[CAPBUF_L_ITEMSIZE];       // sdk tool path
 
     char platform_version[CAPBUF_ITEMSIZE];     // platform version (ex. 2.3.0)
     char product_version[CAPBUF_ITEMSIZE];      // product version (ex. 1.0)
@@ -388,6 +390,7 @@ int booting_done; // 0: platform booting is in progess 1: platform booting is do
 #define SID_INPUT       1004
 
 #define SDK_USER_NAME   tzplatform_getenv(TZ_SDK_USER_NAME)
+#define SDK_TOOL_PATH   tzplatform_getenv(TZ_SDK_TOOLS)
 extern uid_t g_sdk_user_id;
 extern gid_t g_sdk_group_id;
 extern char* g_sdk_home_dir;

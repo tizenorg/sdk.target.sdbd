@@ -885,6 +885,10 @@ static void get_capability(int fd, void *cookie) {
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
                                 "cpu_arch", g_capabilities.cpu_arch);
 
+    // SDK Tool path
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                                "sdk_toolpath", g_capabilities.sdk_toolpath);
+
     // Profile name
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
                                 "profile_name", g_capabilities.profile_name);
