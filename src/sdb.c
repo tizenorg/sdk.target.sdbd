@@ -1922,10 +1922,17 @@ static void init_capabilities(void) {
 
 
     // Multi-User support
-    // TODO: get this information from platform.
-    snprintf(g_capabilities.multiuser_support, sizeof(g_capabilities.multiuser_support),
-                "%s", DISABLED);
-
+    // XXX: There is no clear way to determine whether multi-user support.
+    // Since TZ_SYS_DEFAULT_USER is set to "owner" for multi-user support,
+    // guess whether multiuser support through that information.
+    const char* sys_default_user = tzplatform_getenv(TZ_SYS_DEFAULT_USER);
+    if (sys_default_user != NULL && !strcmp(sys_default_user, "owner")) {
+        snprintf(g_capabilities.multiuser_support, sizeof(g_capabilities.multiuser_support),
+                    "%s", ENABLED);
+    } else {
+        snprintf(g_capabilities.multiuser_support, sizeof(g_capabilities.multiuser_support),
+                    "%s", DISABLED);
+    }
 
     // Window size synchronization support
     snprintf(g_capabilities.syncwinsz_support, sizeof(g_capabilities.syncwinsz_support),
