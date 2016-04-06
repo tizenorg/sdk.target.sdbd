@@ -71,6 +71,15 @@ uid_t g_sdk_user_id;
 gid_t g_sdk_group_id;
 char* g_sdk_home_dir = NULL;
 char* g_sdk_home_dir_env = NULL;
+
+struct group_info
+{
+    const char *name;
+    gid_t gid;
+};
+struct group_info g_default_groups[] = { {"log", -1}, {NULL, -1}};
+#define SDB_DEFAULT_GROUPS_CNT  ((sizeof(g_default_groups)/sizeof(g_default_groups[0]))-1)
+
 int is_init_sdk_userinfo = 0;
 
 #if !SDB_HOST
@@ -1399,19 +1408,15 @@ void register_bootdone_cb() {
 static int sdbd_set_groups() {
     gid_t *groups = NULL;
     int ngroups = 0;
-    int default_ngroups = 0;
     int i, j = 0;
     int group_match = 0;
     int added_group_cnt = 0;
-    gid_t default_groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
-
-    default_ngroups = sizeof(default_groups) / sizeof(default_groups[0]);
 
     getgrouplist(SDK_USER_NAME, g_sdk_group_id, NULL, &ngroups);
     D("group list : ngroups = %d\n", ngroups);
-    groups = malloc((ngroups + default_ngroups) * sizeof(gid_t));
+    groups = malloc((ngroups + SDB_DEFAULT_GROUPS_CNT) * sizeof(gid_t));
     if (groups == NULL) {
-        D("failed to allocate groups(%d)\n", (ngroups + default_ngroups) * sizeof(gid_t));
+        D("failed to allocate groups(%d)\n", (ngroups + SDB_DEFAULT_GROUPS_CNT) * sizeof(gid_t));
         return -1;
     }
     if (getgrouplist(SDK_USER_NAME, g_sdk_group_id, groups, &ngroups) == -1) {
@@ -1420,15 +1425,15 @@ static int sdbd_set_groups() {
         return -1;
     }
 
-    for (i = 0; i < default_ngroups; i++) {
+    for (i = 0; g_default_groups[i].name != NULL; i++) {
         for (j = 0; j < ngroups; j++) {
-            if (groups[j] == default_groups[i]) {
+            if (groups[j] == g_default_groups[i].gid) {
                 group_match = 1;
                 break;
             }
         }
         if (group_match == 0) {
-            groups[ngroups + added_group_cnt] = default_groups[i];
+            groups[ngroups + added_group_cnt] = g_default_groups[i].gid;
             added_group_cnt ++;
         }
         group_match = 0;
@@ -1456,7 +1461,6 @@ static int sdbd_get_user_pwd(const char* user_name, struct passwd* pwd, char* bu
             errno = ret;
             D("failed to getpwuid_r\n");
         }
-        free(buf);
         return -1;
     }
 
@@ -1473,9 +1477,12 @@ int set_sdk_user_privileges() {
         D("set groups failed (errno: %d)\n", errno);
 
         // set default group list
-        gid_t default_groups[] = { SID_DEVELOPER, SID_APP_LOGGING, SID_SYS_LOGGING, SID_INPUT };
-        int default_ngroups = sizeof(default_groups) / sizeof(default_groups[0]);
-        setgroups(default_ngroups, default_groups);
+        gid_t default_groups[SDB_DEFAULT_GROUPS_CNT] = {0,};
+        int i = 0;
+        for (i = 0; g_default_groups[i].name != NULL; i++) {
+            default_groups[i] = g_default_groups[i].gid;
+        }
+        setgroups(SDB_DEFAULT_GROUPS_CNT, default_groups);
     }
 
     if (setgid(g_sdk_group_id) != 0) {
@@ -1718,6 +1725,45 @@ static void load_sdbd_plugin() {
     D("using sdbd plugin interface.(%s)\n", SDBD_PLUGIN_PATH);
 }
 
+static long get_passwd_bufsize() {
+    long bufsize = 0;
+
+    bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+    if(bufsize < 0) {
+        bufsize = (16*1024);
+    }
+
+    return bufsize;
+}
+
+static int init_sdb_default_groups() {
+    struct passwd pwd;
+    char *buf = NULL;
+    long bufsize = 0;
+    int i = 0;
+
+    bufsize = get_passwd_bufsize();
+    buf = malloc(bufsize);
+    if (buf == NULL) {
+        D("failed to allocate passwd buf(%ld)\n", bufsize);
+        return -1;
+    }
+
+    for (i = 0; g_default_groups[i].name != NULL; i++) {
+        memset(buf, 0, bufsize);
+        if (sdbd_get_user_pwd(g_default_groups[i].name, &pwd, buf, bufsize) == 0) {
+            g_default_groups[i].gid = pwd.pw_gid;
+        } else {
+            D("get user passwd info.(errno: %d)\n", errno);
+            free(buf);
+            return -1;
+        }
+    }
+
+    free(buf);
+    return 0;
+}
+
 static int init_sdk_userinfo() {
     struct passwd pwd;
     char *buf = NULL;
@@ -1727,14 +1773,10 @@ static int init_sdk_userinfo() {
         return 0;
     }
 
-    bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-    if(bufsize < 0) {
-        bufsize = (16*1024);
-    }
-
+    bufsize = get_passwd_bufsize();
     buf = malloc(bufsize);
     if (buf == NULL) {
-        D("failed to allocate passwd buf(%d)\n", bufsize);
+        D("failed to allocate passwd buf(%ld)\n", bufsize);
         return -1;
     }
 
@@ -1750,6 +1792,13 @@ static int init_sdk_userinfo() {
     g_sdk_home_dir = strdup(pwd.pw_dir);
 
     free(buf);
+
+    if (init_sdb_default_groups() < 0) {
+        D("failed to initialize default groups.\n");
+        free(g_sdk_home_dir);
+        g_sdk_home_dir = NULL;
+        return -1;
+    }
 
     int env_size = strlen("HOME=") + strlen(g_sdk_home_dir) + 1;
     g_sdk_home_dir_env = malloc(env_size);
@@ -1919,7 +1968,6 @@ static void init_capabilities(void) {
     ret = is_container_enabled();
     snprintf(g_capabilities.zone_support, sizeof(g_capabilities.zone_support),
                 "%s", ret == 1 ? ENABLED : DISABLED);
-
 
     // Multi-User support
     // XXX: There is no clear way to determine whether multi-user support.
