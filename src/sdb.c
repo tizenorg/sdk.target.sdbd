@@ -102,11 +102,18 @@ int (*usb_read)(usb_handle *h, void *data, size_t  len) = NULL;
 int (*usb_close)(usb_handle *h) = NULL;
 void (*usb_kick)(usb_handle *h) = NULL;
 
+int g_is_emulator = -1;
 int is_emulator(void) {
 #if SDB_HOST
-	return 0;
+    return 0;
 #else
-	return sdbd_commandline_args.emulator.host != NULL;
+    if (g_is_emulator >= 0) {
+        return g_is_emulator;
+    } else {
+        D("failed to initialize check emulator\n");
+    }
+
+    return sdbd_commandline_args.emulator.host != NULL;
 #endif
 }
 
@@ -2112,9 +2119,33 @@ static int is_support_sockproto()
     return (!strncmp(g_capabilities.sockproto_support, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
 }
 
+#define EMULATOR_MODEL_NAME     "Emulator"
+static check_emulator_or_device()
+{
+    char model_name[256]={0,};
+    int ret = -1;
+
+    // Get the model name from model_config.xml
+    ret = get_device_name(model_name, sizeof model_name);
+    if (ret == 0) {
+        if(!strncmp(model_name, EMULATOR_MODEL_NAME, sizeof(EMULATOR_MODEL_NAME))){
+            g_is_emulator = 1;
+            D("This target type is Emulator\n");
+        } else {
+            g_is_emulator = 0;
+            D("This target type is Device\n");
+        }
+    } else {
+        g_is_emulator = -1;
+        D("failed to get the model name.\n");
+    }
+}
+
 int sdb_main(int is_daemon, int server_port)
 {
 #if !SDB_HOST
+    check_emulator_or_device();
+
     load_sdbd_plugin();
     init_capabilities();
 
