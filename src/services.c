@@ -387,7 +387,7 @@ static int create_service_thread(void (*func)(int, void *), void *cookie)
 
 #if !SDB_HOST
 
-static void redirect_and_exec(int pts, const char *cmd, const char *argv[], const char *envp[])
+static void redirect_and_exec(int pts, const char *cmd, char * const argv[], char * const envp[])
 {
     dup2(pts, 0);
     dup2(pts, 1);
@@ -398,7 +398,7 @@ static void redirect_and_exec(int pts, const char *cmd, const char *argv[], cons
     execve(cmd, argv, envp);
 }
 
-static int create_subprocess(const char *cmd, pid_t *pid, const char *argv[], const char *envp[])
+static int create_subprocess(const char *cmd, pid_t *pid, char * const argv[], char * const envp[])
 {
     char devname[64];
     int ptm;
@@ -517,7 +517,6 @@ static void get_env(char *key, char **env)
 {
     FILE *fp;
     char buf[1024];
-    int i;
     char *s, *e, *value;
 
     fp = fopen (LOGIN_CONFIG, "r");
@@ -566,7 +565,7 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     char path[PATH_MAX];
     memset(path, 0, sizeof(path));
 
-    char *envp[] = {
+    char * envp[] = {
         "TERM=linux", /* without this, some programs based on screen can't work, e.g. top */
         "DISPLAY=:0", /* without this, some programs based on without launchpad can't work */
         NULL,
@@ -633,7 +632,7 @@ static int create_subproc_thread(const char *name, int lines, int columns)
 
         D("converted cmd : %s\n", new_cmd);
 
-        char *args[] = {
+        char * args[] = {
             SHELL_COMMAND,
             "-c",
             NULL,
@@ -641,7 +640,7 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         };
         args[2] = new_cmd;
 
-        ret_fd = create_subprocess(SHELL_COMMAND, &pid, args, envp);
+        ret_fd = create_subprocess(SHELL_COMMAND, &pid, (char * const*)args, (char * const*)envp);
         free(new_cmd);
     } else { // in case of shell interactively
         // Check the capability for interactive shell support.
@@ -650,12 +649,12 @@ static int create_subproc_thread(const char *name, int lines, int columns)
             return -1;
         }
 
-        char *args[] = {
+        char * const args[] = {
                 SHELL_COMMAND,
                 "-",
                 NULL,
         };
-        ret_fd = create_subprocess(SHELL_COMMAND, &pid, args, envp);
+        ret_fd = create_subprocess(SHELL_COMMAND, &pid, (char * const*)args, (char * const*)envp);
 #if 0   // FIXME: should call login command instead of /bin/sh
         if (should_drop_privileges()) {
             char *args[] = {
@@ -950,7 +949,6 @@ static void sync_windowsize(int fd, void *cookie) {
 const unsigned COMMAND_TIMEOUT = 10000;
 void get_boot(int fd, void *cookie) {
     char buf[2] = { 0, };
-    char *mode = (char*) cookie;
     int time = 0;
     int interval = 1000;
     while (time < COMMAND_TIMEOUT) {
@@ -1076,7 +1074,7 @@ int service_to_fd(const char *name)
         }
     } else if(!strncmp(name, "shellconf:", 10)){
         if(!strncmp(name+10, "syncwinsz:", 10)){
-            ret = create_service_thread(sync_windowsize, name+20);
+            ret = create_service_thread(sync_windowsize, (void *)name+20);
         }
     }
 

@@ -454,7 +454,7 @@ int usb_write(usb_handle *h, const void *_data, int len)
     return 0;
 }
 
-int usb_read(usb_handle *h, void *_data, int len)
+int usb_read(usb_handle *h, void *_data, size_t len)
 {
     unsigned char *data = (unsigned char*) _data;
     int n;

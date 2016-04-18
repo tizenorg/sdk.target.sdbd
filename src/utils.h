@@ -72,7 +72,7 @@ char *str_trim(char* string);
  * spawn a process and returns the process id of the new spawned process.
  * it is working as async.
  */
-int spawn(char* program, char** arg_list);
+int spawn(const char* program, char * const arg_list[]);
 
 char** str_split(char* a_str, const char a_delim);
 

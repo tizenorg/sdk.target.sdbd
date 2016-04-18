@@ -39,13 +39,10 @@
 
 #define SYNC_TIMEOUT 15
 
-#define APP_INSTALL_PATH_PREFIX1                tzplatform_getenv(TZ_SYS_RW_APP)
-#define APP_INSTALL_PATH_PREFIX2                tzplatform_mkpath(TZ_SDK_HOME, "apps_rw")
-
 struct sync_permit_rule
 {
     const char *name;
-    const char *regx;
+    char *regx;
     int mode; // 0:push, 1: pull, 2: push&push
 };
 
@@ -63,9 +60,19 @@ struct sync_permit_rule sdk_sync_permit_rule[] = {
 
 void init_sdk_sync_permit_rule_regx(void)
 {
-    asprintf(&sdk_sync_permit_rule[0].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
-    asprintf(&sdk_sync_permit_rule[1].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/+(.)*\\.gcda$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
-    asprintf(&sdk_sync_permit_rule[2].regx, "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$");
+	int ret;
+    ret = asprintf(&sdk_sync_permit_rule[0].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
+    if(ret < 0) {
+    	D("failed to run asprintf\n");
+    }
+    ret = asprintf(&sdk_sync_permit_rule[1].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/+(.)*\\.gcda$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
+	if (ret < 0) {
+		D("failed to run asprintf\n");
+	}
+    ret = asprintf(&sdk_sync_permit_rule[2].regx, "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$");
+	if (ret < 0) {
+		D("failed to run asprintf\n");
+	}
 }
 
 static void set_syncfile_smack_label(char *src) {
@@ -285,11 +292,12 @@ static int fail_message(int s, const char *reason)
 
 static int fail_errno(int s)
 {
+	char* ret_str;
 	char buf[512];
 
-	strerror_r(s, buf, sizeof(buf));
+	ret_str = strerror_r(s, buf, sizeof(buf));
 
-    return fail_message(s, buf);
+    return fail_message(s, (const char*)ret_str);
 }
 
 // FIXME: should get the following paths with api later but, do it for simple and not having dependency on other packages
@@ -310,16 +318,16 @@ static void sync_mediadb(char *path) {
     }
 
     if (strstr(path, MEDIA_CONTENTS_PATH1) != NULL) {
-        char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH1, NULL};
-        spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	const char * const arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH1, NULL};
+        spawn(CMD_MEDIADB_UPDATE, (char * const*)arg_list);
         D("media db update done to %s\n", MEDIA_CONTENTS_PATH1);
     } else if (strstr(path, MEDIA_CONTENTS_PATH2) != NULL) {
-        char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH2, NULL};
-        spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	const char * const arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH2, NULL};
+        spawn(CMD_MEDIADB_UPDATE, (char * const*)arg_list);
         D("media db update done to %s\n", MEDIA_CONTENTS_PATH2);
     } else if (strstr(path, MEDIA_CONTENTS_PATH3) != NULL) {
-        char *arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH3, NULL};
-        spawn(CMD_MEDIADB_UPDATE, arg_list);
+    	const char * const arg_list[] = {CMD_MEDIADB_UPDATE, "-r", MEDIA_CONTENTS_PATH3, NULL};
+        spawn(CMD_MEDIADB_UPDATE, (char * const*)arg_list);
         D("media db update done to %s\n", MEDIA_CONTENTS_PATH3);
     }
     return;
@@ -475,7 +483,10 @@ static int do_send(int s, int noti_fd, char *path, char *buffer)
 {
     char *tmp;
     mode_t mode;
-    int is_link, ret;
+    int ret;
+#ifdef HAVE_SYMLINKS
+    int is_link;
+#endif
 
     // Check the capability for file push support.
     if(!is_support_push()) {
@@ -488,9 +499,7 @@ static int do_send(int s, int noti_fd, char *path, char *buffer)
         *tmp = 0;
         errno = 0;
         mode = strtoul(tmp + 1, NULL, 0);
-#ifndef HAVE_SYMLINKS
-        is_link = 0;
-#else
+#ifdef HAVE_SYMLINKS
         is_link = S_ISLNK(mode);
 #endif
         // extracts file permission from stat.mode. (ex 100644 & 0777 = 644);
@@ -499,11 +508,15 @@ static int do_send(int s, int noti_fd, char *path, char *buffer)
     }
     if(!tmp || errno) {
         mode = 0644; // set default permission value in most of unix system.
+#ifdef HAVE_SYMLINKS
         is_link = 0;
+#endif
     }
     if (is_pkg_file_path(path)) {
         mode = 0644;
+#ifdef HAVE_SYMLINKS
         is_link = 0;
+#endif
     }
 
     // sdb does not allow to check that file exists or not. After deleting old file and creating new file again unconditionally.
@@ -601,7 +614,7 @@ static int verify_sync_rule(const char* path) {
         }
     }
     regfree(&regex);
-    for (i = 0; i <= 3; i++){
+    for (i=0; sdk_sync_permit_rule[i].regx != NULL; i++){
        free(sdk_sync_permit_rule[i].regx);
     }
     return 0;

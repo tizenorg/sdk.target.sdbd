@@ -745,7 +745,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
 {
     atransport *t;
     atransport *result = NULL;
-    int ambiguous = 0;
 
     if (error_out)
         *error_out = "device not found";
@@ -769,7 +768,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
                 if (result) {
                     if (error_out)
                         *error_out = "more than one device";
-                    ambiguous = 1;
                     result = NULL;
                     break;
                 }
@@ -778,7 +776,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
                 if (result) {
                     if (error_out)
                         *error_out = "more than one emulator";
-                    ambiguous = 1;
                     result = NULL;
                     break;
                 }
@@ -787,7 +784,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
                 if (result) {
                     if (error_out)
                         *error_out = "more than one device and emulator";
-                    ambiguous = 1;
                     result = NULL;
                     break;
                 }

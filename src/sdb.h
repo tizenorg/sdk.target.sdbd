@@ -521,7 +521,7 @@ int  local_connect_arbitrary_ports(int console_port, int sdb_port, const char *d
 void usb_init();
 void usb_cleanup();
 int usb_write(usb_handle *h, const void *data, int len);
-int usb_read(usb_handle *h, void *data, int len);
+int usb_read(usb_handle *h, void *data, size_t len);
 int usb_close(usb_handle *h);
 void usb_kick(usb_handle *h);
 #else
@@ -529,7 +529,7 @@ void usb_kick(usb_handle *h);
 extern void (*usb_init)();
 extern void (*usb_cleanup)();
 extern int (*usb_write)(usb_handle *h, const void *data, int len);
-extern int (*usb_read)(usb_handle *h, void *data, int len);
+extern int (*usb_read)(usb_handle *h, void *data, size_t len);
 extern int (*usb_close)(usb_handle *h);
 extern void (*usb_kick)(usb_handle *h);
 
@@ -537,7 +537,7 @@ extern void (*usb_kick)(usb_handle *h);
 void ffs_usb_init();
 void ffs_usb_cleanup();
 int ffs_usb_write(usb_handle *h, const void *data, int len);
-int ffs_usb_read(usb_handle *h, void *data, int len);
+int ffs_usb_read(usb_handle *h, void *data, size_t len);
 int ffs_usb_close(usb_handle *h);
 void ffs_usb_kick(usb_handle *h);
 
@@ -545,7 +545,7 @@ void ffs_usb_kick(usb_handle *h);
 void linux_usb_init();
 void linux_usb_cleanup();
 int linux_usb_write(usb_handle *h, const void *data, int len);
-int linux_usb_read(usb_handle *h, void *data, unsigned len);
+int linux_usb_read(usb_handle *h, void *data, size_t len);
 int linux_usb_close(usb_handle *h);
 void linux_usb_kick(usb_handle *h);
 
