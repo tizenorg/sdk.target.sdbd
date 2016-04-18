@@ -171,7 +171,7 @@ usb_write(struct usb_handle *uh, const void *_data, int len)
 }
 
 int
-usb_read(struct usb_handle *uh, void *_data, int len)
+usb_read(struct usb_handle *uh, void *_data, size_t len)
 {
     unsigned char *data = (unsigned char*) _data;
     int n;

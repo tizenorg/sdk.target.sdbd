@@ -524,7 +524,7 @@ static int
 transport_read_action(int  fd, struct tmsg*  m)
 {
     char *p   = (char*)m;
-    int   len = sizeof(*m);
+    size_t   len = sizeof(*m);
     int   r;
 
     while(len > 0) {
@@ -546,7 +546,7 @@ static int
 transport_write_action(int  fd, struct tmsg*  m)
 {
     char *p   = (char*)m;
-    int   len = sizeof(*m);
+    size_t   len = sizeof(*m);
     int   r;
 
     while(len > 0) {
@@ -745,7 +745,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
 {
     atransport *t;
     atransport *result = NULL;
-    int ambiguous = 0;
 
     if (error_out)
         *error_out = "device not found";
@@ -769,7 +768,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
                 if (result) {
                     if (error_out)
                         *error_out = "more than one device";
-                    ambiguous = 1;
                     result = NULL;
                     break;
                 }
@@ -778,7 +776,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
                 if (result) {
                     if (error_out)
                         *error_out = "more than one emulator";
-                    ambiguous = 1;
                     result = NULL;
                     break;
                 }
@@ -787,7 +784,6 @@ atransport *acquire_one_transport(int state, transport_type ttype, const char* s
                 if (result) {
                     if (error_out)
                         *error_out = "more than one device and emulator";
-                    ambiguous = 1;
                     result = NULL;
                     break;
                 }
@@ -1058,9 +1054,9 @@ int readx(int fd, void *ptr, size_t len)
     char *p = ptr;
     int r;
 #if SDB_TRACE
-    int  len0 = len;
+    size_t  len0 = len;
 #endif
-    D("readx: fd=%d wanted=%d\n", fd, (int)len);
+    D("readx: fd=%d wanted=%d\n", fd, len);
     while(len > 0) {
         r = sdb_read(fd, p, len);
         if(r > 0) {
@@ -1091,7 +1087,7 @@ int writex(int fd, const void *ptr, size_t len)
     int r;
 
 #if SDB_TRACE
-    D("writex: fd=%d len=%d: ", fd, (int)len);
+    D("writex: fd=%d len=%d: ", fd, len);
     dump_hex( ptr, len );
 #endif
     while(len > 0) {

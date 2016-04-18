@@ -26,7 +26,7 @@ struct arg_permit_rule
 
 #define SDK_LAUNCH_PATH                         "/usr/sbin/sdk_launch"
 #define APP_INSTALL_PATH_PREFIX1                tzplatform_getenv(TZ_SYS_RW_APP)
-#define APP_INSTALL_PATH_PREFIX2                tzplatform_getenv(TZ_USER_APP)
+#define APP_INSTALL_PATH_PREFIX2                tzplatform_mkpath(TZ_SDK_HOME, "apps_rw")
 #define DEV_INSTALL_PATH_PREFIX                 tzplatform_getenv(TZ_SDK_TOOLS)
 #define GDBSERVER_PATH                          tzplatform_mkpath(TZ_SDK_TOOLS,"gdbserver/gdbserver")
 #define GDBSERVER_PLATFORM_PATH                 tzplatform_mkpath(TZ_SDK_TOOLS,"gdbserver-platform/gdbserver")

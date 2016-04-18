@@ -297,7 +297,7 @@ static int read_control(struct usb_handle *usb)
     /* Read events from control endpoint
        Fortunately, FunctionFS guarantees reading of full event (or nothing),
        so we're not bothered with ret < sizeof(read_event) */
-    ret = sdb_read(usb->control, &read_event, sizeof(read_event));
+    ret = sdb_read(usb->control, (void *)&read_event, sizeof(read_event));
     if (ret < 0) {
         /* EAGAIN support will be useful, when non-blocking ep0 reads
            are supported in FunctionFS */
@@ -548,7 +548,7 @@ int ffs_usb_write(usb_handle *h, const void *data, int len)
  *
  * @returns 0 on success and -1 on failure (errno is set)
  */
-int ffs_usb_read(usb_handle *h, void *data, int len)
+int ffs_usb_read(usb_handle *h, void *data, size_t len)
 {
     int n;
 

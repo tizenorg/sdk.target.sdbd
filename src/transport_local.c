@@ -415,85 +415,6 @@ static const char _ok_resp[]    = "ok";
 #endif  // !SDB_HOST
 #endif
 
-/*!
- * static int send_msg_to_host_from_guest(const char *hostname, int host_port, char *request, int sock_type)
- * @brief Sends \c request to host using specified protocol
- *
- * @param hostname Hostname -- could be domain name or IP
- * @param host_port Host port
- * @param request Message to be sent to host
- * @param protocol IP protocol to be used: IPPROTO_TCP or IPPROTO_UDP
- *
- * @returns 0 on success, -1 otherwise
- *
- * @note SOCK_STREAM will be used for IPPROTO_TCP as socket type
- *       and SOCK_DGRAM for IPPROTO_UDP
- */
-static int send_msg_to_host_from_guest(const char *hostname, int host_port, char *request, int protocol) {
-    int sock = -1;
-    int PORT_SIZE = 32;
-    char port[PORT_SIZE]; /* string decimal representation for getaddrinfo */
-    struct addrinfo hints = {0};
-    struct addrinfo *addresses, *curr_addr;
-    int getaddr_ret;
-    const char *protocol_name = "unknown"; /* for debug message */
-
-    switch(protocol) {
-    case IPPROTO_TCP:
-        protocol_name = "tcp";
-        hints.ai_socktype = SOCK_STREAM;
-        break;
-    case IPPROTO_UDP:
-        protocol_name = "udp";
-        hints.ai_socktype = SOCK_DGRAM;
-        break;
-    default:
-        D("unsupported protocol: %d", protocol);
-        return -1;
-    }
-
-    D("try to send notification to host(%s:%d) using %s:[%s]\n", hostname, host_port, protocol_name, request);
-
-    hints.ai_family = AF_INET;
-
-    snprintf(port, PORT_SIZE, "%d", host_port);
-    getaddr_ret = getaddrinfo(hostname, port, &hints, &addresses);
-
-    if (getaddr_ret != 0) {
-        D("could not resolve %s\n", hostname);
-        return -1;
-    }
-
-    for(curr_addr = addresses; curr_addr != NULL; curr_addr = curr_addr->ai_next) {
-        sock = socket(curr_addr->ai_family, curr_addr->ai_socktype, curr_addr->ai_protocol);
-        if (sock == -1)
-            continue;
-
-        if (connect(sock, curr_addr->ai_addr, curr_addr->ai_addrlen) != -1)
-            break; /* Success */
-
-        sdb_close(sock);
-    }
-
-    if(curr_addr == NULL) { /* No address succeeded */
-        freeaddrinfo(addresses);
-        D("could not connect to server\n");
-        return -1;
-    }
-
-    freeaddrinfo(addresses);
-
-    if (sdb_write(sock, request, strlen(request)) < 0) {
-        D("could not send notification request to host\n");
-        sdb_close(sock);
-        return -1;
-    }
-    sdb_close(sock);
-    D("sent notification request to host\n");
-
-    return 0;
-}
-
 int connect_nonb(int sockfd, const struct sockaddr *saptr, socklen_t salen,
         int nsec) {
     int flags, n, error;
@@ -588,7 +509,7 @@ static int send_msg_to_localhost_from_guest(const char *host_ip, int local_port,
 }
 
 // send the "emulator" request to sdbserver
-static void notify_sdbd_startup_thread() {
+static void* notify_sdbd_startup_thread(void* ptr) {
     char                 buffer[512];
     char                 request[512];
 
@@ -605,11 +526,11 @@ static void notify_sdbd_startup_thread() {
     int time = 0;
     //int try_limit_time = -1; // try_limit_time < 0 if unlimited
     if (sensors_port < 0 || emulator_port < 0 || r < 0) {
-        return;
+        return NULL;
     }
     if (get_emulator_hostip(host_ip, sizeof host_ip) == -1) {
        D("failed to get emulator host ip\n");
-       return;
+       return NULL;
     }
     // XXX: Known issue - log collision
     while (1) {
