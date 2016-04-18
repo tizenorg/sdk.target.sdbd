@@ -94,7 +94,7 @@ int linux_usb_write(usb_handle *h, const void *data, int len)
     return 0;
 }
 
-int linux_usb_read(usb_handle *h, void *data, unsigned len)
+int linux_usb_read(usb_handle *h, void *data, size_t len)
 {
     int n;
 

@@ -92,7 +92,7 @@ static int is_support_sockproto();
 void (*usb_init)() = NULL;
 void (*usb_cleanup)() = NULL;
 int (*usb_write)(usb_handle *h, const void *data, int len) = NULL;
-int (*usb_read)(usb_handle *h, void *data, int len) = NULL;
+int (*usb_read)(usb_handle *h, void *data, size_t  len) = NULL;
 int (*usb_close)(usb_handle *h) = NULL;
 void (*usb_kick)(usb_handle *h) = NULL;
 
@@ -128,7 +128,7 @@ void handle_sig_term(int sig) {
     if (access(SDB_PIDPATH, F_OK) == 0)
         sdb_unlink(SDB_PIDPATH);
 #endif
-    char *cmd1_args[] = {"/usr/bin/killall", "/usr/bin/debug_launchpad_preloading_preinitializing_daemon", NULL};
+    char * const cmd1_args[] = {"/usr/bin/killall", "/usr/bin/debug_launchpad_preloading_preinitializing_daemon", NULL};
     spawn("/usr/bin/killall", cmd1_args);
     sdb_sleep_ms(1000);
 }
@@ -1361,14 +1361,17 @@ static void *bootdone_cb(void *x) {
 	char rule[MAX_LOCAL_BUFSZ];
 	GMainLoop *mainloop;
 
+/* g_type_init() is deprecated for glib version 2.35.0 or greater, */
+#if !GLIB_CHECK_VERSION(2,35,0)
 	g_type_init();
+#endif
 
 	dbus_error_init(&error);
 	bus = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
 	if (!bus) {
 		D("Failed to connect to the D-BUS daemon: %s", error.message);
 		dbus_error_free(&error);
-		return -1;
+		return NULL;
 	}
 	dbus_connection_setup_with_g_main(bus, NULL);
 
@@ -1379,12 +1382,12 @@ static void *bootdone_cb(void *x) {
 	if (dbus_error_is_set(&error)) {
 		D("Fail to rule set: %s", error.message);
 		dbus_error_free(&error);
-		return -1;
+		return NULL;
 	}
 
 	if (dbus_connection_add_filter(bus, __sdbd_dbus_signal_filter, NULL, NULL)
 			== FALSE)
-		return -1;
+		return NULL;
 
 	D("booting signal initialized\n");
 	mainloop = g_main_loop_new(NULL, FALSE);
@@ -1392,7 +1395,7 @@ static void *bootdone_cb(void *x) {
 
 	D("dbus loop exited");
 
-	return 0;
+	return NULL;
 }
 
 void register_bootdone_cb() {
@@ -1499,7 +1502,7 @@ int set_sdk_user_privileges() {
 }
 
 static void execute_required_process() {
-    char *cmd_args[] = {"/usr/bin/debug_launchpad_preloading_preinitializing_daemon",NULL};
+    char * const cmd_args[] = {"/usr/bin/debug_launchpad_preloading_preinitializing_daemon",NULL};
 
     spawn("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", cmd_args);
 }

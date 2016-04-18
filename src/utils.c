@@ -151,7 +151,7 @@ char *str_trim(char *str) {
 	return str;
 }
 
-int spawn(char* program, char** arg_list)
+int spawn(const char* program, char* const arg_list[])
 {
     pid_t pid;
     int ret;
@@ -167,7 +167,7 @@ int spawn(char* program, char** arg_list)
                 // init takes the process, and the process is not able to be zombie
                 exit(0);
             }
-            execvp (program, arg_list);
+            execvp(program, arg_list);
             fprintf(stderr, "failed to spawn: never reach here!:%s\n", program);
             exit(0);
     }

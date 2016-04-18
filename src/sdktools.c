@@ -32,10 +32,10 @@ struct sudo_command root_commands[] = {
         }
     },
     /* end */
-    { NULL, NULL, NULL }
+    { NULL, NULL, {NULL} }
 };
 
-static struct command_suffix
+struct command_suffix
 {
     const char *name; // comments for human
     const char *suffix; //pattern
