@@ -276,12 +276,13 @@ done:
 static int fail_message(int s, const char *reason)
 {
     syncmsg msg;
-    int len = strlen(reason);
+    size_t len = strlen(reason);
 
     D("sync: failure: %s\n", reason);
 
     msg.data.id = ID_FAIL;
     msg.data.size = htoll(len);
+
     if(writex(s, &msg.data, sizeof(msg.data)) ||
        writex(s, reason, len)) {
         return -1;
@@ -290,14 +291,14 @@ static int fail_message(int s, const char *reason)
     }
 }
 
-static int fail_errno(int s)
+static int fail_errno(int fd, int err_no)
 {
     char* ret_str;
-    char buf[512];
+    char buf[512] = {0, };
 
-    ret_str = strerror_r(s, buf, sizeof(buf));
+    ret_str = strerror_r(err_no, buf, sizeof(buf));
 
-    return fail_message(s, (const char*)ret_str);
+    return fail_message(fd, (const char*)ret_str);
 }
 
 // FIXME: should get the following paths with api later but, do it for simple and not having dependency on other packages
@@ -348,7 +349,7 @@ static int handle_send_file(int s, int noti_fd, char *path, mode_t mode, char *b
         fd = sdb_open_mode(path, O_WRONLY, mode);
     }
     if(fd < 0) {
-        if(fail_errno(s))
+        if(fail_errno(s, errno))
             return -1;
         fd = -1;
     }
@@ -385,7 +386,7 @@ static int handle_send_file(int s, int noti_fd, char *path, mode_t mode, char *b
             sdb_unlink(path);
             fd = -1;
             errno = saved_errno;
-            if(fail_errno(s)) return -1;
+            if(fail_errno(s, errno)) return -1;
         }
     }
 
@@ -446,7 +447,7 @@ static int handle_send_link(int s, int noti_fd, char *path, char *buffer)
         ret = symlink(buffer, path);
     }
     if(ret) {
-        fail_errno(s);
+        fail_errno(s, errno);
         return -1;
     }
 
@@ -556,7 +557,7 @@ static int do_recv(int s, const char *path, char *buffer)
 
     fd = sdb_open(path, O_RDONLY);
     if(fd < 0) {
-        if(fail_errno(s)) return -1;
+        if(fail_errno(s, errno)) return -1;
         return 0;
     }
 
@@ -566,7 +567,7 @@ static int do_recv(int s, const char *path, char *buffer)
         if(r <= 0) {
             if(r == 0) break;
             if(errno == EINTR) continue;
-            r = fail_errno(s);
+            r = fail_errno(s, errno);
             sdb_close(fd);
             return r;
         }
