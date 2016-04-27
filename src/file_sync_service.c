@@ -39,41 +39,10 @@
 
 #define SYNC_TIMEOUT 15
 
-struct sync_permit_rule
-{
-    const char *name;
-    char *regx;
-    int mode; // 0:push, 1: pull, 2: push&push
-};
-
-struct sync_permit_rule sdk_sync_permit_rule[] = {
-    /* 0 */ {"unitest", "", 1},
-    /* 1 */ {"codecoverage", "", 1},
-    /* 2 */ {"da", "", 1},
-    /* end */ {NULL, NULL, 0}
-};
-
 /* The typical default value for the umask is S_IWGRP | S_IWOTH (octal 022).
  * Before use the DIR_PERMISSION, the process umask value should be set 0 using umask().
  */
 #define DIR_PERMISSION 0777
-
-void init_sdk_sync_permit_rule_regx(void)
-{
-    int ret;
-    ret = asprintf(&sdk_sync_permit_rule[0].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/[a-zA-Z0-9_\\-]{1,50}\\.xml$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
-    if(ret < 0) {
-        D("failed to run asprintf for unittest\n");
-    }
-    ret = asprintf(&sdk_sync_permit_rule[1].regx, "^((/tmp)|(%s)|(%s))/[a-zA-Z0-9]{10}/data/+(.)*\\.gcda$", APP_INSTALL_PATH_PREFIX1, APP_INSTALL_PATH_PREFIX2);
-    if (ret < 0) {
-        D("failed to run asprintf for codecoverage\n");
-    }
-    ret = asprintf(&sdk_sync_permit_rule[2].regx, "^(/tmp/da/)*+[a-zA-Z0-9_\\-\\.]{1,50}\\.png$");
-    if (ret < 0) {
-        D("failed to run asprintf for da\n");
-    }
-}
 
 static void set_syncfile_smack_label(char *src) {
     char *label_transmuted = NULL;
@@ -589,37 +558,6 @@ static int do_recv(int s, const char *path, char *buffer)
     return 0;
 }
 
-static int verify_sync_rule(const char* path) {
-    regex_t regex;
-    int ret;
-    char buf[PATH_MAX];
-    int i=0;
-
-    init_sdk_sync_permit_rule_regx();
-    for (i=0; sdk_sync_permit_rule[i].regx != NULL; i++) {
-        ret = regcomp(&regex, sdk_sync_permit_rule[i].regx, REG_EXTENDED);
-        if(ret){
-            return 0;
-        }
-        // execute regular expression
-        ret = regexec(&regex, path, 0, NULL, 0);
-        if(!ret){
-            regfree(&regex);
-            D("found matched rule(%s) from %s path\n", sdk_sync_permit_rule[i].name, path);
-            return 1;
-        } else if( ret == REG_NOMATCH ){
-            // do nothin
-        } else{
-            regerror(ret, &regex, buf, sizeof(buf));
-            D("regex match failed(%s): %s\n",sdk_sync_permit_rule[i].name, buf);
-        }
-    }
-    regfree(&regex);
-    for (i=0; sdk_sync_permit_rule[i].regx != NULL; i++){
-       free(sdk_sync_permit_rule[i].regx);
-    }
-    return 0;
-}
 
 void file_sync_service(int fd, void *cookie)
 {
@@ -684,7 +622,7 @@ void file_sync_service(int fd, void *cookie)
 
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
 
-            if (should_drop_privileges() && !verify_sync_rule(name)) {
+            if (should_drop_privileges()) {
                 set_sdk_user_privileges();
             }
 
