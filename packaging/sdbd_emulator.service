@@ -5,6 +5,8 @@ After=tmp.mount dbus.service
 #DefaultDependencies=false
 
 [Service]
+User=sdk
+Group=sdk
 Type=forking
 Environment=DISPLAY=:0
 PIDFile=/tmp/.sdbd.pid
