@@ -77,7 +77,13 @@ struct group_info
     const char *name;
     gid_t gid;
 };
-struct group_info g_default_groups[] = { {"log", -1}, {NULL, -1}};
+struct group_info g_default_groups[] = {
+    {"priv_externalstorage", -1},
+    {"priv_externalstorage_appdata", -1},
+    {"priv_mediastorage", -1},
+    {"log", -1},
+    {NULL, -1}
+};
 #define SDB_DEFAULT_GROUPS_CNT  ((sizeof(g_default_groups)/sizeof(g_default_groups[0]))-1)
 
 int is_init_sdk_userinfo = 0;
@@ -1435,7 +1441,7 @@ static int sdbd_set_groups() {
                 break;
             }
         }
-        if (group_match == 0) {
+        if (group_match == 0 && g_default_groups[i].gid != -1) {
             group_ids[ngroups + added_group_cnt] = g_default_groups[i].gid;
             added_group_cnt ++;
         }
@@ -1462,7 +1468,25 @@ static int sdbd_get_user_pwd(const char* user_name, struct passwd* pwd, char* bu
             D("Not found passwd : username(%s)\n", user_name);
         } else {
             errno = ret;
-            D("failed to getpwuid_r\n");
+            D("failed to getpwnam_r\n");
+        }
+        return -1;
+    }
+
+    return 0;
+}
+
+static int sdbd_get_group(const char* group_name, struct group* grp, char* buf, size_t bufsize) {
+    struct group *result = NULL;
+    int ret = 0;
+
+    ret = getgrnam_r(group_name, grp, buf, bufsize, &result);
+    if (result == NULL) {
+        if (ret == 0) {
+            D("Not found group : groupname(%s)\n", group_name);
+        } else {
+            errno = ret;
+            D("failed to getgrnam_r\n");
         }
         return -1;
     }
@@ -1478,26 +1502,25 @@ int set_sdk_user_privileges() {
 
     if (sdbd_set_groups() < 0) {
         D("set groups failed (errno: %d)\n", errno);
-        return -1;
     }
 
     if (setgid(g_sdk_group_id) != 0) {
         D("set group id failed (errno: %d)\n", errno);
-        return -1;
     }
 
     if (setuid(g_sdk_user_id) != 0) {
         D("set user id failed (errno: %d)\n", errno);
-        return -1;
     }
 
     if (chdir(g_sdk_home_dir) < 0) {
         D("unable to change working directory to %s\n", g_sdk_home_dir);
-        return -1;
     }
 
     // TODO: use pam later
-    putenv(g_sdk_home_dir_env);
+    if (g_sdk_home_dir_env) {
+        putenv(g_sdk_home_dir_env);
+    }
+
     return 0;
 }
 
@@ -1721,43 +1744,59 @@ static void load_sdbd_plugin() {
     D("using sdbd plugin interface.(%s)\n", SDBD_PLUGIN_PATH);
 }
 
+#define SDB_PW_GR_DEFAULT_SIZE  (16*1024)
 static long get_passwd_bufsize() {
     long bufsize = 0;
 
     bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
     if(bufsize < 0) {
-        bufsize = (16*1024);
+        bufsize = SDB_PW_GR_DEFAULT_SIZE;
+    }
+
+    return bufsize;
+}
+
+static long get_group_bufsize() {
+    long bufsize = 0;
+
+    bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
+    if(bufsize < 0) {
+        bufsize = SDB_PW_GR_DEFAULT_SIZE;
     }
 
     return bufsize;
 }
 
 static int init_sdb_default_groups() {
-    struct passwd pwd;
+    struct group grp;
     char *buf = NULL;
     long bufsize = 0;
     int i = 0;
 
-    bufsize = get_passwd_bufsize();
+    bufsize = get_group_bufsize();
     buf = malloc(bufsize);
     if (buf == NULL) {
-        D("failed to allocate passwd buf(%ld)\n", bufsize);
+        D("failed to allocate gruop buf(%ld)\n", bufsize);
         return -1;
     }
 
     for (i = 0; g_default_groups[i].name != NULL; i++) {
         memset(buf, 0, bufsize);
-        if (sdbd_get_user_pwd(g_default_groups[i].name, &pwd, buf, bufsize) == 0) {
-            g_default_groups[i].gid = pwd.pw_gid;
+        if (sdbd_get_group(g_default_groups[i].name, &grp, buf, bufsize) == 0) {
+            g_default_groups[i].gid = grp.gr_gid;
         } else {
-            D("get user passwd info.(errno: %d)\n", errno);
-            free(buf);
-            return -1;
+            D("failed get group info.(errno: %d)\n", errno);
         }
     }
 
     free(buf);
     return 0;
+}
+
+static void set_static_userinfo() {
+    g_sdk_user_id = STATIC_SDK_USER_ID;
+    g_sdk_group_id = STATIC_SDK_GROUP_ID;
+    g_sdk_home_dir = STATIC_SDK_HOME_DIR;
 }
 
 static int init_sdk_userinfo() {
@@ -1769,42 +1808,36 @@ static int init_sdk_userinfo() {
         return 0;
     }
 
+    if (init_sdb_default_groups() < 0) {
+        D("failed to initialize default groups.\n");
+    }
+
     bufsize = get_passwd_bufsize();
     buf = malloc(bufsize);
     if (buf == NULL) {
         D("failed to allocate passwd buf(%ld)\n", bufsize);
-        return -1;
-    }
+        set_static_userinfo();
+    } else {
+        if (sdbd_get_user_pwd(SDK_USER_NAME, &pwd, buf, bufsize) < 0) {
+            D("get user passwd info.(errno: %d)\n", errno);
+            set_static_userinfo();
+        } else {
+            D("username=%s, uid=%d, gid=%d, dir=%s\n", pwd.pw_name, pwd.pw_uid, pwd.pw_gid, pwd.pw_dir);
 
-    if (sdbd_get_user_pwd(SDK_USER_NAME, &pwd, buf, bufsize) < 0) {
-        D("get user passwd info.(errno: %d)\n", errno);
+            g_sdk_user_id = pwd.pw_uid;
+            g_sdk_group_id = pwd.pw_gid;
+            g_sdk_home_dir = strdup(pwd.pw_dir);
+        }
         free(buf);
-        return -1;
-    }
-    D("username=%s, uid=%d, gid=%d, dir=%s\n", pwd.pw_name, pwd.pw_uid, pwd.pw_gid, pwd.pw_dir);
-
-    g_sdk_user_id = pwd.pw_uid;
-    g_sdk_group_id = pwd.pw_gid;
-    g_sdk_home_dir = strdup(pwd.pw_dir);
-
-    free(buf);
-
-    if (init_sdb_default_groups() < 0) {
-        D("failed to initialize default groups.\n");
-        free(g_sdk_home_dir);
-        g_sdk_home_dir = NULL;
-        return -1;
     }
 
     int env_size = strlen("HOME=") + strlen(g_sdk_home_dir) + 1;
     g_sdk_home_dir_env = malloc(env_size);
-    if(g_sdk_home_dir_env == 0) {
+    if(g_sdk_home_dir_env == NULL) {
         D("failed to allocate for home dir env string\n");
-        free(g_sdk_home_dir);
-        g_sdk_home_dir = NULL;
-        return -1;
+    } else {
+        snprintf(g_sdk_home_dir_env, env_size, "HOME=%s", g_sdk_home_dir);
     }
-    snprintf(g_sdk_home_dir_env, env_size, "HOME=%s", g_sdk_home_dir);
 
     is_init_sdk_userinfo = 1;
     return 0;
