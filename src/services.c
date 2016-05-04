@@ -226,8 +226,6 @@ void rootshell_service(int fd, void *cookie)
         writex(fd, buf, strlen(buf));
     }
     D("set rootshell to %s\n", rootshell_mode == 1 ? "root" : SDK_USER_NAME);
-    free(mode);
-    sdb_close(fd);
 }
 
 enum tzplatform_get_env_error_status {
@@ -255,8 +253,6 @@ void get_tzplatform_env(int fd, void *cookie) {
         snprintf(buf, sizeof(buf), "%d", ERROR_TZPLATFORM_ENV_INVALID_VARIABLES);
     }
     writex(fd, buf, strlen(buf));
-    free(env_name);
-    sdb_close(fd);
 }
 
 void restart_usb_service(int fd, void *cookie)
@@ -324,7 +320,6 @@ void inoti_service(int fd, void *arg)
     if ( wd < 0 ) {
         D("inotify_add_watch failed (errno :%d)\n", errno);
         sdb_close(ifd);
-        sdb_close(fd);
         return;
     }
 
@@ -445,7 +440,7 @@ static void redirect_and_exec(int pts, const char *cmd, char * const argv[], cha
     execve(cmd, argv, envp);
 }
 
-static int create_subprocess(const char *cmd, pid_t *pid, char * const argv[], char * const envp[])
+int create_subprocess(const char *cmd, pid_t *pid, char * const argv[], char * const envp[])
 {
     char devname[64];
     int ptm;
@@ -523,7 +518,6 @@ static int create_subprocess(const char *cmd, pid_t *pid, char * const argv[], c
 }
 #endif  /* !SDB_HOST */
 
-#define SHELL_COMMAND "/bin/sh"
 #define LOGIN_COMMAND "/bin/login"
 #define SUPER_USER    "root"
 #define LOGIN_CONFIG  "/etc/login.defs"
@@ -560,7 +554,7 @@ static void subproc_waiter_service(int fd, void *cookie)
     }
 }
 
-static void get_env(char *key, char **env)
+void get_env(char *key, char **env)
 {
     FILE *fp;
     char buf[1024];
@@ -832,7 +826,6 @@ static int create_syncproc_thread()
 
     return ret_fd;
 }
-
 #endif
 
 static void get_platforminfo(int fd, void *cookie) {
@@ -975,12 +968,16 @@ static void get_capability(int fd, void *cookie) {
                                 "syncwinsz_support", g_capabilities.syncwinsz_support);
 
     // Sdbd log enable
-   offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                               "log_enable", g_capabilities.log_enable);
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+            "log_enable", g_capabilities.log_enable);
 
     // Sdbd log path
-   offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
-                               "log_path", g_capabilities.log_path);
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+            "log_path", g_capabilities.log_path);
+
+    // Application command support
+    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+            "appcmd_support", g_capabilities.appcmd_support);
 
 
     offset++; // for '\0' character
@@ -1145,6 +1142,10 @@ int service_to_fd(const char *name)
        char* env_variable = NULL;
        env_variable = strdup(name+14);
        ret = create_service_thread(get_tzplatform_env, (void *)(env_variable));
+    } else if(!strncmp(name, "appcmd:", 7)){
+        char *command = strdup(name);
+        if(!command) return -1;
+        ret = create_service_thread(sdbd_plugin_service_proc, command);
     }
 
     if (ret >= 0) {

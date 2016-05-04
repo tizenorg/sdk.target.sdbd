@@ -51,6 +51,7 @@ SET(SDBD_SRCS
 	src/commandline_sdbd.c
 	src/usb_linux_client.c
 	src/usb_funcfs_client.c
+	src/app_cmd_service.c
 )
 
 include(FindPkgConfig)
