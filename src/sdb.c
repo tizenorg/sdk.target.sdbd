@@ -204,6 +204,7 @@ void  sdb_trace_init(void)
         { "services", TRACE_SERVICES },
         { "properties", TRACE_PROPERTIES },
         { "sdktools", TRACE_SDKTOOLS },
+        { "appcmd", TRACE_APPCMD },
         { NULL, 0 }
     };
 
@@ -1622,6 +1623,9 @@ static int get_plugin_capability(const char* in_buf, sdbd_plugin_param out) {
     } else if (SDBD_CMP_CAP(in_buf, LOG_PATH)) {
         snprintf(out.data, out.len, "%s", "/tmp");
         ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, APPCMD)) {
+        snprintf(out.data, out.len, "%s", SDBD_CAP_RET_ENABLED);
+        ret = SDBD_PLUGIN_RET_SUCCESS;
     }
 
     return ret;
@@ -1733,6 +1737,11 @@ int default_cmd_proc(const char* cmd,
 
 void default_service_proc(int fd, void* cookie) {
     D("excute service proc. FD(%d), cookie(%p)\n", fd, cookie);
+    char* command = (char*)cookie;
+
+    if (strncmp(command, "appcmd:", 7) == 0) {
+        appcmd_service(fd, command+7);
+    }
 #ifdef TEST_SERVICE_PROC // For return msg test
     char ret_msg[128] = {0,};
     snprintf(ret_msg, sizeof(ret_msg), "default_service_proc: cookie=%s\n", cookie);
@@ -2162,16 +2171,25 @@ static void init_capabilities(void) {
            D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_LOG_ENABLE);
            snprintf(g_capabilities.log_enable, sizeof(g_capabilities.log_enable),
                        "%s", DISABLED);
-       }
+    }
 
-     // sdbd log path
+    // sdbd log path
     if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_LOG_PATH,
                                g_capabilities.log_path,
                                sizeof(g_capabilities.log_path))) {
            D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_LOG_PATH);
            snprintf(g_capabilities.log_path, sizeof(g_capabilities.log_path),
                        "%s", UNKNOWN);
-       }
+    }
+
+    // Application command support
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_APPCMD,
+                               g_capabilities.appcmd_support,
+                               sizeof(g_capabilities.appcmd_support))) {
+           D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_APPCMD);
+           snprintf(g_capabilities.appcmd_support, sizeof(g_capabilities.appcmd_support),
+                       "%s", UNKNOWN);
+    }
 }
 
 static int is_support_usbproto()

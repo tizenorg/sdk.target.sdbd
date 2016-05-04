@@ -36,8 +36,9 @@
 #define SDBD_CAP_TYPE_ROOTONOFF         "root_onoff_support"
 #define SDBD_CAP_TYPE_PLUGIN_VER        "sdbd_plugin_version"
 #define SDBD_CAP_TYPE_PRODUCT_VER       "product_version"
-#define SDBD_CAP_TYPE_LOG_ENABLE       "sdbd_log_enable"
-#define SDBD_CAP_TYPE_LOG_PATH       "sdbd_log_path"
+#define SDBD_CAP_TYPE_LOG_ENABLE        "sdbd_log_enable"
+#define SDBD_CAP_TYPE_LOG_PATH          "sdbd_log_path"
+#define SDBD_CAP_TYPE_APPCMD            "appcmd_support"
 
 /* capability return string */
 #define SDBD_CAP_RET_ENABLED            "enabled"
