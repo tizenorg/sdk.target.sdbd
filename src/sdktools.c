@@ -67,7 +67,7 @@ static int is_cmd_suffix_denied(const char* arg) {
     return 0;
 }
 
-static int get_application_install_path(char* pkg_path) {
+int get_application_install_path(char* pkg_path) {
     FILE *fp = NULL;
     char ret_str[PATH_MAX+64] = {0,};
     int len = 0;

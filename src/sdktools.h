@@ -43,6 +43,7 @@ int verify_app_path(const char* path);
 int regcmp(const char* pattern, const char* str);
 int is_root_commands(const char *command);
 int is_pkg_file_path(const char* path);
+int get_application_install_path(char* pkg_path);
 
 #ifdef __cplusplus
 }
