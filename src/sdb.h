@@ -258,9 +258,10 @@ typedef struct platform_capabilities
     char syncwinsz_support[CAPBUF_ITEMSIZE];    // enabled or disabled
     char usbproto_support[CAPBUF_ITEMSIZE];     // enabled or disabled
     char sockproto_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+    char appcmd_support[CAPBUF_ITEMSIZE];       // enabled or disabled
 
-    char log_enable[CAPBUF_ITEMSIZE];    // enabled or disabled
-    char log_path[CAPBUF_LL_ITEMSIZE];    // path of sdbd log
+    char log_enable[CAPBUF_ITEMSIZE];           // enabled or disabled
+    char log_path[CAPBUF_LL_ITEMSIZE];          // path of sdbd log
 
     char cpu_arch[CAPBUF_ITEMSIZE];             // cpu architecture (ex. x86)
     char profile_name[CAPBUF_ITEMSIZE];         // profile name (ex. mobile)
@@ -381,6 +382,7 @@ int backup_service(BackupOperation operation, char* args);
 void framebuffer_service(int fd, void *cookie);
 void log_service(int fd, void *cookie);
 void remount_service(int fd, void *cookie);
+void appcmd_service(int fd, char* command);
 char * get_log_file_path(const char * log_name);
 
 int rootshell_mode; // 0: sdk user, 1: root
@@ -439,7 +441,8 @@ typedef enum {
     TRACE_JDWP,
     TRACE_SERVICES,
     TRACE_PROPERTIES,
-    TRACE_SDKTOOLS
+    TRACE_SDKTOOLS,
+    TRACE_APPCMD
 } SdbTrace;
 
 #if SDB_TRACE
@@ -609,3 +612,7 @@ int read_line(const int fd, char* ptr, const size_t maxlen);
 
 #define USB_FUNCFS_SDB_PATH "/dev/usbgadget/sdb"
 #define USB_NODE_FILE "/dev/samsung_sdb"
+#define SHELL_COMMAND "/bin/sh"
+int create_subprocess(const char *cmd, pid_t *pid, char * const argv[], char * const envp[]);
+void get_env(char *key, char **env);
+
