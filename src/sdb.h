@@ -385,6 +385,9 @@ int booting_done; // 0: platform booting is in progess 1: platform booting is do
 
 #define SDK_USER_NAME   tzplatform_getenv(TZ_SDK_USER_NAME)
 #define SDK_TOOL_PATH   tzplatform_getenv(TZ_SDK_TOOLS)
+#define STATIC_SDK_USER_ID      5001
+#define STATIC_SDK_GROUP_ID     100
+#define STATIC_SDK_HOME_DIR     "/home/owner"
 extern uid_t g_sdk_user_id;
 extern gid_t g_sdk_group_id;
 extern char* g_sdk_home_dir;
