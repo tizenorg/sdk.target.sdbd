@@ -7,7 +7,7 @@ After=tmp.mount
 Type=forking
 EnvironmentFile=-/run/tizen-system-env
 PIDFile=/tmp/.sdbd.pid
-RemainAfterExit=yes
+Restart=on-failure
 ExecStart=/usr/sbin/sdbd
 
 [Install]
