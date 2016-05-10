@@ -50,7 +50,8 @@ static void fatal(const char *fn, const char *fmt, ...)
     fprintf(stderr, "%s:", fn);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
-    abort();
+    //abort();
+    exit(-1);
 }
 
 #define FATAL(x...) fatal(__FUNCTION__, x)
