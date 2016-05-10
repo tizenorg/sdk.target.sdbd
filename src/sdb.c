@@ -630,6 +630,13 @@ void parse_banner(char *banner, atransport *t)
 
 void handle_packet(apacket *p, atransport *t)
 {
+    // Verify pointer p
+    int result = access((const char *) p, F_OK);
+    if ((result == -1) && (errno == EFAULT)) {
+        D("Invalid apacket = [0x%x]", p);
+        fatal("Invalid apacket = [0x%x]", p);
+    }
+
     asocket *s;
 
     D("handle_packet() %c%c%c%c\n", ((char*) (&(p->msg.command)))[0],
