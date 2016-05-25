@@ -2120,7 +2120,7 @@ static int is_support_sockproto()
 }
 
 #define EMULATOR_MODEL_NAME     "Emulator"
-static check_emulator_or_device()
+static void check_emulator_or_device()
 {
     char model_name[256]={0,};
     int ret = -1;
