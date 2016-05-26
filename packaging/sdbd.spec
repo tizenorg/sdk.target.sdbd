@@ -74,6 +74,9 @@ install -m 755 script/sdk_launch %{buildroot}%{_prefix}/sbin/
 mkdir -p %{buildroot}%{TZ_SYS_BIN}
 install -m 755 script/profile_command %{buildroot}%{TZ_SYS_BIN}/
 
+mkdir -p %{buildroot}%{_prefix}/lib/udev/rules.d/
+install -m 644 rules/99-sdbd.rules %{buildroot}%{_prefix}/lib/udev/rules.d/
+
 %post
 . %{_sysconfdir}/tizen-platform.conf
 if ! getent passwd "${TZ_SDK_USER_NAME}" > /dev/null; then
@@ -101,5 +104,6 @@ fi
 %endif
 /usr/share/license/%{name}
 %{TZ_SYS_BIN}/profile_command
+%{_prefix}/lib/udev/rules.d/99-sdbd.rules
 
 %changelog
