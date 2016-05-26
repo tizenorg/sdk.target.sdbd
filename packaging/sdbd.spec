@@ -59,8 +59,8 @@ mkdir -p %{buildroot}%{_libdir}/systemd/system
 mkdir -p %{buildroot}%{_unitdir}
 %ifarch %{ix86}
 install -m 0644 %SOURCE1002 %{buildroot}%{_libdir}/systemd/system/sdbd.service
-mkdir -p %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants
-ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/system/emulator.target.wants/
+mkdir -p %{buildroot}/%{_libdir}/systemd/system/emulator_preinit.target.wants
+ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/system/emulator_preinit.target.wants/
 %else
 install -m 0644 %SOURCE1001 %{buildroot}%{_unitdir}/sdbd.service
 install -m 0644 %SOURCE1004 %{buildroot}%{_unitdir}/sdbd_tcp.service
@@ -94,7 +94,7 @@ fi
 %attr(0755, root, root) %{_sysconfdir}/init.d/sdbd
 %{_unitdir}/sdbd.service
 %ifarch %{ix86}
-%{_libdir}/systemd/system/emulator.target.wants/sdbd.service
+%{_libdir}/systemd/system/emulator_preinit.target.wants/sdbd.service
 %else
 %{_unitdir}/sdbd_tcp.service
 %{_libdir}/systemd/system/multi-user.target.wants/sdbd.service
