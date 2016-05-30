@@ -268,7 +268,7 @@ typedef struct platform_capabilities
     char sdbd_version[CAPBUF_ITEMSIZE];         // sdbd version
     char sdbd_plugin_version[CAPBUF_ITEMSIZE];  // sdbd plugin version
 } pcap;
-pcap g_capabilities;
+extern pcap g_capabilities;
 
 #define SDBD_PLUGIN_PATH    "/usr/lib/libsdbd_plugin.so"
 #define SDBD_PLUGIN_INTF    "sdbd_plugin_cmd_proc"
@@ -376,8 +376,8 @@ void log_service(int fd, void *cookie);
 void remount_service(int fd, void *cookie);
 char * get_log_file_path(const char * log_name);
 
-int rootshell_mode; // 0: sdk user, 1: root
-int booting_done; // 0: platform booting is in progess 1: platform booting is done
+extern int rootshell_mode; // 0: sdk user, 1: root
+extern int booting_done; // 0: platform booting is in progess 1: platform booting is done
 
 // This is the users and groups config for the platform
 

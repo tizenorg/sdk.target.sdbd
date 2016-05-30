@@ -71,6 +71,9 @@ uid_t g_sdk_user_id;
 gid_t g_sdk_group_id;
 char* g_sdk_home_dir = NULL;
 char* g_sdk_home_dir_env = NULL;
+pcap g_capabilities;
+int rootshell_mode; // 0: sdk user, 1: root
+int booting_done; // 0: platform booting is in progess 1: platform booting is done
 
 struct group_info
 {
