@@ -264,7 +264,7 @@ void reboot_service(int fd, void *arg)
 #if !SDB_HOST
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
-#define CS_PATH     tzplatform_mkpath(TZ_USER_SHARE,"crash/report")
+#define CS_PATH     tzplatform_getenv(TZ_SYS_CRASH)
 
 void inoti_service(int fd, void *arg)
 {
@@ -281,6 +281,12 @@ void inoti_service(int fd, void *arg)
     }
 
     wd = inotify_add_watch( ifd, CS_PATH, IN_CREATE);
+    if ( wd < 0 ) {
+        D("inotify_add_watch failed (errno :%d)\n", errno);
+        sdb_close(ifd);
+        sdb_close(fd);
+        return;
+    }
 
     for ( ; ; ) {
         int length, i = 0;
