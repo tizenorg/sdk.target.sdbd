@@ -219,6 +219,23 @@ void rootshell_service(int fd, void *cookie)
     sdb_close(fd);
 }
 
+void get_tzplatform_env(int fd, void *cookie) {
+    char buf[PATH_MAX] = { 0, };
+    char *env_name = (char*) cookie;
+    D("environment variable name: %s\n", env_name);
+    enum tzplatform_variable env_id = tzplatform_getid(env_name);
+    if (env_id != _TZPLATFORM_VARIABLES_INVALID_) {
+        char *env_value = tzplatform_getenv(env_id);
+        if (env_value) {
+            D("environment value : %s\n", env_value);
+            snprintf(buf, sizeof(buf), env_value);
+            writex(fd, buf, strlen(buf));
+        }
+    }
+    free(env_name);
+    sdb_close(fd);
+}
+
 void restart_usb_service(int fd, void *cookie)
 {
     char buf[100];
@@ -1082,6 +1099,10 @@ int service_to_fd(const char *name)
         if(!strncmp(name+10, "syncwinsz:", 10)){
             ret = create_service_thread(sync_windowsize, (void *)name+20);
         }
+    } else if(!strncmp(name, "tzplatformenv:", 14)) {
+       char* env_variable = NULL;
+       env_variable = strdup(name+14);
+       ret = create_service_thread(get_tzplatform_env, (void *)(env_variable));
     }
 
     if (ret >= 0) {
