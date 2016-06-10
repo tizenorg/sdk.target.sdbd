@@ -219,6 +219,12 @@ void rootshell_service(int fd, void *cookie)
     sdb_close(fd);
 }
 
+enum tzplatform_get_env_error_status {
+    NO_ERROR_TZPLATFORM_ENV = 0,
+    ERROR_TZPLATFORM_ENV_GENERAL = 1,
+    ERROR_TZPLATFORM_ENV_INVALID_VARIABLES = 2,
+};
+
 void get_tzplatform_env(int fd, void *cookie) {
     char buf[PATH_MAX] = { 0, };
     char *env_name = (char*) cookie;
@@ -228,10 +234,16 @@ void get_tzplatform_env(int fd, void *cookie) {
         char *env_value = tzplatform_getenv(env_id);
         if (env_value) {
             D("environment value : %s\n", env_value);
-            snprintf(buf, sizeof(buf), env_value);
-            writex(fd, buf, strlen(buf));
+            snprintf(buf, sizeof(buf), "%d%s", NO_ERROR_TZPLATFORM_ENV, env_value);
+        } else {
+            D("failed to get environment value using tzplatform_getenv");
+            snprintf(buf, sizeof(buf), "%d", ERROR_TZPLATFORM_ENV_GENERAL);
         }
+    } else {
+        D("environment name (%s) is invalid\n", env_name);
+        snprintf(buf, sizeof(buf), "%d", ERROR_TZPLATFORM_ENV_INVALID_VARIABLES);
     }
+    writex(fd, buf, strlen(buf));
     free(env_name);
     sdb_close(fd);
 }
