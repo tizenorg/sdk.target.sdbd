@@ -258,6 +258,9 @@ typedef struct platform_capabilities
     char usbproto_support[CAPBUF_ITEMSIZE];     // enabled or disabled
     char sockproto_support[CAPBUF_ITEMSIZE];    // enabled or disabled
 
+    char log_enable[CAPBUF_ITEMSIZE];    // enabled or disabled
+    char log_path[CAPBUF_ITEMSIZE];    // enabled or disabled
+
     char cpu_arch[CAPBUF_ITEMSIZE];             // cpu architecture (ex. x86)
     char profile_name[CAPBUF_ITEMSIZE];         // profile name (ex. mobile)
     char vendor_name[CAPBUF_ITEMSIZE];          // vendor name (ex. Tizen)

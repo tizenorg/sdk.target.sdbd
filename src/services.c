@@ -951,6 +951,14 @@ static void get_capability(int fd, void *cookie) {
     offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
                                 "syncwinsz_support", g_capabilities.syncwinsz_support);
 
+    // Sdbd log enable
+   offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                               "log_enable", g_capabilities.log_enable);
+
+    // Sdbd log path
+   offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                               "log_path", g_capabilities.log_path);
+
 
     offset++; // for '\0' character
 
