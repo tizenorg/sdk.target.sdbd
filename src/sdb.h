@@ -246,6 +246,7 @@ typedef struct platform_info {
 #define CAPBUF_SIZE 4096
 #define CAPBUF_ITEMSIZE 32
 #define CAPBUF_L_ITEMSIZE 256
+#define CAPBUF_LL_ITEMSIZE PATH_MAX
 typedef struct platform_capabilities
 {
     char secure_protocol[CAPBUF_ITEMSIZE];      // enabled or disabled
@@ -257,6 +258,9 @@ typedef struct platform_capabilities
     char syncwinsz_support[CAPBUF_ITEMSIZE];    // enabled or disabled
     char usbproto_support[CAPBUF_ITEMSIZE];     // enabled or disabled
     char sockproto_support[CAPBUF_ITEMSIZE];    // enabled or disabled
+
+    char log_enable[CAPBUF_ITEMSIZE];    // enabled or disabled
+    char log_path[CAPBUF_LL_ITEMSIZE];    // path of sdbd log
 
     char cpu_arch[CAPBUF_ITEMSIZE];             // cpu architecture (ex. x86)
     char profile_name[CAPBUF_ITEMSIZE];         // profile name (ex. mobile)

@@ -170,6 +170,11 @@ void fatal_errno(const char *fmt, ...)
     exit(-1);
 }
 
+static int is_enable_sdbd_log()
+{
+    return (!strncmp(g_capabilities.log_enable, SDBD_CAP_RET_ENABLED, strlen(SDBD_CAP_RET_ENABLED)));
+}
+
 int   sdb_trace_mask;
 
 /* read a comma/space/colum/semi-column separated list of tags
@@ -203,8 +208,12 @@ void  sdb_trace_init(void)
         { NULL, 0 }
     };
 
-    if (p == NULL)
+    if (p == NULL) {
+        if (is_enable_sdbd_log())
+            p = "all";
+        else
             return;
+    }
 
     /* use a comma/column/semi-colum/space separated list */
     while (*p) {
@@ -1018,10 +1027,12 @@ void start_logging(void)
 }
 
 #if !SDB_HOST
+
 void start_device_log(void)
 {
     int fd;
     char    path[PATH_MAX];
+    char    path_file[PATH_MAX];
     struct tm now;
     time_t t;
 //    char value[PROPERTY_VALUE_MAX];
@@ -1034,16 +1045,21 @@ void start_device_log(void)
         return;
 #endif
 
-    if (p == NULL) {
+    if ((p == NULL) && !is_enable_sdbd_log()) {
         return;
     }
+
     tzset();
     time(&t);
     localtime_r(&t, &now);
-    strftime(path, sizeof(path),
-                "/tmp/sdbd-%Y-%m-%d-%H-%M-%S.txt",
-                &now);
-    fd = unix_open(path, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+
+    strftime(path_file, sizeof(path_file),
+                    "sdbd-%Y-%m-%d-%H-%M-%S.txt",
+                    &now);
+
+    snprintf(path, sizeof(path), "%s/%s", g_capabilities.log_path, path_file);
+
+    fd = unix_open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         return;
     }
@@ -1592,6 +1608,12 @@ static int get_plugin_capability(const char* in_buf, sdbd_plugin_param out) {
     } else if (SDBD_CMP_CAP(in_buf, PRODUCT_VER)) {
         snprintf(out.data, out.len, "%s", UNKNOWN);
         ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, LOG_ENABLE)) {
+        snprintf(out.data, out.len, "%s", SDBD_CAP_RET_DISABLED);
+        ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, LOG_PATH)) {
+        snprintf(out.data, out.len, "%s", "/tmp");
+        ret = SDBD_PLUGIN_RET_SUCCESS;
     }
 
     return ret;
@@ -2107,6 +2129,24 @@ static void init_capabilities(void) {
         snprintf(g_capabilities.sdbd_plugin_version, sizeof(g_capabilities.sdbd_plugin_version),
                     "%s", UNKNOWN);
     }
+
+    // sdbd log enable
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_LOG_ENABLE,
+                               g_capabilities.log_enable,
+                               sizeof(g_capabilities.log_enable))) {
+           D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_LOG_ENABLE);
+           snprintf(g_capabilities.log_enable, sizeof(g_capabilities.log_enable),
+                       "%s", DISABLED);
+       }
+
+     // sdbd log path
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_LOG_PATH,
+                               g_capabilities.log_path,
+                               sizeof(g_capabilities.log_path))) {
+           D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_LOG_PATH);
+           snprintf(g_capabilities.log_path, sizeof(g_capabilities.log_path),
+                       "%s", UNKNOWN);
+       }
 }
 
 static int is_support_usbproto()
@@ -2148,6 +2188,9 @@ int sdb_main(int is_daemon, int server_port)
 
     load_sdbd_plugin();
     init_capabilities();
+
+    sdb_trace_init();
+    start_device_log();
 
     init_drop_privileges();
     init_sdk_requirements();
@@ -2615,7 +2658,6 @@ int recovery_mode = 0;
 
 int main(int argc, char **argv)
 {
-    sdb_trace_init(); /* tizen specific */
 #if SDB_HOST
     sdb_sysdeps_init();
     sdb_trace_init();
@@ -2654,7 +2696,6 @@ int main(int argc, char **argv)
         fatal("daemonize() failed: errno:%d", errno);
 #endif
 
-    start_device_log();
     D("Handling main()\n");
 
     //sdbd will never die on emulator!
