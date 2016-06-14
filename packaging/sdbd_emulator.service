@@ -6,6 +6,8 @@ After=tmp.mount dbus.service
 
 [Service]
 Type=forking
+#location of SDBD log file
+#Environment=SDBD_LOG_PATH=/tmp
 Environment=DISPLAY=:0
 PIDFile=/tmp/.sdbd.pid
 RemainAfterExit=yes

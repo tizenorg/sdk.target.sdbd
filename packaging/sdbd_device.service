@@ -5,6 +5,8 @@ After=tmp.mount
 
 [Service]
 Type=forking
+#location of SDBD log file
+#Environment=SDBD_LOG_PATH=/tmp
 EnvironmentFile=-/run/tizen-system-env
 PIDFile=/tmp/.sdbd.pid
 Restart=on-failure
