@@ -1,0 +1,17 @@
+[Unit]
+Description=sdbd
+Requires=tizen-system-env.service
+After=tmp.mount
+
+[Service]
+Type=forking
+#location of SDBD log file
+#Environment=SDBD_LOG_PATH=/tmp
+EnvironmentFile=-/run/tizen-system-env
+OOMScoreAdjust=-1000
+PIDFile=/tmp/.sdbd.pid
+Restart=on-failure
+ExecStart=/usr/sbin/sdbd
+
+[Install]
+WantedBy=multi-user.target

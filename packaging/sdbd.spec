@@ -12,6 +12,8 @@ Source1001:    sdbd_device.service
 Source1002:    sdbd_emulator.service
 Source1003:    %{name}.manifest
 Source1004:    sdbd_tcp.service
+Source1005:    sdbd_device_tv.service
+Source1006:    sdbd_emulator_tv.service
 
 BuildRequires: capi-system-info-devel >= 0.2.0
 BuildRequires: cmake >= 2.8.3
@@ -57,12 +59,22 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}
 %make_install
 mkdir -p %{buildroot}%{_libdir}/systemd/system
 mkdir -p %{buildroot}%{_unitdir}
+
 %ifarch %{ix86}
+%if "%{profile}" == "tv"
+install -m 0644 %SOURCE1006 %{buildroot}%{_libdir}/systemd/system/sdbd.service
+%else
 install -m 0644 %SOURCE1002 %{buildroot}%{_libdir}/systemd/system/sdbd.service
+%endif
 mkdir -p %{buildroot}/%{_libdir}/systemd/system/emulator_preinit.target.wants
 ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/system/emulator_preinit.target.wants/
+
+%else
+%if "%{profile}" == "tv"
+install -m 0644 %SOURCE1005 %{buildroot}%{_libdir}/systemd/system/sdbd.service
 %else
 install -m 0644 %SOURCE1001 %{buildroot}%{_unitdir}/sdbd.service
+%endif
 install -m 0644 %SOURCE1004 %{buildroot}%{_unitdir}/sdbd_tcp.service
 mkdir -p %{buildroot}/%{_libdir}/systemd/system/multi-user.target.wants
 ln -s %{_libdir}/systemd/system/sdbd.service %{buildroot}/%{_libdir}/systemd/system/multi-user.target.wants/
