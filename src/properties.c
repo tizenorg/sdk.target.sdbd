@@ -69,16 +69,17 @@ static void property_init(void)
         if(read_line(fd, buffer, PROPERTY_KEY_MAX+PROPERTY_VALUE_MAX+1) < 0)
             break;
         tok = strtok_r(buffer, PROPERTY_SEPARATOR, &ptr);
-        for (i = 0; i < sdbd_config_element_cnt && sdbd_config[i].key ; i++) {
-            if (!strcmp(tok, sdbd_config[i].key)) {
-                tok = strtok_r(NULL, PROPERTY_SEPARATOR, &ptr);
-                if(tok) {
-                    snprintf(sdbd_config[i].value, PROPERTY_VALUE_MAX, "%s", tok);
-                    D("property init key=%s, value=%s\n", sdbd_config[i].key, tok);
+        if(tok) {
+            for (i = 0; i < sdbd_config_element_cnt && sdbd_config[i].key ; i++) {
+                if (!strcmp(tok, sdbd_config[i].key)) {
+                    tok = strtok_r(NULL, PROPERTY_SEPARATOR, &ptr);
+                    if(tok) {
+                        snprintf(sdbd_config[i].value, PROPERTY_VALUE_MAX, "%s", tok);
+                        D("property init key=%s, value=%s\n", sdbd_config[i].key, tok);
+                    }
                 }
             }
         }
-
     }
     sdb_close(fd);
     D("called property_init\n");
