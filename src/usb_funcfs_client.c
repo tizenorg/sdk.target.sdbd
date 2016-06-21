@@ -351,7 +351,7 @@ static int read_control(struct usb_handle *usb)
 static void *usb_read_control(void *x)
 {
     struct usb_handle *usb = (struct usb_handle *)x;
-    struct pollfd ep0_poll[1];
+    struct pollfd ep0_poll[1] = { 0, };
     int ret;
 
     sdb_mutex_lock(&usb->control_lock);
