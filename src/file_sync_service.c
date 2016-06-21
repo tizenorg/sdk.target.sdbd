@@ -623,7 +623,7 @@ static int verify_sync_rule(const char* path) {
 
 void file_sync_service(int fd, void *cookie)
 {
-    syncmsg msg;
+    syncmsg msg  = { 0 };
     char name[1025];
     unsigned namelen;
     fd_set set;

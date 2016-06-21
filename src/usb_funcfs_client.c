@@ -354,6 +354,9 @@ static void *usb_read_control(void *x)
     struct pollfd ep0_poll[1];
     int ret;
 
+    memset(&ep0_poll[0], 0, sizeof(struct pollfd));
+    memset(&ep0_poll[1], 0, sizeof(struct pollfd));
+
     sdb_mutex_lock(&usb->control_lock);
     while (usb->control == -1)
         sdb_cond_wait(&usb->control_notify, &usb->control_lock);
