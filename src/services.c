@@ -782,7 +782,6 @@ static int create_sync_subprocess(void (*func)(int, void *), void* cookie) {
     if(sdb_thread_create( &t, service_bootstrap_func, sti)){
         free(sti);
         sdb_close(s[0]);
-        sdb_close(s[1]);
         printf("cannot create service monitor thread\n");
         return -1;
     }
