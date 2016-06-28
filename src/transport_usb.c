@@ -23,10 +23,6 @@
 #define  TRACE_TAG  TRACE_TRANSPORT
 #include "sdb.h"
 
-#if SDB_HOST
-#include "usb_vendors.h"
-#endif
-
 #ifdef HAVE_BIG_ENDIAN
 #define H4(x)	(((x) & 0xFF000000) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | (((x) & 0x000000FF) << 24)
 static inline void fix_endians(apacket *p)

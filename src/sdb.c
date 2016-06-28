@@ -44,8 +44,6 @@
 #if !SDB_HOST
 #include <linux/prctl.h>
 #define SDB_PIDPATH "/tmp/.sdbd.pid"
-#else
-#include "usb_vendors.h"
 #endif
 #include <system_info.h>
 #include <vconf.h>
@@ -2224,7 +2222,6 @@ int sdb_main(int is_daemon, int server_port)
 
 #if SDB_HOST
     HOST = 1;
-    usb_vendors_init();
     usb_init();
     local_init(DEFAULT_SDB_LOCAL_TRANSPORT_PORT);
 
