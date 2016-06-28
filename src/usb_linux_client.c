@@ -94,16 +94,19 @@ int linux_usb_write(usb_handle *h, const void *data, int len)
     return 0;
 }
 
-int linux_usb_read(usb_handle *h, void *data, size_t len)
-{
-    int n;
-
+int linux_usb_read(usb_handle *h, void *data, size_t len) {
     D("about to read (fd=%d, len=%d)\n", h->fd, len);
-    n = sdb_read(h->fd, data, len);
-    if(n != len) {
-        D("ERROR: fd = %d, n = %d, errno = %d\n",
-            h->fd, n, errno);
-        return -1;
+    while (len > 0) {
+        /* The sdb_read does not support read larger than 4096 bytes at once.
+           Read 4096 byte block repeatedly when reading data is larger than 4096 bytes. */
+        int bytes_to_read = len < 4096 ? len : 4096;
+        int n = sdb_read(h->fd, data, bytes_to_read);
+        if (n != bytes_to_read) {
+            D("ERROR: fd = %d, n = %d, errno = %d\n", h->fd, n, errno);
+            return -1;
+        }
+        len -= n;
+        data = ((char*) data) + n;
     }
     D("[ done fd=%d ]\n", h->fd);
     return 0;
