@@ -648,11 +648,6 @@ static void update_version(atransport *t, int version, size_t payload)
 {
     size_t max_payload = MAX_PAYLOAD;
 
-    /* TODO : enable the size up for USB transport */
-    if (t->type == kTransportUsb) {
-        max_payload = MAX_PAYLOAD_V1;
-    }
-
     t->protocol_version = min(version, A_VERSION);
     t->max_payload = min(payload, max_payload);
     D("update transport version. version=%x, max_payload=%d\n", t->protocol_version, t->max_payload);
