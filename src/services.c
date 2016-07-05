@@ -231,7 +231,7 @@ void get_tzplatform_env(int fd, void *cookie) {
     D("environment variable name: %s\n", env_name);
     enum tzplatform_variable env_id = tzplatform_getid(env_name);
     if (env_id != _TZPLATFORM_VARIABLES_INVALID_) {
-        char *env_value = tzplatform_getenv(env_id);
+        const char *env_value = tzplatform_getenv(env_id);
         if (env_value) {
             D("environment value : %s\n", env_value);
             snprintf(buf, sizeof(buf), "%d%s", NO_ERROR_TZPLATFORM_ENV, env_value);
