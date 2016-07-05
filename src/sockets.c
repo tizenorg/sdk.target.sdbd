@@ -316,7 +316,7 @@ static void local_socket_event_func(int fd, unsigned ev, void *_s)
         apacket *p = get_apacket();
         unsigned char *x = p->data;
         size_t avail = MAX_PAYLOAD;
-        int r;
+        int r = 0;
         int is_eof = 0;
 
         while(avail > 0) {

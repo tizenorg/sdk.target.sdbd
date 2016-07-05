@@ -327,8 +327,7 @@ static void *input_thread(void *_t)
         // Verify pointer p
         int result = access((const char *) p, F_OK);
         if ((result == -1) && (errno == EFAULT)) {
-            D("Invalid apacket = [0x%x]", p);
-            fatal("Invalid apacket = [0x%x]", p);
+            fatal("Invalid apacket = [0x%p]", p);
         }
 
         if(p->msg.command == A_SYNC){
