@@ -184,24 +184,17 @@ void rootshell_service(int fd, void *cookie)
     char *mode = (char*) cookie;
 
     if (!strcmp(mode, "on")) {
-        if (getuid() == 0) {
-            if (rootshell_mode == 1) {
-                //snprintf(buf, sizeof(buf), "Already changed to sdk user mode\n");
-                // do not show message
-            } else {
-                if (is_support_rootonoff()) {
-                    rootshell_mode = 1;
-                    //allows a permitted user to execute a command as the superuser
-                    snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
-                } else {
-                    snprintf(buf, sizeof(buf), "Permission denied\n");
-                }
-                writex(fd, buf, strlen(buf));
-            }
+        if (rootshell_mode == 1) {
+            //snprintf(buf, sizeof(buf), "Already changed to sdk user mode\n");
+            // do not show message
         } else {
-            D("need root permission for root shell: %d\n", getuid());
-            rootshell_mode = 0;
-            snprintf(buf, sizeof(buf), "Permission denied\n");
+            if (is_support_rootonoff()) {
+                rootshell_mode = 1;
+                //allows a permitted user to execute a command as the superuser
+                snprintf(buf, sizeof(buf), "Switched to 'root' account mode\n");
+            } else {
+                snprintf(buf, sizeof(buf), "Permission denied\n");
+            }
             writex(fd, buf, strlen(buf));
         }
     } else if (!strcmp(mode, "off")) {
@@ -490,12 +483,14 @@ static int create_subprocess(const char *cmd, pid_t *pid, char * const argv[], c
         }
 
         if (should_drop_privileges()) {
-            if (argv[2] != NULL && getuid() == 0 && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
+            if (argv[2] != NULL && request_plugin_verification(SDBD_CMD_VERIFY_ROOTCMD, argv[2])) {
                 // do nothing
                 D("sdb: executes root commands!!:%s\n", argv[2]);
             } else {
-                set_sdk_user_privileges();
+                set_sdk_user_privileges(RESERVE_CAPABILITIES_AFTER_FORK);
             }
+        } else {
+            set_root_privileges();
         }
         redirect_and_exec(pts, cmd, argv, envp);
         fprintf(stderr, "- exec '%s' failed: (errno:%d) -\n",
