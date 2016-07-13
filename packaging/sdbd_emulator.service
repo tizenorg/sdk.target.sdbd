@@ -5,6 +5,8 @@ After=tmp.mount dbus.service
 #DefaultDependencies=false
 
 [Service]
+User=sdk
+Group=sdk
 Type=forking
 #location of SDBD log file
 #Environment=SDBD_LOG_PATH=/tmp

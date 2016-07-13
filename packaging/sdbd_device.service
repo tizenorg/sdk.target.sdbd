@@ -4,6 +4,8 @@ Requires=tizen-system-env.service
 After=tmp.mount
 
 [Service]
+User=sdk
+Group=sdk
 Type=forking
 #location of SDBD log file
 #Environment=SDBD_LOG_PATH=/tmp
