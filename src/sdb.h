@@ -396,12 +396,22 @@ extern uid_t g_sdk_user_id;
 extern gid_t g_sdk_group_id;
 extern char* g_sdk_home_dir;
 extern char* g_sdk_home_dir_env;
+
+#define ROOT_USER_NAME          "root"
+#define STATIC_ROOT_USER_ID       0
+#define STATIC_ROOT_GROUP_ID     0
+#define STATIC_ROOT_HOME_DIR     "/root"
+extern uid_t g_root_user_id;
+extern gid_t g_root_group_id;
+extern char* g_root_home_dir;
+extern char* g_root_home_dir_env;
+
 #endif
 
 int is_pwlocked(void);
 int should_drop_privileges(void);
-int set_sdk_user_privileges();
-void set_root_privileges();
+int set_sdk_user_privileges(int is_drop_capability_after_fork);
+int set_root_privileges();
 
 int get_emulator_forward_port(void);
 int get_emulator_name(char str[], int str_size);
@@ -606,3 +616,6 @@ int read_line(const int fd, char* ptr, const size_t maxlen);
 
 #define USB_FUNCFS_SDB_PATH "/dev/usbgadget/sdb"
 #define USB_NODE_FILE "/dev/samsung_sdb"
+
+#define RESERVE_CAPABILITIES_AFTER_FORK 0
+#define DROP_CAPABILITIES_AFTER_FORK 1

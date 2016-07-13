@@ -124,7 +124,7 @@ static void sync_read_label_notify(int s)
         char *path = buffer;
         path++;
         path++;
-        set_syncfile_smack_label(path);
+        //set_syncfile_smack_label(path);
     }
 }
 
@@ -591,6 +591,15 @@ void file_sync_service(int fd, void *cookie)
         sync_read_label_notify(s[1]);
     } else if (pid > 0) {
         sdb_close(s[1]);
+
+        if (should_drop_privileges()) {
+            if (set_sdk_user_privileges(DROP_CAPABILITIES_AFTER_FORK) < 0) {
+                goto fail;
+            }
+        } else {
+            set_root_privileges();
+        }
+
         for(;;) {
             D("sync: waiting for command for %d sec\n", SYNC_TIMEOUT);
 
@@ -621,10 +630,6 @@ void file_sync_service(int fd, void *cookie)
             msg.req.namelen = 0;
 
             D("sync: '%s' '%s'\n", (char*) &msg.req, name);
-
-            if (should_drop_privileges()) {
-                set_sdk_user_privileges();
-            }
 
             switch(msg.req.id) {
             case ID_STAT:
