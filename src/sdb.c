@@ -65,10 +65,18 @@ SDB_MUTEX_DEFINE( D_lock );
 #endif
 
 int HOST = 0;
+
+// sdk user
 uid_t g_sdk_user_id;
 gid_t g_sdk_group_id;
 char* g_sdk_home_dir = NULL;
 char* g_sdk_home_dir_env = NULL;
+
+// root user
+uid_t g_root_user_id;
+gid_t g_root_group_id;
+char* g_root_home_dir = NULL;
+char* g_root_home_dir_env = NULL;
 
 struct group_info
 {
@@ -82,6 +90,7 @@ struct group_info g_default_groups[] = {
     {"log", -1},
     {NULL, -1}
 };
+
 #define SDB_DEFAULT_GROUPS_CNT  ((sizeof(g_default_groups)/sizeof(g_default_groups[0]))-1)
 
 int is_init_sdk_userinfo = 0;
@@ -1450,40 +1459,40 @@ void register_bootdone_cb() {
 	}
 }
 
-static int sdbd_set_groups() {
+static int sdbd_set_groups(char *name, int gid, struct group_info default_groups[], int default_groups_size) {
     gid_t *group_ids = NULL;
     int ngroups = 0;
     int i, j = 0;
     int group_match = 0;
     int added_group_cnt = 0;
 
-    getgrouplist(SDK_USER_NAME, g_sdk_group_id, NULL, &ngroups);
+    getgrouplist(name, gid, NULL, &ngroups);
     D("group list : ngroups = %d\n", ngroups);
-    group_ids = malloc((ngroups + SDB_DEFAULT_GROUPS_CNT) * sizeof(gid_t));
+    group_ids = malloc((ngroups + default_groups_size) * sizeof(gid_t));
     if (group_ids == NULL) {
-        D("failed to allocate group_ids(%d)\n", (ngroups + SDB_DEFAULT_GROUPS_CNT) * sizeof(gid_t));
+        D("failed to allocate group_ids(%d)\n", (ngroups + default_groups_size) * sizeof(gid_t));
         return -1;
     }
-    if (getgrouplist(SDK_USER_NAME, g_sdk_group_id, group_ids, &ngroups) == -1) {
+    if (getgrouplist(name, gid, group_ids, &ngroups) == -1) {
         D("failed to getgrouplist(), ngroups = %d\n", ngroups);
         free(group_ids);
         return -1;
     }
-
-    for (i = 0; g_default_groups[i].name != NULL; i++) {
-        for (j = 0; j < ngroups; j++) {
-            if (group_ids[j] == g_default_groups[i].gid) {
-                group_match = 1;
-                break;
+    if(default_groups_size >= 1) {
+        for (i = 0; default_groups[i].name != NULL; i++) {
+            for (j = 0; j < ngroups; j++) {
+                if (group_ids[j] == default_groups[i].gid) {
+                    group_match = 1;
+                    break;
+                }
             }
+            if (group_match == 0 && default_groups[i].gid != -1) {
+                group_ids[ngroups + added_group_cnt] = default_groups[i].gid;
+                added_group_cnt ++;
+            }
+            group_match = 0;
         }
-        if (group_match == 0 && g_default_groups[i].gid != -1) {
-            group_ids[ngroups + added_group_cnt] = g_default_groups[i].gid;
-            added_group_cnt ++;
-        }
-        group_match = 0;
     }
-
     if (setgroups(ngroups+added_group_cnt, group_ids) != 0) {
         D("failed to setgroups().\n");
         free(group_ids);
@@ -1530,13 +1539,25 @@ static int sdbd_get_group(const char* group_name, struct group* grp, char* buf, 
     return 0;
 }
 
-int set_sdk_user_privileges() {
+int set_sdk_user_privileges(int is_drop_capability_after_fork) {
     if (!is_init_sdk_userinfo) {
         D("failed to init sdk user information.\n");
         return -1;
     }
 
-    if (sdbd_set_groups() < 0) {
+    /*
+    * If a process switches its real, effective, or saved uids from at least one being 0 to all being non-zero,
+    * then both the permitted and effective capabilities are cleared.
+    */
+    if(is_drop_capability_after_fork) {
+
+        if (setuid(g_root_user_id) != 0) {
+            D("ksk set root user id failed (errno: %d)\n", errno);
+            return -1;
+        }
+    }
+
+    if (sdbd_set_groups(SDK_USER_NAME, g_sdk_group_id, g_default_groups, SDB_DEFAULT_GROUPS_CNT) < 0) {
         D("set groups failed (errno: %d)\n", errno);
     }
 
@@ -1546,6 +1567,9 @@ int set_sdk_user_privileges() {
 
     if (setuid(g_sdk_user_id) != 0) {
         D("set user id failed (errno: %d)\n", errno);
+        if(is_drop_capability_after_fork) {
+            return -1;
+        }
     }
 
     if (chdir(g_sdk_home_dir) < 0) {
@@ -1555,6 +1579,32 @@ int set_sdk_user_privileges() {
     // TODO: use pam later
     if (g_sdk_home_dir_env) {
         putenv(g_sdk_home_dir_env);
+    }
+
+    return 0;
+}
+
+int set_root_privileges() {
+
+    if (sdbd_set_groups(ROOT_USER_NAME, g_root_group_id, NULL, 0) < 0) {
+        D("set groups failed (errno: %d)\n", errno);
+    }
+
+    if (setgid(g_root_group_id) != 0) {
+        D("set group id failed (errno: %d)\n", errno);
+    }
+
+    if (setuid(g_root_user_id) != 0) {
+        D("set user id failed (errno: %d)\n", errno);
+    }
+
+    if (chdir(g_root_home_dir) < 0) {
+        D("unable to change working directory to %s\n", g_sdk_home_dir);
+    }
+
+    // TODO: use pam later
+    if (g_root_home_dir_env) {
+        putenv(g_root_home_dir_env);
     }
 
     return 0;
@@ -1835,10 +1885,51 @@ static int init_sdb_default_groups() {
     return 0;
 }
 
-static void set_static_userinfo() {
+static void set_static_root_userinfo() {
+    g_root_user_id = STATIC_ROOT_USER_ID;
+    g_root_group_id = STATIC_ROOT_GROUP_ID;
+    g_root_home_dir = STATIC_ROOT_HOME_DIR;
+}
+
+static void set_static_sdk_userinfo() {
     g_sdk_user_id = STATIC_SDK_USER_ID;
     g_sdk_group_id = STATIC_SDK_GROUP_ID;
     g_sdk_home_dir = STATIC_SDK_HOME_DIR;
+}
+
+static int init_root_userinfo() {
+    struct passwd pwd;
+    char *buf = NULL;
+    long bufsize = 0;
+
+    bufsize = get_passwd_bufsize();
+    buf = malloc(bufsize);
+    if (buf == NULL) {
+        D("failed to allocate passwd buf(%ld)\n", bufsize);
+        set_static_root_userinfo();
+    } else {
+        if (sdbd_get_user_pwd(ROOT_USER_NAME, &pwd, buf, bufsize) < 0) {
+            D("failed to get root user passwd info.(errno: %d)\n", errno);
+            set_static_root_userinfo();
+        } else {
+            D("username=%s, uid=%d, gid=%d, dir=%s\n", pwd.pw_name, pwd.pw_uid, pwd.pw_gid, pwd.pw_dir);
+
+            g_root_user_id = pwd.pw_uid;
+            g_root_group_id = pwd.pw_gid;
+            g_root_home_dir = strdup(pwd.pw_dir);
+        }
+        free(buf);
+    }
+
+    int env_size = strlen("HOME=") + strlen(g_root_home_dir) + 1;
+    g_root_home_dir_env = malloc(env_size);
+    if(g_root_home_dir_env == NULL) {
+        D("failed to allocate for home dir env string\n");
+    } else {
+        snprintf(g_root_home_dir_env, env_size, "HOME=%s", g_root_home_dir);
+    }
+
+    return 0;
 }
 
 static int init_sdk_userinfo() {
@@ -1858,11 +1949,11 @@ static int init_sdk_userinfo() {
     buf = malloc(bufsize);
     if (buf == NULL) {
         D("failed to allocate passwd buf(%ld)\n", bufsize);
-        set_static_userinfo();
+        set_static_sdk_userinfo();
     } else {
         if (sdbd_get_user_pwd(SDK_USER_NAME, &pwd, buf, bufsize) < 0) {
             D("get user passwd info.(errno: %d)\n", errno);
-            set_static_userinfo();
+            set_static_sdk_userinfo();
         } else {
             D("username=%s, uid=%d, gid=%d, dir=%s\n", pwd.pw_name, pwd.pw_uid, pwd.pw_gid, pwd.pw_dir);
 
@@ -1899,6 +1990,7 @@ static void init_sdk_requirements() {
     }
 
     init_sdk_userinfo();
+    init_root_userinfo();
 
     if (g_sdk_home_dir != NULL && stat(g_sdk_home_dir, &st) == 0) {
         if (st.st_uid != g_sdk_user_id || st.st_gid != g_sdk_group_id) {
