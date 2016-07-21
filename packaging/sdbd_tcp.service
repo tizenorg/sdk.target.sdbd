@@ -7,4 +7,5 @@ Type=forking
 Environment=DISPLAY=:0
 PIDFile=/tmp/.sdbd.pid
 RemainAfterExit=yes
+SmackProcessLabel=System::Privileged
 ExecStart=/usr/sbin/sdbd --listen-port=26101

@@ -10,6 +10,7 @@ Type=forking
 EnvironmentFile=-/run/tizen-system-env
 PIDFile=/tmp/.sdbd.pid
 Restart=on-failure
+SmackProcessLabel=System::Privileged
 ExecStart=/usr/sbin/sdbd
 
 [Install]
