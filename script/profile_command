@@ -8,6 +8,9 @@ FIND=/usr/bin/find
 GETAPPINSTALLPATH="/usr/bin/pkgcmd -a"
 PORTFILE=/tmp/port.da
 
+source /etc/tizen-platform.conf
+SDK_TOOLS_PATH=${TZ_SDK_TOOLS}
+
 print_usage()
 {
 	echo "usage: profile_command [options]"
@@ -54,7 +57,7 @@ get_version()
 
 kill_valgrind()
 {
-        /bin/ps ax | /bin/grep "/home/developer/sdk_tools/valgrind/usr/bin/valgrin[d]" | /usr/bin/awk '{print "kill -3 " $1}' | /bin/sh
+        /bin/ps ax | /bin/grep "$SDK_TOOLS_PATH/valgrind/usr/bin/valgrin[d]" | /usr/bin/awk '{print "kill -3 " $1}' | /bin/sh
 }
 
 if test $# -ne 1 ; then
