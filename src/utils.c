@@ -178,8 +178,7 @@ int spawn(const char* program, char* const arg_list[])
     return pid;
 }
 
-char** str_split(char* a_str, const char a_delim) {
-	char** result = 0;
+char** str_split_and_append_default(char* a_str, const char a_delim, char **default_string, int size_default_string) {
 	size_t count = 0;
 	char* tmp = a_str;
 	char* last_comma = 0;
@@ -187,38 +186,52 @@ char** str_split(char* a_str, const char a_delim) {
 	delim[0] = a_delim;
 	delim[1] = 0;
 	char *ptr;
+	char** result = NULL;
 
-	/* Count how many elements will be extracted. */
-	while (*tmp) {
-		if (a_delim == *tmp) {
-			count++;
-			last_comma = tmp;
+	/* check a_str is empty string */
+	if(a_str[0] != '\0') {
+
+		/* Count how many elements will be extracted. */
+		while (*tmp) {
+			if (a_delim == *tmp) {
+				count++;
+				last_comma = tmp;
+			}
+			tmp++;
 		}
-		tmp++;
+
+		/* Add space for trailing token. */
+		count += last_comma < (a_str + strlen(a_str) - 1);
 	}
 
-	/* Add space for trailing token. */
-	count += last_comma < (a_str + strlen(a_str) - 1);
+	/* Add default string size */
+	count += size_default_string;
 
-	/* Add space for terminating null string so caller
-	 knows where the list of returned strings ends. */
+	/* Add space for terminating null string */
 	count++;
 
 	result = malloc(sizeof(char*) * count);
 
 	if (result) {
 		size_t idx = 0;
-		char* token = strtok_r(a_str, delim, &ptr);
 
-		while (token) {
-			//assert(idx < count);
-			*(result + idx++) = strdup(token);
-			token = strtok_r(0, delim, &ptr);
+		/* Add default string */
+		if(size_default_string != 0) {
+			int i;
+			for(i = 0; i < size_default_string; i ++) {
+				if(default_string[i])
+					*(result + idx++) = strdup(default_string[i]);
+			}
 		}
-		//assert(idx == count - 1);
-		*(result + idx) = 0;
+		/* Add string spllit */
+		if(a_str != '\0') {
+			char* token = strtok_r(a_str, delim, &ptr);
+			while (token) {
+				*(result + idx++) = strdup(token);
+				token = strtok_r(0, delim, &ptr);
+			}
+			*(result + idx) = 0;
+		}
 	}
-
 	return result;
 }
-

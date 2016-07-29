@@ -74,6 +74,9 @@ char *str_trim(char* string);
  */
 int spawn(const char* program, char * const arg_list[]);
 
-char** str_split(char* a_str, const char a_delim);
+/*
+ * return string array which is result of a_str split by a_delim and default_string
+ */
+char** str_split_and_append_default(char* a_str, const char a_delim, char **default_string, int size_default_string);
 
 #endif /* _SDB_UTILS_H */
