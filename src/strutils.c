@@ -8,9 +8,12 @@
 #define PATH_MAX 4096
 #endif
 
-
 size_t tokenize(const char *str, const char *delim, char *tokens[], size_t max_tokens ) {
-    int cnt = 0;
+    return tokenize_append(str, delim, tokens, max_tokens, 0);
+}
+
+size_t tokenize_append(const char *str, const char *delim, char *tokens[], size_t max_tokens, int append_position) {
+    int cnt = append_position;
 
     char tmp[PATH_MAX+1];
     char *ptr;

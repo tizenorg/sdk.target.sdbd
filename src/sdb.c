@@ -1687,6 +1687,11 @@ static int verify_root_cmd(const char* in_buf, sdbd_plugin_param out) {
     return ret;
 }
 
+static int get_shell_env(const char* in_buf, sdbd_plugin_param out) {
+    snprintf(out.data, out.len, "%s", "");
+    return SDBD_PLUGIN_RET_SUCCESS;
+}
+
 int default_cmd_proc(const char* cmd,
                     const char* in_buf, sdbd_plugin_param out) {
     int ret = SDBD_PLUGIN_RET_NOT_SUPPORT;
@@ -1712,6 +1717,8 @@ int default_cmd_proc(const char* cmd,
         ret = verify_sdbd_launch(in_buf, out);
     } else if (SDBD_CMP_CMD(cmd, VERIFY_ROOTCMD)) {
         ret = verify_root_cmd(in_buf, out);
+    } else if (SDBD_CMP_CMD(cmd, SHELL_ENVVAR)) {
+        ret = get_shell_env(in_buf, out);
     } else {
         D("Not supported command : %s\n", cmd);
         ret = SDBD_PLUGIN_RET_NOT_SUPPORT;
