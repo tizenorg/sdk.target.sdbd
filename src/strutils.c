@@ -8,31 +8,34 @@
 #define PATH_MAX 4096
 #endif
 
-
 size_t tokenize(const char *str, const char *delim, char *tokens[], size_t max_tokens ) {
-    int cnt = 0;
+    return tokenize_2(str, delim, tokens, max_tokens, 0);
+}
 
-    char tmp[PATH_MAX+1];
-    char *ptr;
+size_t tokenize_2(const char *str, const char *delim, char *tokens[], size_t max_tokens, int position) {
+	int cnt = position;
 
-    strncpy(tmp, str, PATH_MAX);
-    tmp[PATH_MAX] = '\0';
+	char tmp[PATH_MAX+1];
+	char *ptr;
 
-    char *p = strtok_r(tmp, delim, &ptr);
-    if (max_tokens < 1 || max_tokens > MAX_TOKENS) {
-        max_tokens = 1;
-    }
+	strncpy(tmp, str, PATH_MAX);
+	tmp[PATH_MAX] = '\0';
 
-    if (p != NULL) {
-        tokens[cnt++] = strdup(p);
-        while(cnt < max_tokens && p != NULL) {
-            p = strtok_r(NULL, delim, &ptr);
-            if (p != NULL) {
-                tokens[cnt++] = strdup(p);
-            }
-        }
-    }
-    return cnt;
+	char *p = strtok_r(tmp, delim, &ptr);
+	if (max_tokens < 1 || max_tokens > MAX_TOKENS) {
+		max_tokens = 1;
+	}
+
+	if (p != NULL) {
+		tokens[cnt++] = strdup(p);
+		while(cnt < max_tokens && p != NULL) {
+			p = strtok_r(NULL, delim, &ptr);
+			if (p != NULL) {
+				tokens[cnt++] = strdup(p);
+			}
+		}
+	}
+	return cnt;
 }
 
 void free_strings(char **array, int n)

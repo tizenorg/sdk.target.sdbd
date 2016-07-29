@@ -57,7 +57,6 @@ struct stinfo {
     void *cookie;
 };
 
-
 void *service_bootstrap_func(void *x)
 {
     stinfo *sti = x;
@@ -599,22 +598,16 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     char *trim_value = NULL;
     char path[PATH_MAX];
     memset(path, 0, sizeof(path));
-
-    char *envp[] = {
-        "TERM=linux", /* without this, some programs based on screen can't work, e.g. top */
-        "DISPLAY=:0", /* without this, some programs based on without launchpad can't work */
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL
-    };
+    char *envp[MAX_TOKENS];
+    int envp_cnt = 0;
+    envp[envp_cnt++] = strdup("TERM=linux");
+    envp[envp_cnt++] = strdup("DISPLAY=:0");
 
     if (should_drop_privileges()) {
         if (g_sdk_home_dir_env) {
-            envp[2] = g_sdk_home_dir_env;
+            envp[envp_cnt++] = strdup(g_sdk_home_dir_env);
         } else {
-            envp[2] = "HOME=/home/owner";
+            envp[envp_cnt++] = strdup("HOME=/home/owner");
         }
         get_env("ENV_PATH", &value);
     } else {
@@ -622,7 +615,7 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         if(value == NULL) {
             get_env("ENV_ROOTPATH", &value);
         }
-        envp[2] = "HOME=/root";
+        envp[envp_cnt++] = strdup("HOME=/root");
     }
     if (value != NULL) {
         trim_value = str_trim(value);
@@ -633,15 +626,32 @@ static int create_subproc_thread(const char *name, int lines, int columns)
             } else {
                 snprintf(path, sizeof(path), "%s", trim_value);
             }
-            envp[3] = path;
+            envp[envp_cnt++] = strdup(path);
         } else {
             snprintf(path, sizeof(path), "%s", value);
-            envp[3] = path;
+            envp[envp_cnt++] = strdup(path);
         }
         free(value);
     }
 
-    D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
+    /* get environment variables from plugin */
+    char *envp_plugin = NULL;
+    envp_plugin = malloc(SDBD_PLUGIN_OUTBUF_MAX);
+    if (envp_plugin == NULL) {
+        D("Cannot allocate the shell commnad buffer.");
+        return -1;
+    }
+    memset(envp_plugin, 0, SDBD_PLUGIN_OUTBUF_MAX);
+    if (!request_plugin_cmd(SDBD_CMD_SHELL_ENVVAR, "", envp_plugin, SDBD_PLUGIN_OUTBUF_MAX)) {
+        D("Failed to convert the shell command. (%s)\n", name);
+        free(envp_plugin);
+        return -1;
+    } else {
+       if(envp_plugin != '\0') {
+            envp_cnt = tokenize_2(envp_plugin, "\n", envp, MAX_TOKENS, envp_cnt);
+        }
+    }
+    free(envp_plugin);
 
     if(name) { // in case of shell execution directly
         // Check the shell command validation.
@@ -709,6 +719,18 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         }
 #endif
     }
+
+    /* free environment variables */
+    int i = 0;
+    if(envp_cnt > 0) {
+        for(i = 0; i < envp_cnt; i++) {
+            if(envp[i]) {
+                D("envp[%d] = %s\n", i, envp[i]);
+                free(envp[i]);
+            }
+        }
+    }
+
     D("create_subprocess() ret_fd=%d pid=%d\n", ret_fd, pid);
 
     if (ret_fd < 0) {
@@ -957,7 +979,6 @@ static void get_capability(int fd, void *cookie) {
     // Sdbd log path
    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
                                "log_path", g_capabilities.log_path);
-
 
     offset++; // for '\0' character
 
