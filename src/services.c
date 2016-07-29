@@ -51,12 +51,20 @@
 
 typedef struct stinfo stinfo;
 
+#define SIZE_DEFAULT_ENV_VAR 5
+char *default_environment_variables[SIZE_DEFAULT_ENV_VAR]  = {
+    "TERM=linux", /* without this, some programs based on screen can't work, e.g. top */
+    "DISPLAY=:0", /* without this, some programs based on without launchpad can't work */
+    NULL,
+    NULL,
+    NULL,
+};
+
 struct stinfo {
     void (*func)(int fd, void *cookie);
     int fd;
     void *cookie;
 };
-
 
 void *service_bootstrap_func(void *x)
 {
@@ -600,21 +608,11 @@ static int create_subproc_thread(const char *name, int lines, int columns)
     char path[PATH_MAX];
     memset(path, 0, sizeof(path));
 
-    char *envp[] = {
-        "TERM=linux", /* without this, some programs based on screen can't work, e.g. top */
-        "DISPLAY=:0", /* without this, some programs based on without launchpad can't work */
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL
-    };
-
     if (should_drop_privileges()) {
         if (g_sdk_home_dir_env) {
-            envp[2] = g_sdk_home_dir_env;
+            default_environment_variables[2] = g_sdk_home_dir_env;
         } else {
-            envp[2] = "HOME=/home/owner";
+            default_environment_variables[2] = "HOME=/home/owner";
         }
         get_env("ENV_PATH", &value);
     } else {
@@ -622,7 +620,7 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         if(value == NULL) {
             get_env("ENV_ROOTPATH", &value);
         }
-        envp[2] = "HOME=/root";
+        default_environment_variables[2] = "HOME=/root";
     }
     if (value != NULL) {
         trim_value = str_trim(value);
@@ -633,15 +631,30 @@ static int create_subproc_thread(const char *name, int lines, int columns)
             } else {
                 snprintf(path, sizeof(path), "%s", trim_value);
             }
-            envp[3] = path;
+            default_environment_variables[3] = path;
         } else {
             snprintf(path, sizeof(path), "%s", value);
-            envp[3] = path;
+            default_environment_variables[3] = path;
         }
         free(value);
     }
 
-    D("path env:%s,%s,%s,%s\n", envp[0], envp[1], envp[2], envp[3]);
+    D("path env:%s,%s,%s,%s\n", default_environment_variables[0], default_environment_variables[1], default_environment_variables[2], default_environment_variables[3]);
+
+    /* get environment variables from plugin */
+    char **envp = NULL;
+    char plugin_environment_variables[CAPBUF_LL_ITEMSIZE] = {0, };
+    int env_var_allocated = 0;
+
+    /* get the envp variable used in exec function */
+    if(g_capabilities.environment_variables[0] != '\0') {
+        snprintf(plugin_environment_variables, sizeof(plugin_environment_variables), "%s", g_capabilities.environment_variables);
+        envp = str_split_and_append_default(plugin_environment_variables, '\n', default_environment_variables, SIZE_DEFAULT_ENV_VAR);
+        env_var_allocated = 1;
+    }
+    else {
+        envp = default_environment_variables;
+    }
 
     if(name) { // in case of shell execution directly
         // Check the shell command validation.
@@ -709,6 +722,18 @@ static int create_subproc_thread(const char *name, int lines, int columns)
         }
 #endif
     }
+    /* free environment variables if allocated dynamically */
+    D("environment variables is allocated = %d\n", env_var_allocated);
+    if(env_var_allocated) {
+        int i;
+        for(i = 0; envp[i] != NULL; i++) {
+            D("envp[%d] = %s\n", i, envp[i]);
+            free(envp[i]);
+        }
+        if(envp)
+            free(envp);
+    }
+
     D("create_subprocess() ret_fd=%d pid=%d\n", ret_fd, pid);
 
     if (ret_fd < 0) {
@@ -958,6 +983,9 @@ static void get_capability(int fd, void *cookie) {
    offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
                                "log_path", g_capabilities.log_path);
 
+   // Sdbd environment
+   offset += put_key_value_string(cap_buffer, offset, CAPBUF_SIZE,
+                              "environment_variables", g_capabilities.environment_variables);
 
     offset++; // for '\0' character
 

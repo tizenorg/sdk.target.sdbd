@@ -1611,6 +1611,9 @@ static int get_plugin_capability(const char* in_buf, sdbd_plugin_param out) {
     } else if (SDBD_CMP_CAP(in_buf, LOG_PATH)) {
         snprintf(out.data, out.len, "%s", "/tmp");
         ret = SDBD_PLUGIN_RET_SUCCESS;
+    } else if (SDBD_CMP_CAP(in_buf, ENV_VAR)) {
+        snprintf(out.data, out.len, "%s", "");
+        ret = SDBD_PLUGIN_RET_SUCCESS;
     }
 
     return ret;
@@ -2142,6 +2145,14 @@ static void init_capabilities(void) {
            snprintf(g_capabilities.log_path, sizeof(g_capabilities.log_path),
                        "%s", UNKNOWN);
        }
+
+    // sdbd environment variables
+    if(!request_plugin_cmd(SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_ENV_VAR,
+                          g_capabilities.environment_variables,
+                          sizeof(g_capabilities.environment_variables))) {
+        D("failed to request. (%s:%s) \n", SDBD_CMD_PLUGIN_CAP, SDBD_CAP_TYPE_ENV_VAR);
+        snprintf(g_capabilities.environment_variables, sizeof(g_capabilities.environment_variables), "%s", "");
+    }
 }
 
 static int is_support_usbproto()
