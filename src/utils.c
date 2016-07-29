@@ -178,47 +178,60 @@ int spawn(const char* program, char* const arg_list[])
     return pid;
 }
 
-char** str_split(char* a_str, const char a_delim) {
-	char** result = 0;
-	size_t count = 0;
-	char* tmp = a_str;
-	char* last_comma = 0;
-	char delim[2];
-	delim[0] = a_delim;
-	delim[1] = 0;
-	char *ptr;
+char** str_split_and_append_default(char* a_str, const char a_delim, char **default_string, int size_default_string) {
+    size_t count = 0;
+    char* tmp = a_str;
+    char* last_comma = 0;
+    char delim[2];
+    delim[0] = a_delim;
+    delim[1] = 0;
+    char *ptr;
+    char** result = NULL;
 
-	/* Count how many elements will be extracted. */
-	while (*tmp) {
-		if (a_delim == *tmp) {
-			count++;
-			last_comma = tmp;
-		}
-		tmp++;
-	}
+    /* check a_str is empty string */
+    if(a_str[0] != '\0') {
 
-	/* Add space for trailing token. */
-	count += last_comma < (a_str + strlen(a_str) - 1);
+        /* Count how many elements will be extracted. */
+        while (*tmp) {
+            if (a_delim == *tmp) {
+                count++;
+                last_comma = tmp;
+            }
+            tmp++;
+        }
 
-	/* Add space for terminating null string so caller
-	 knows where the list of returned strings ends. */
-	count++;
+        /* Add space for trailing token. */
+        count += last_comma < (a_str + strlen(a_str) - 1);
+    }
 
-	result = malloc(sizeof(char*) * count);
+    /* Add default string size */
+    count += size_default_string;
 
-	if (result) {
-		size_t idx = 0;
-		char* token = strtok_r(a_str, delim, &ptr);
+    /* Add space for terminating null string */
+    count++;
 
-		while (token) {
-			//assert(idx < count);
-			*(result + idx++) = strdup(token);
-			token = strtok_r(0, delim, &ptr);
-		}
-		//assert(idx == count - 1);
-		*(result + idx) = 0;
-	}
+    result = malloc(sizeof(char*) * count);
 
-	return result;
+    if (result) {
+        size_t idx = 0;
+
+        /* Add default string */
+        if(size_default_string != 0) {
+            int i;
+            for(i = 0; i < size_default_string; i ++) {
+                if(default_string[i])
+                    *(result + idx++) = strdup(default_string[i]);
+            }
+        }
+        /* Add string spllit */
+        if(a_str != '\0') {
+            char* token = strtok_r(a_str, delim, &ptr);
+            while (token) {
+                *(result + idx++) = strdup(token);
+                token = strtok_r(0, delim, &ptr);
+            }
+            *(result + idx) = 0;
+        }
+    }
+    return result;
 }
-

@@ -271,6 +271,8 @@ typedef struct platform_capabilities
     char product_version[CAPBUF_ITEMSIZE];      // product version (ex. 1.0)
     char sdbd_version[CAPBUF_ITEMSIZE];         // sdbd version
     char sdbd_plugin_version[CAPBUF_ITEMSIZE];  // sdbd plugin version
+
+    char environment_variables[CAPBUF_LL_ITEMSIZE];
 } pcap;
 pcap g_capabilities;
 
