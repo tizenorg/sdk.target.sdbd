@@ -139,9 +139,6 @@ void handle_sig_term(int sig) {
     if (access(SDB_PIDPATH, F_OK) == 0)
         sdb_unlink(SDB_PIDPATH);
 #endif
-    char * const cmd1_args[] = {"/usr/bin/killall", "/usr/bin/debug_launchpad_preloading_preinitializing_daemon", NULL};
-    spawn("/usr/bin/killall", cmd1_args);
-    sdb_sleep_ms(1000);
 }
 
 static const char *sdb_device_banner = "device";
@@ -1560,12 +1557,6 @@ int set_sdk_user_privileges() {
     return 0;
 }
 
-static void execute_required_process() {
-    char * const cmd_args[] = {"/usr/bin/debug_launchpad_preloading_preinitializing_daemon",NULL};
-
-    spawn("/usr/bin/debug_launchpad_preloading_preinitializing_daemon", cmd_args);
-}
-
 /* default plugin proc */
 static int get_plugin_capability(const char* in_buf, sdbd_plugin_param out) {
     int ret = SDBD_PLUGIN_RET_NOT_SUPPORT;
@@ -1909,8 +1900,6 @@ static void init_sdk_requirements() {
             }
         }
     }
-
-    execute_required_process();
 
     if (is_emulator()) {
         register_bootdone_cb();
