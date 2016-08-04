@@ -26,6 +26,7 @@
 #define SDBD_CMD_VERIFY_PEERIP          "verify_peer_ip"
 #define SDBD_CMD_VERIFY_LAUNCH          "verify_sdbd_launch"
 #define SDBD_CMD_VERIFY_ROOTCMD         "verify_root_cmd"
+#define SDBD_CMD_SHELL_ENVVAR           "sdbd_shell_env_var"
 
 /* plugin capabilities */
 #define SDBD_CAP_TYPE_SECURE            "secure_protocol_support"
@@ -36,8 +37,8 @@
 #define SDBD_CAP_TYPE_ROOTONOFF         "root_onoff_support"
 #define SDBD_CAP_TYPE_PLUGIN_VER        "sdbd_plugin_version"
 #define SDBD_CAP_TYPE_PRODUCT_VER       "product_version"
-#define SDBD_CAP_TYPE_LOG_ENABLE       "sdbd_log_enable"
-#define SDBD_CAP_TYPE_LOG_PATH       "sdbd_log_path"
+#define SDBD_CAP_TYPE_LOG_ENABLE        "sdbd_log_enable"
+#define SDBD_CAP_TYPE_LOG_PATH          "sdbd_log_path"
 
 /* capability return string */
 #define SDBD_CAP_RET_ENABLED            "enabled"
